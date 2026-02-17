@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 # CONFIGURACIÓN
 # ────────────────────────────────────────────────
 st.set_page_config(
-    page_title="InsideBet - Futbol Picks",
+    page_title="InsideBet",
     layout="wide"
 )
 
@@ -18,6 +18,11 @@ headers = {"X-Auth-Token": API_KEY}
 LIGAS = {
     "CL": "UEFA Champions League",
     "PL": "Premier League",
+    "PD": "La Liga",
+    "SA": "Serie A",
+    "FL1": "Ligue 1",
+    "BL1": "Bundesliga",
+    "ASL": "Liga Argentina",
 }
 
 dias_futuros = 2
