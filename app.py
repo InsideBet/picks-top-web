@@ -16,14 +16,14 @@ HEADERS = {"x-apisports-key": API_KEY}
 BASE_URL = "https://v3.football.api-sports.io"
 
 LIGAS = {
-    "CL": "Champions League",
-    "EL": "Europa League",
-    "PL": "Premier League",
-    "PD": "La Liga",
-    "SA": "Serie A",
-    "FL1": "Ligue 1",
-    "BL1": "Bundesliga",
-    "ASL": "Liga Argentina",
+    "2": "Champions League",
+    "3": "Europa League",
+    "39": "Premier League",
+    "140": "La Liga",
+    "135": "Serie A",
+    "61": "Ligue 1",
+    "78": "Bundesliga",
+    "128": "Liga Argentina",
 }
 
 dias_futuros = 2
