@@ -5,11 +5,10 @@ from html import escape
 from datetime import datetime, timedelta
 
 # ────────────────────────────────────────────────
-# CONFIG (SIEMPRE PRIMERO)
+# CONFIG
 # ────────────────────────────────────────────────
 st.set_page_config(page_title="InsideBet - Futbol Picks", layout="wide")
 
-# 🔐 API desde secrets
 API_KEY = st.secrets["API_KEY"]
 BASE_URL = "https://api.football-data.org/v4"
 headers = {"X-Auth-Token": API_KEY}
@@ -20,7 +19,6 @@ LIGAS = {
 }
 
 dias_futuros = 2
-
 
 # ────────────────────────────────────────────────
 # CSS
@@ -43,7 +41,7 @@ st.markdown("""
     font-size: 15px;
 }
 
-.custom-table th {
+.custom-table thead th {
     background-color: #111827;
     color: white;
     padding: 12px;
@@ -94,7 +92,6 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-
 # ────────────────────────────────────────────────
 # API CALLS
 # ────────────────────────────────────────────────
@@ -117,7 +114,7 @@ def cargar_partidos_liga(code):
             return [], "Rate limit alcanzado. Esperá 60 segundos."
 
         if r.status_code != 200:
-            return [], f"Error {r.status_code}: {r.text}"
+            return [], f"Error {r.status_code}"
 
         return r.json().get("matches", []), None
 
@@ -238,8 +235,22 @@ for code, nombre in LIGAS.items():
 
             df = procesar_partidos(matches)
 
-            table_html = "<div class='table-container'><table class='custom-table'>"
-            table_html += "<tr><th>Fecha</th><th>Hora</th><th>Partido</th><th>BTTS</th><th>O/U 2.5</th><th>Top Pick</th><th>Score</th></tr>"
+            table_html = """
+            <div class='table-container'>
+            <table class='custom-table'>
+            <thead>
+            <tr>
+                <th>Fecha</th>
+                <th>Hora</th>
+                <th>Partido</th>
+                <th>BTTS</th>
+                <th>O/U 2.5</th>
+                <th>Top Pick</th>
+                <th>Score</th>
+            </tr>
+            </thead>
+            <tbody>
+            """
 
             for _, row in df.iterrows():
 
@@ -269,7 +280,11 @@ for code, nombre in LIGAS.items():
                 </tr>
                 """
 
-            table_html += "</table></div>"
+            table_html += """
+            </tbody>
+            </table>
+            </div>
+            """
 
             st.markdown(table_html, unsafe_allow_html=True)
             st.success(f"{len(df)} partidos encontrados.")
