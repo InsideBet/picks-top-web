@@ -3,6 +3,11 @@ import pandas as pd
 import requests
 from datetime import datetime, timedelta
 
+# ────────────────────────────────────────────────
+# CONFIG (SIEMPRE PRIMERO)
+# ────────────────────────────────────────────────
+st.set_page_config(page_title="InsideBet - Futbol Picks", layout="wide")
+
 # 🔐 API desde secrets
 API_KEY = st.secrets["API_KEY"]
 BASE_URL = "https://api.football-data.org/v4"
@@ -17,14 +22,18 @@ dias_futuros = 2
 
 
 # ────────────────────────────────────────────────
-# CSS MODERNO
+# CSS MODERNO CON SCROLL VERTICAL
 # ────────────────────────────────────────────────
 st.markdown("""
 <style>
 
 .table-container {
     overflow-x: auto;
-    margin-top: 10px;
+    overflow-y: auto;
+    max-height: 500px;
+    margin-top: 15px;
+    border-radius: 12px;
+    border: 1px solid #e5e7eb;
 }
 
 .custom-table {
@@ -38,6 +47,9 @@ st.markdown("""
     color: white;
     padding: 12px;
     text-align: center;
+    position: sticky;
+    top: 0;
+    z-index: 2;
 }
 
 .custom-table td {
@@ -165,7 +177,7 @@ def get_stats_historicos(equipo_id, limite=5):
 # ────────────────────────────────────────────────
 # PROCESAR PARTIDOS
 # ────────────────────────────────────────────────
-def procesar_partidos(matches, liga_nombre):
+def procesar_partidos(matches):
 
     datos = []
     vistos = set()
@@ -222,8 +234,6 @@ def procesar_partidos(matches, liga_nombre):
 # ────────────────────────────────────────────────
 # INTERFAZ
 # ────────────────────────────────────────────────
-st.set_page_config(page_title="InsideBet - Futbol Picks", layout="wide")
-
 st.title("⚽ InsideBet")
 st.markdown("### Próximos Partidos & Picks Automáticos")
 
@@ -237,53 +247,50 @@ for code, nombre in LIGAS.items():
 
     if st.session_state[f"show_{code}"]:
 
-        with st.spinner(f"Cargando {nombre}..."):
+        matches, error = cargar_partidos_liga(code)
 
-            matches, error = cargar_partidos_liga(code)
+        if error:
+            st.error(error)
 
-            if error:
-                st.error(error)
+        elif matches:
 
-            elif matches:
+            df = procesar_partidos(matches)
 
-                df = procesar_partidos(matches, nombre)
+            html = "<div class='table-container'><table class='custom-table'>"
+            html += "<tr><th>Fecha</th><th>Hora</th><th>Partido</th><th>BTTS</th><th>O/U 2.5</th><th>Top Pick</th><th>Score</th></tr>"
 
-                html = "<div class='table-container'><table class='custom-table'>"
-                html += "<tr><th>Fecha</th><th>Hora</th><th>Partido</th><th>BTTS</th><th>O/U 2.5</th><th>Top Pick</th><th>Score</th></tr>"
+            for _, row in df.iterrows():
 
-                for _, row in df.iterrows():
+                if row["Score"] >= 6:
+                    score_class = "score-high"
+                elif row["Score"] >= 4:
+                    score_class = "score-mid"
+                else:
+                    score_class = "score-low"
 
-                    if row["Score"] >= 6:
-                        score_class = "score-high"
-                    elif row["Score"] >= 4:
-                        score_class = "score-mid"
-                    else:
-                        score_class = "score-low"
+                if "Over" in row["Top Pick"] or "Yes" in row["Top Pick"]:
+                    badge_class = "badge-green"
+                elif "Under" in row["Top Pick"] or "No" in row["Top Pick"]:
+                    badge_class = "badge-red"
+                else:
+                    badge_class = "badge-yellow"
 
-                    if "Over" in row["Top Pick"] or "Yes" in row["Top Pick"]:
-                        badge_class = "badge-green"
-                    elif "Under" in row["Top Pick"] or "No" in row["Top Pick"]:
-                        badge_class = "badge-red"
-                    else:
-                        badge_class = "badge-yellow"
+                html += f"""
+                <tr>
+                    <td>{row['Fecha']}</td>
+                    <td>{row['Hora']}</td>
+                    <td><strong>{row['Partido']}</strong></td>
+                    <td>{row['BTTS']}</td>
+                    <td>{row['O/U 2.5']}</td>
+                    <td><span class="{badge_class}">{row['Top Pick']}</span></td>
+                    <td class="{score_class}">{row['Score']}</td>
+                </tr>
+                """
 
-                    html += f"""
-                    <tr>
-                        <td>{row['Fecha']}</td>
-                        <td>{row['Hora']}</td>
-                        <td><strong>{row['Partido']}</strong></td>
-                        <td>{row['BTTS']}</td>
-                        <td>{row['O/U 2.5']}</td>
-                        <td><span class="{badge_class}">{row['Top Pick']}</span></td>
-                        <td class="{score_class}">{row['Score']}</td>
-                    </tr>
-                    """
+            html += "</table></div>"
 
-                html += "</table></div>"
+            st.markdown(html, unsafe_allow_html=True)
+            st.success(f"{len(df)} partidos encontrados.")
 
-                st.markdown(html, unsafe_allow_html=True)
-
-                st.success(f"{len(df)} partidos encontrados.")
-
-            else:
-                st.warning("No hay partidos programados en el rango seleccionado.")
+        else:
+            st.warning("No hay partidos programados en el rango seleccionado.")
