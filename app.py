@@ -22,15 +22,15 @@ LIGAS = {
 
 dias_futuros = 2
 
-# Tema dark general
-#st.markdown("""
-#<style>
-#.stApp {
-#    background-color: #0f172a;
-#    color: #e5e7eb;
-#}
-#</style>
-#""", unsafe_allow_html=True)
+ Tema dark general
+st.markdown("""
+<style>
+.stApp {
+    background-color: #0f172a;
+    color: #e5e7eb;
+}
+</style>
+""", unsafe_allow_html=True)
 
 # ────────────────────────────────────────────────
 # API CALLS
@@ -150,7 +150,12 @@ def procesar_partidos(matches):
             "Score": round(score, 1)
         })
 
-    return pd.DataFrame(datos)
+        df = pd.DataFrame(datos)
+
+    # 🔥 TEST SCROLL (temporal)
+    df = pd.concat([df] * 5, ignore_index=True)
+
+    return df
 
 
 # ────────────────────────────────────────────────
