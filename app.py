@@ -26,68 +26,99 @@ dias_futuros = 2
 # ────────────────────────────────────────────────
 st.markdown("""
 <style>
+
 .table-container {
     overflow-x: auto;
-    overflow-y: auto;
-    max-height: 500px;
-    margin-top: 15px;
-    border-radius: 12px;
-    border: 1px solid #e5e7eb;
+    margin-top: 20px;
+    border-radius: 14px;
+    background: #0f172a;
+    padding: 15px;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.35);
 }
 
 .custom-table {
     border-collapse: collapse;
     width: 100%;
     font-size: 15px;
+    color: #e5e7eb;
 }
 
 .custom-table thead th {
-    background-color: #111827;
-    color: white;
-    padding: 12px;
+    background: linear-gradient(90deg, #111827, #1f2937);
+    color: #f9fafb;
+    padding: 14px;
     text-align: center;
-    position: sticky;
-    top: 0;
-    z-index: 2;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    border-bottom: 2px solid #374151;
 }
 
 .custom-table td {
-    padding: 10px;
+    padding: 12px;
     text-align: center;
-    border-bottom: 1px solid #e5e7eb;
+    border-bottom: 1px solid #1f2937;
 }
 
 .custom-table tr:hover {
-    background-color: #f3f4f6;
+    background-color: rgba(255,255,255,0.05);
+    transition: 0.2s ease-in-out;
 }
 
+/* Badges */
+
 .badge-green {
-    background-color: #16a34a;
+    background: linear-gradient(135deg, #16a34a, #22c55e);
     color: white;
-    padding: 5px 10px;
-    border-radius: 10px;
-    font-weight: bold;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-weight: 600;
+    font-size: 13px;
 }
 
 .badge-red {
-    background-color: #dc2626;
+    background: linear-gradient(135deg, #dc2626, #ef4444);
     color: white;
-    padding: 5px 10px;
-    border-radius: 10px;
-    font-weight: bold;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-weight: 600;
+    font-size: 13px;
 }
 
 .badge-yellow {
-    background-color: #eab308;
-    color: black;
-    padding: 5px 10px;
-    border-radius: 10px;
-    font-weight: bold;
+    background: linear-gradient(135deg, #eab308, #facc15);
+    color: #111827;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-weight: 600;
+    font-size: 13px;
 }
 
-.score-high { color: #16a34a; font-weight: bold; }
-.score-mid { color: #eab308; font-weight: bold; }
-.score-low { color: #dc2626; font-weight: bold; }
+/* Score styling */
+
+.score-high {
+    color: #22c55e;
+    font-weight: 700;
+    font-size: 16px;
+}
+
+.score-mid {
+    color: #facc15;
+    font-weight: 700;
+    font-size: 16px;
+}
+
+.score-low {
+    color: #ef4444;
+    font-weight: 700;
+    font-size: 16px;
+}
+
+/* Partido column emphasis */
+.custom-table td strong {
+    color: #ffffff;
+    font-weight: 600;
+}
+
 </style>
 """, unsafe_allow_html=True)
 
@@ -280,7 +311,7 @@ for code, nombre in LIGAS.items():
                     <td>{escape(str(row['BTTS']))}</td>
                     <td>{escape(str(row['O/U 2.5']))}</td>
                     <td><span class="{badge_class}">{escape(str(row['Top Pick']))}</span></td>
-                    <td class="{score_class}">{row['Score']}</td>
+                    <td class="{score_class}">⭐ {row['Score']}</td>
                 </tr>
                 """
 
