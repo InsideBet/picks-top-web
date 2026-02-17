@@ -169,44 +169,39 @@ for code, nombre in LIGAS.items():
 
     if st.session_state[f"show_{code}"]:
 
-        matches, error = cargar_partidos_liga(code)
+    matches, error = cargar_partidos_liga(code)
 
-        if error:
-            st.error(error)
+    if error:
+        st.error(error)
 
-        elif matches:
+    elif matches:
 
-    df = procesar_partidos(matches)
+        df = procesar_partidos(matches)
 
-    if df.empty:
-        st.warning("No hay datos disponibles.")
-        continue
-
-    df = df.sort_values("Score", ascending=False)
-
-    st.dataframe(
-        df,
-        use_container_width=True,
-        height=500,
-        column_config={
-            "Score": st.column_config.ProgressColumn(
-                "Score",
-                help="Nivel de confianza del pick",
-                min_value=0,
-                max_value=10,
-                format="%.1f",
-            ),
-            "Top Pick": st.column_config.TextColumn(
-                "Top Pick",
-                help="Mejor pick sugerido",
-            ),
-            "BTTS": st.column_config.TextColumn("BTTS"),
-            "O/U 2.5": st.column_config.TextColumn("O/U 2.5"),
-        },
-        hide_index=True
-    )
-
-    st.success(f"{len(df)} partidos encontrados.")
-
+        if df.empty:
+            st.warning("No hay datos disponibles.")
         else:
-            st.warning("No hay partidos programados en el rango seleccionado.")
+
+            df = df.sort_values("Score", ascending=False)
+
+            st.dataframe(
+                df,
+                use_container_width=True,
+                height=500,
+                column_config={
+                    "Score": st.column_config.ProgressColumn(
+                        "Score",
+                        help="Nivel de confianza del pick",
+                        min_value=0,
+                        max_value=10,
+                        format="%.1f",
+                    ),
+                },
+                hide_index=True
+            )
+
+            st.success(f"{len(df)} partidos encontrados.")
+
+    else:
+        st.warning("No hay partidos programados en el rango seleccionado.")
+
