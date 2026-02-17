@@ -188,18 +188,20 @@ def procesar_partidos(matches):
 # INTERFAZ
 # ────────────────────────────────────────────────
 st.markdown("""
-<div style="text-align: center;">
-    <img src="https://i.postimg.cc/hPkSPNcT/Sin-titulo-2.png" width="300"><br>
+<div style="text-align:center; margin-top:15px; margin-bottom:20px;">
+    <img src="https://i.postimg.cc/hPkSPNcT/Sin-titulo-2.png" width="280"><br>
     <p style="
         font-family: 'Montserrat', sans-serif;
-        font-size: 20px;
-        color: #e5e7eb;
-        margin-top: 5px;
+        font-size:18px;
+        font-weight:500;
+        color:#e5e7eb;
+        margin-top:10px;
     ">
-        Partidos & Estadísticas
+       Partidos & Estadísticas
     </p>
 </div>
 """, unsafe_allow_html=True)
+
 
 tabs = st.tabs(list(LIGAS.values()))
 
