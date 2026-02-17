@@ -15,8 +15,12 @@ API_KEY = st.secrets["API_KEY"]
 BASE_URL = "https://api.football-data.org/v4"
 headers = {"X-Auth-Token": API_KEY}
 
+import streamlit as st
+
+# Diccionario de ligas
 LIGAS = {
     "CL": "UEFA Champions League",
+    "EL": "UEFA Europa League",
     "PL": "Premier League",
     "PD": "La Liga",
     "SA": "Serie A",
@@ -24,6 +28,28 @@ LIGAS = {
     "BL1": "Bundesliga",
     "ASL": "Liga Argentina",
 }
+
+# Diccionario de iconos (banderas o trofeos)
+ICONOS = {
+    "CL": "🏆",
+    "EL": "🥈",
+    "PL": "🏴",
+    "PD": "🇪🇸",
+    "SA": "🇮🇹",
+    "FL1": "🇫🇷",
+    "BL1": "🇩🇪",
+    "ASL": "🇦🇷",
+}
+
+# Crear lista para selectbox con emoji + nombre
+opciones = [f"{ICONOS.get(cod, '')} {nombre}" for cod, nombre in LIGAS.items()]
+
+# Selector
+seleccion = st.selectbox("Selecciona liga", opciones)
+
+# Mostrar selección
+st.write("Elegiste:", seleccion)
+
 
 dias_futuros = 2
 
