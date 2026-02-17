@@ -260,15 +260,13 @@ def procesar_fixtures_tsdb(fixtures):
 # ────────────────────────────────────────────────
 # INTERFAZ STREAMLIT SEGURA
 # ────────────────────────────────────────────────
-tabs = st.tabs(list(LIGAS.values()))
-
 for tab, (code, nombre) in zip(tabs, LIGAS.items()):
     with tab:
         st.markdown(f"""
-        <h3 style="display:flex; align-items:center; color:#e5e7eb;">
-            <img src="{BANDERAS[code]}" width="30" style="margin-right:10px;">
-            {nombre}
-        </h3>
+        <div style="display:flex; align-items:center; color:#e5e7eb; font-size:22px; font-weight:500; margin-bottom:10px;">
+            <img src="{BANDERAS[code]}" width="30" style="vertical-align:middle; margin-right:10px;">
+            <span>{nombre}</span>
+        </div>
         """, unsafe_allow_html=True)
 
         # Traer fixtures API-Football
