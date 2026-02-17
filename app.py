@@ -53,7 +53,7 @@ BANDERAS = {
     "CL": "https://i.postimg.cc/28pJqYLN/UEFA-Champions-League-logo.png"
 }
 
-DIAS_FUTUROS = 10
+DIAS_FUTUROS = 7
 
 # ────────────────────────────────────────────────
 # ESTILO STREAMLIT
@@ -89,12 +89,12 @@ st.markdown("""
 def cargar_fixtures_af(league_id):
     """Trae fixtures próximos de la API-Football"""
     from_date = datetime.now().strftime("%Y-%m-%d")
-    to_date = (datetime.now() + timedelta(days=DIAS_FUTUROS)).strftime("%Y-%m-%d")
+    to_date = (datetime.now() + timedelta(days=7)).strftime("%Y-%m-%d")
 
     url = f"{BASE_URL_AF}/fixtures"
     params = {
         "league": league_id,
-        "season": 2025,  # ajustá a temporada actual
+        "season": 2026,  # ajustá a temporada actual
         "from": from_date,
         "to": to_date
     }
