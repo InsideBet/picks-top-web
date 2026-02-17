@@ -16,40 +16,40 @@ BASE_URL = "https://api.football-data.org/v4"
 headers = {"X-Auth-Token": API_KEY}
 
 LIGAS = {
-    "CL": "🏆 UEFA Champions League",
-    "PL": "🇬🇧 Premier League",
-    "PD": "🇪🇸 La Liga",
-    "SA": "🇮🇹 Serie A",
-    "FL1": "🇫🇷 Ligue 1",
-    "BL1": "🇩🇪 Bundesliga",
-    "PPL": "🇵🇹 Primeira Liga",
-    "DED": "🇳🇱 Eredivisie",
+    "CL": "UEFA Champions League",
+    "PL": "Premier League",
+    "PD": "La Liga",
+    "SA": "Serie A",
+    "FL1": "Ligue 1",
+    "BL1": "Bundesliga",
+    "PPL": "Primeira Liga",
+    "DED": "Eredivisie",
 }
 
 BANDERAS = {
     # Logo oficial de la Premier League
-    "PL": "https://upload.wikimedia.org/wikipedia/commons/0/0b/Premier_League_Logo.svg",  # :contentReference[oaicite:1]{index=1}
+    "PL": "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a5/Flag_of_the_United_Kingdom_%281-2%29.svg/1920px-Flag_of_the_United_Kingdom_%281-2%29.svg.png",  # :contentReference[oaicite:1]{index=1}
 
     # La Liga (España) — último logo vertical disponible
-    "PD": "https://upload.wikimedia.org/wikipedia/commons/3/35/LaLiga_EA_Sports_Logo.svg",  # :contentReference[oaicite:2]{index=2}
+    "PD": "https://upload.wikimedia.org/wikipedia/en/thumb/9/9a/Flag_of_Spain.svg/960px-Flag_of_Spain.svg.png?20160610210450",  # :contentReference[oaicite:2]{index=2}
 
     # Serie A Italia logo oficial
-    "SA": "https://upload.wikimedia.org/wikipedia/commons/e/e1/Serie_A_Logo.svg",  # :contentReference[oaicite:3]{index=3}
+    "SA": "https://upload.wikimedia.org/wikipedia/commons/thumb/0/03/Flag_of_Italy.svg/250px-Flag_of_Italy.svg.png",  # :contentReference[oaicite:3]{index=3}
 
     # Ligue 1 logo oficial
-    "FL1": "https://upload.wikimedia.org/wikipedia/commons/2/23/Ligue1_Uber_Eats_logo.svg",  # :contentReference[oaicite:4]{index=4}
+    "FL1": "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c3/Flag_of_France.svg/1280px-Flag_of_France.svg.png",  # :contentReference[oaicite:4]{index=4}
 
     # Bundesliga logo oficial
-    "BL1": "https://upload.wikimedia.org/wikipedia/commons/d/df/Bundesliga_logo_%282017%29.svg",  # :contentReference[oaicite:5]{index=5}
+    "BL1": "https://upload.wikimedia.org/wikipedia/commons/thumb/b/ba/Flag_of_Germany.svg/1280px-Flag_of_Germany.svg.png",  # :contentReference[oaicite:5]{index=5}
 
     # Primeira Liga (Portugal) — puede ser Liga NOS logo (similar)
-    "PPL": "https://upload.wikimedia.org/wikipedia/commons/4/49/Liga_NOS_logo.png",  # :contentReference[oaicite:6]{index=6}
+    "PPL": "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a8/Flag_of_Portugal_%28official%29.svg/1280px-Flag_of_Portugal_%28official%29.svg.png",  # :contentReference[oaicite:6]{index=6}
 
     # Eredivisie (Países Bajos) logo oficial
-    "DED": "https://upload.wikimedia.org/wikipedia/commons/0/0a/Eredivisie_logo_2017.svg",  # :contentReference[oaicite:7]{index=7}
+    "DED": "https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Flag_of_the_Netherlands.svg/1280px-Flag_of_the_Netherlands.svg.png",  # :contentReference[oaicite:7]{index=7}
 
     # Champions League — logo UEFA
-    "CL": "https://upload.wikimedia.org/wikipedia/commons/1/15/UEFA_Champions_League_Logo.svg"
+    "CL": "https://upload.wikimedia.org/wikipedia/commons/e/e2/UEFA_Champions_League_logo.png"
 }
 
 dias_futuros = 2
@@ -196,7 +196,6 @@ for tab, (code, nombre) in zip(tabs, LIGAS.items()):
     with tab:
         st.markdown(f"### {nombre}")  # nombre de la liga
         st.image(BANDERAS[code], width=60) # bandera/logo al lado
-        st.markdown(f"### {LIGAS[code]}")
         matches, error = cargar_partidos_liga(code)
         # tu código existente para procesar y mostrar los partidos
 
