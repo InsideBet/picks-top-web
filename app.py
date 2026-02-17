@@ -25,7 +25,6 @@ LIGAS = {
     "BL1": "Bundesliga",
     "ASL": "Liga Argentina",
 }
-}
 
 dias_futuros = 2
 
