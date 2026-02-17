@@ -25,7 +25,7 @@ LIGAS = {
     "BL1": "Bundesliga",
 }
 
-dias_futuros = 2
+dias_futuros = 10
 
 #Tema dark general
 st.markdown("""
