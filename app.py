@@ -23,14 +23,14 @@ LIGAS = {
 dias_futuros = 2
 
 # Tema dark general
-st.markdown("""
-<style>
-.stApp {
-    background-color: #0f172a;
-    color: #e5e7eb;
-}
-</style>
-""", unsafe_allow_html=True)
+#st.markdown("""
+#<style>
+#.stApp {
+#    background-color: #0f172a;
+#    color: #e5e7eb;
+#}
+#</style>
+#""", unsafe_allow_html=True)
 
 # ────────────────────────────────────────────────
 # API CALLS
@@ -200,16 +200,3 @@ for tab, (code, nombre) in zip(tabs, LIGAS.items()):
 
         else:
             st.warning("No hay partidos programados en el rango seleccionado.")
-
-st.write(" ")
-st.write(" ")
-st.write(" ")
-st.write(" ")
-st.write(" ")
-st.write(" ")
-st.write(" ")
-st.write(" ")
-st.write(" ")
-st.write(" ")
-
-
