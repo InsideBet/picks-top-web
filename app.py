@@ -1,4 +1,5 @@
 import streamlit as st
+import streamlit.components.v1 as components
 import pandas as pd
 import requests
 from html import escape
@@ -25,7 +26,6 @@ dias_futuros = 2
 # ────────────────────────────────────────────────
 st.markdown("""
 <style>
-
 .table-container {
     overflow-x: auto;
     overflow-y: auto;
@@ -88,7 +88,6 @@ st.markdown("""
 .score-high { color: #16a34a; font-weight: bold; }
 .score-mid { color: #eab308; font-weight: bold; }
 .score-low { color: #dc2626; font-weight: bold; }
-
 </style>
 """, unsafe_allow_html=True)
 
@@ -124,7 +123,6 @@ def cargar_partidos_liga(code):
 
 @st.cache_data(ttl=3600)
 def get_stats_historicos(equipo_id, limite=5):
-
     url = f"{BASE_URL}/teams/{equipo_id}/matches"
     params = {"status": "FINISHED", "limit": limite}
 
@@ -142,8 +140,9 @@ def get_stats_historicos(equipo_id, limite=5):
         btts_count = 0
 
         for m in matches:
-            sh = m["score"]["fullTime"]["home"] or 0
-            sa = m["score"]["fullTime"]["away"] or 0
+            full_time = m.get("score", {}).get("fullTime", {})
+            sh = full_time.get("home") or 0
+            sa = full_time.get("away") or 0
 
             total_goles += sh + sa
             if sh > 0 and sa > 0:
@@ -164,14 +163,12 @@ def get_stats_historicos(equipo_id, limite=5):
 # PROCESAR PARTIDOS
 # ────────────────────────────────────────────────
 def procesar_partidos(matches):
-
     datos = []
     stats_cache = {}
 
     for p in matches:
-
-        home_name = p["homeTeam"]["shortName"] or p["homeTeam"]["name"]
-        away_name = p["awayTeam"]["shortName"] or p["awayTeam"]["name"]
+        home_name = p["homeTeam"].get("shortName") or p["homeTeam"].get("name")
+        away_name = p["awayTeam"].get("shortName") or p["awayTeam"].get("name")
 
         fecha = p["utcDate"][:10]
         hora = p["utcDate"][11:16]
@@ -207,7 +204,10 @@ def procesar_partidos(matches):
             "Score": round(score, 1)
         })
 
-    return pd.DataFrame(datos).sort_values("Hora")
+    if datos:
+        return pd.DataFrame(datos).sort_values("Hora")
+    else:
+        return pd.DataFrame()
 
 
 # ────────────────────────────────────────────────
@@ -234,6 +234,10 @@ for code, nombre in LIGAS.items():
         elif matches:
 
             df = procesar_partidos(matches)
+
+            if df.empty:
+                st.warning("No hay datos disponibles.")
+                continue
 
             table_html = """
             <div class='table-container'>
@@ -280,13 +284,9 @@ for code, nombre in LIGAS.items():
                 </tr>
                 """
 
-            table_html += """
-            </tbody>
-            </table>
-            </div>
-            """
+            table_html += "</tbody></table></div>"
 
-            st.markdown(table_html, unsafe_allow_html=True)
+            components.html(table_html, height=520, scrolling=True)
             st.success(f"{len(df)} partidos encontrados.")
 
         else:
