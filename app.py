@@ -17,15 +17,16 @@ headers = {"X-Auth-Token": API_KEY}
 
 LIGAS = {
     "CL": "UEFA Champions League",
-    "EL": "UEFA Europa League",
     "PL": "Premier League",
     "PD": "La Liga",
     "SA": "Serie A",
     "FL1": "Ligue 1",
     "BL1": "Bundesliga",
+    "PPL": "Primeira Liga",
+    "DED": "Eredivisie",
 }
 
-dias_futuros = 10
+dias_futuros = 2
 
 #Tema dark general
 st.markdown("""
