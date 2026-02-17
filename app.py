@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 # ────────────────────────────────────────────────
 # CONFIGURACIÓN
 # ────────────────────────────────────────────────
-API_KEY = st.secrets["THESPORTSDB_KEY"]  # tu key de TheSportsDB
+API_KEY = st.secrets["SPORTSDB_KEY"]  # tu key de TheSportsDB
 LEAGUE_ID = 4328  # Premier League
 DIAS_FUTUROS = 7
 
