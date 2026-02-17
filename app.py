@@ -3,7 +3,7 @@ import pandas as pd
 import requests
 from datetime import datetime, timedelta
 
-API_KEY = "19f74cf44a5449c29d2b3000848bdfa8"
+API_KEY = st.secrets["API_KEY"]
 BASE_URL = "https://api.football-data.org/v4"
 headers = {"X-Auth-Token": API_KEY}
 
