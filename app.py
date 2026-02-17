@@ -150,12 +150,7 @@ def procesar_partidos(matches):
             "Score": round(score, 1)
         })
 
-    df = pd.DataFrame(datos)
-
-    # 🔥 TEST SCROLL (temporal)
-    df = pd.concat([df] * 5, ignore_index=True)
-
-    return df
+    return pd.DataFrame(datos)
 
 
 # ────────────────────────────────────────────────
