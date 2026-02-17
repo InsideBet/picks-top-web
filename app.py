@@ -1,51 +1,44 @@
 import streamlit as st
 import requests
 
-# ────────────────────────────────────────────────
-# CONFIG
-# ────────────────────────────────────────────────
-API_KEY = st.secrets["SPORTSDB_KEY"]  # tu key
-st.title("Prueba TheSportsDB: Fixtures Próximos")
+st.title("Prueba TheSportsDB Gratis: Próximos Partidos Premier League")
 
-# ────────────────────────────────────────────────
-# Paso 1: Obtener ligas disponibles
-# ────────────────────────────────────────────────
-url_leagues = f"https://www.thesportsdb.com/api/v1/json/{API_KEY}/all_leagues.php"
-r = requests.get(url_leagues)
+# Endpoint público de TheSportsDB (gratis)
+BASE_URL = "https://www.thesportsdb.com/api/v1/json/123"
+
+# 1️⃣ Obtener equipos de la Premier League
+league_name = "English Premier League"
+url_teams = f"{BASE_URL}/search_all_teams.php?l={league_name}"
+r = requests.get(url_teams)
 
 if r.status_code != 200:
-    st.error(f"Error al cargar ligas: {r.status_code}")
+    st.error(f"Error al cargar equipos: {r.status_code}")
 else:
-    leagues = r.json().get("leagues", [])
-    if not leagues:
-        st.warning("No hay ligas disponibles para tu key.")
+    teams = r.json().get("teams", [])
+    st.write(f"Equipos encontrados en {league_name}: {len(teams)}")
+
+    all_fixtures = []
+
+    # 2️⃣ Obtener próximos partidos de cada equipo
+    for team in teams:
+        team_id = team["idTeam"]
+        team_name = team["strTeam"]
+
+        url_next = f"{BASE_URL}/eventsnext.php?id={team_id}"
+        r2 = requests.get(url_next)
+        if r2.status_code == 200:
+            events = r2.json().get("events", [])
+            for e in events:
+                date = e.get("dateEvent")
+                time = e.get("strTime")
+                home = e.get("strHomeTeam")
+                away = e.get("strAwayTeam")
+                all_fixtures.append((date, time, home, away))
+
+    # 3️⃣ Mostrar resultados
+    if all_fixtures:
+        st.write("Próximos partidos encontrados:")
+        for f in all_fixtures:
+            st.write(f"{f[0]} {f[1]} — {f[2]} vs {f[3]}")
     else:
-        # Creamos un diccionario {nombre: id} de ligas
-        league_dict = {l['strLeague']: l['idLeague'] for l in leagues}
-        league_name = st.selectbox("Selecciona una liga:", list(league_dict.keys()))
-        league_id = league_dict[league_name]
-
-        st.write(f"ID seleccionado: {league_id}")
-
-        # ────────────────────────────────────────────────
-        # Paso 2: Obtener próximos fixtures
-        # ────────────────────────────────────────────────
-        url_fixtures = f"https://www.thesportsdb.com/api/v1/json/{API_KEY}/eventsnextleague.php?id={league_id}"
-        r2 = requests.get(url_fixtures)
-
-        if r2.status_code != 200:
-            st.error(f"Error al cargar fixtures: {r2.status_code}")
-        else:
-            fixtures = r2.json().get("events", [])
-            st.write(f"Partidos próximos encontrados: {len(fixtures)}")
-
-            if not fixtures:
-                st.warning("No hay partidos próximos para esta liga.")
-            else:
-                for f in fixtures:
-                    fecha = f.get("dateEvent")
-                    hora = f.get("strTime")
-                    home = f.get("strHomeTeam")
-                    away = f.get("strAwayTeam")
-                    status = f.get("strStatus") or "Programado"
-                    st.write(f"{fecha} {hora} — {home} vs {away} | Estado: {status}")
+        st.warning("No se encontraron próximos partidos.")
