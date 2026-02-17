@@ -169,7 +169,7 @@ for code, nombre in LIGAS.items():
 
     if st.session_state[f"show_{code}"]:
         with st.container():
-       st.dataframe(
+        st.dataframe(
         df,
         use_container_width=True,
         height=600,   # 👈 altura más grande = scroll interno
