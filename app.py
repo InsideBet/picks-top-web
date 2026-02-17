@@ -8,7 +8,7 @@ BASE_URL_AF = "https://v3.football.api-sports.io"
 
 # Liga de prueba: Premier League
 LEAGUE_ID = 39
-DIAS_FUTUROS = 2
+DIAS_FUTUROS = 7
 
 st.title("Prueba API-Football: Premier League")
 
