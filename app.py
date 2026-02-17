@@ -53,7 +53,7 @@ BANDERAS = {
     "CL": "https://i.postimg.cc/28pJqYLN/UEFA-Champions-League-logo.png"
 }
 
-DIAS_FUTUROS = 5
+DIAS_FUTUROS = 10
 
 # ────────────────────────────────────────────────
 # ESTILO STREAMLIT
@@ -94,7 +94,7 @@ def cargar_fixtures_af(league_id):
     url = f"{BASE_URL_AF}/fixtures"
     params = {
         "league": league_id,
-        "season": 2026,  # ajustá a temporada actual
+        "season": 2025,  # ajustá a temporada actual
         "from": from_date,
         "to": to_date
     }
