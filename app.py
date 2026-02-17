@@ -47,8 +47,14 @@ def cargar_partidos_liga(league_code):
     end_date = (datetime.now() + timedelta(days=dias_futuros)).strftime('%Y-%m-%d')
 
     url = f"{BASE_URL}/fixtures"
-    params = {"league": league_code, "season": datetime.now().year,
-              "from": today, "to": end_date}
+    params = {
+        "league": league_code,
+        "season": datetime.now().year,
+        "from": today,
+        "to": end_date,
+        "status": "NS,TBD,1H,2H,FT"  # Incluir todos los próximos y en vivo
+    }
+
     try:
         r = requests.get(url, headers=HEADERS, params=params, timeout=10)
         data = r.json().get("response", [])
@@ -58,39 +64,41 @@ def cargar_partidos_liga(league_code):
 
 @st.cache_data(ttl=3600)
 def get_stats_team(team_id, league_id):
-    """
-    Devuelve estadísticas recientes reales de un equipo
-    """
+    """Obtiene estadísticas recientes reales de un equipo."""
     url = f"{BASE_URL}/teams/statistics"
     params = {"team": team_id, "league": league_id, "season": datetime.now().year}
     try:
         r = requests.get(url, headers=HEADERS, params=params, timeout=10)
         data = r.json().get("response", {})
 
-        # Goles
+        played_home = max(1, data['fixtures']['played']['total']['home'])
+        played_away = max(1, data['fixtures']['played']['total']['away'])
+        total_played = played_home + played_away
+
+        # Goles promedio
         goals_for = data['fixtures']['goals']['for']['total']['home'] + data['fixtures']['goals']['for']['total']['away']
         goals_against = data['fixtures']['goals']['against']['total']['home'] + data['fixtures']['goals']['against']['total']['away']
-        avg_goals = (goals_for + goals_against) / max(1, data['fixtures']['played']['total']['home'] + data['fixtures']['played']['total']['away'])
+        avg_goals = (goals_for + goals_against) / total_played
 
-        # BTTS
+        # BTTS %
         pct_btts = data.get("fixtures", {}).get("goals", {}).get("bothTeamsToScore", {}).get("total", 0)
 
-        # Corners
-        corners = data.get("fixtures", {}).get("corners", {}).get("total", {}).get("home", 0) + \
-                  data.get("fixtures", {}).get("corners", {}).get("total", {}).get("away", 0)
-        avg_corners = corners / max(1, data['fixtures']['played']['total']['home'] + data['fixtures']['played']['total']['away'])
+        # Corners promedio
+        corners_total = data.get("fixtures", {}).get("corners", {}).get("total", {}).get("home", 0) + \
+                        data.get("fixtures", {}).get("corners", {}).get("total", {}).get("away", 0)
+        avg_corners = corners_total / total_played
 
-        # Tarjetas
-        cards = data.get("fixtures", {}).get("cards", {}).get("total", {}).get("home", 0) + \
-                data.get("fixtures", {}).get("cards", {}).get("total", {}).get("away", 0)
-        avg_cards = cards / max(1, data['fixtures']['played']['total']['home'] + data['fixtures']['played']['total']['away'])
+        # Tarjetas promedio
+        cards_total = data.get("fixtures", {}).get("cards", {}).get("total", {}).get("home", 0) + \
+                      data.get("fixtures", {}).get("cards", {}).get("total", {}).get("away", 0)
+        avg_cards = cards_total / total_played
 
-        return {"avg_goals": avg_goals, "pct_btts": pct_btts, "corners_avg": avg_corners, "cards_avg": avg_cards}
+        return {"avg_goals": avg_goals, "pct_btts": pct_btts,
+                "corners_avg": avg_corners, "cards_avg": avg_cards}
 
     except Exception as e:
         print("Error stats team:", e)
         return {"avg_goals": 0, "pct_btts": 0, "corners_avg": 0, "cards_avg": 0}
-
 
 # ────────────────────────────────────────────────
 # PROCESAMIENTO
@@ -118,6 +126,17 @@ def procesar_partidos(matches, league_id):
 
         fecha = fixture['date'][:10]
         hora = fixture['date'][11:16]
+
+        # Estado del partido
+        estado_short = fixture['status']['short']
+        if estado_short in ["NS", "TBD"]:
+            estado_display = "Por empezar"
+        elif estado_short in ["1H", "2H"]:
+            estado_display = "En Vivo"
+        elif estado_short == "FT":
+            estado_display = "Finalizado"
+        else:
+            estado_display = estado_short
 
         # Stats home
         if home_id not in stats_cache:
@@ -148,6 +167,7 @@ def procesar_partidos(matches, league_id):
             "Fecha 📅": fecha,
             "Hora ⏱️": hora,
             "Partido 🆚": f"{home_name} vs {away_name}",
+            "Estado 🕒": estado_display,
             "BTTS ⚽": f"{pick_btts} ({round(pct_btts)}%)",
             "O/U 2.5 ⚽": pick_over,
             "Top Pick 🔥": top_pick,
