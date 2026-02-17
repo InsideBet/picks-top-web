@@ -257,8 +257,8 @@ for code, nombre in LIGAS.items():
 
             df = procesar_partidos(matches)
 
-            html = "<div class='table-container'><table class='custom-table'>"
-            html += "<tr><th>Fecha</th><th>Hora</th><th>Partido</th><th>BTTS</th><th>O/U 2.5</th><th>Top Pick</th><th>Score</th></tr>"
+            table_html = "<div class='table-container'><table class='custom-table'>"
+            table_html += "<tr><th>Fecha</th><th>Hora</th><th>Partido</th><th>BTTS</th><th>O/U 2.5</th><th>Top Pick</th><th>Score</th></tr>"
 
             for _, row in df.iterrows():
 
@@ -276,7 +276,7 @@ for code, nombre in LIGAS.items():
                 else:
                     badge_class = "badge-yellow"
 
-                html += f"""
+                table_html += f"""
                 <tr>
                     <td>{html.escape(str(row['Fecha']))}</td>
                     <td>{html.escape(str(row['Hora']))}</td>
@@ -288,7 +288,7 @@ for code, nombre in LIGAS.items():
                 </tr>
                 """
 
-            html += "</table></div>"
+            table_html += "</table></div>"
 
             st.markdown(html, unsafe_allow_html=True)
             st.success(f"{len(df)} partidos encontrados.")
