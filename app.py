@@ -128,22 +128,6 @@ for p in matches:
     full_time = p.get("score", {}).get("fullTime", {})
     live_score = p.get("score", {}).get("live", {})
     
-    # Definir Score según estado
-    if estado == "SCHEDULED":
-        score_display = "Por empezar"
-    elif estado == "LIVE":
-        # si la API tiene marcador en vivo
-        home_goals = live_score.get("home", 0)
-        away_goals = live_score.get("away", 0)
-        score_display = f"{home_goals}-{away_goals} 🔴"  # 🔴 para indicar que está en vivo
-    elif estado == "FINISHED":
-        home_goals = full_time.get("home", 0)
-        away_goals = full_time.get("away", 0)
-        score_display = f"{home_goals}-{away_goals}"
-    else:
-        score_display = "Desconocido"
-    
-    # Mantener tu cálculo de confianza también si querés
     stats_home = stats_cache[home["id"]]
     stats_away = stats_cache[away["id"]]
     
