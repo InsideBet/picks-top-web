@@ -23,7 +23,6 @@ LIGAS = {
     "SA": "Serie A",
     "FL1": "Ligue 1",
     "BL1": "Bundesliga",
-    "ASL": "Liga Argentina",
 }
 
 dias_futuros = 2
