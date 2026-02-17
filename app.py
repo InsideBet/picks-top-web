@@ -58,7 +58,7 @@ dias_futuros = 2
 st.markdown("""
 <style>
 .stApp {
-    background-color: #0f172a;
+    background-color: #0e1117;
     color: #e5e7eb;
 }
 </style>
@@ -188,7 +188,7 @@ def procesar_partidos(matches):
 # INTERFAZ
 # ────────────────────────────────────────────────
 st.image("https://i.postimg.cc/hPkSPNcT/Sin-titulo-2.png", width=300)
-st.markdown("### Próximos Partidos & Estadísticas", unsafe_allow_html=True)
+st.markdown("### Partidos & Estadísticas", unsafe_allow_html=True)
 st.markdown("<br>", unsafe_allow_html=True)
 
 tabs = st.tabs(list(LIGAS.values()))
