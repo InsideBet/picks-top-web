@@ -163,7 +163,17 @@ st.markdown("Selecciona una competencia para ver los partidos y picks")
 
 for code, nombre in LIGAS.items():
 
+    # Inicializar estado si no existe
+    if f"show_{code}" not in st.session_state:
+        st.session_state[f"show_{code}"] = False
+
+    # Botón toggle
     if st.button(nombre, key=f"btn_{code}", use_container_width=True):
+        st.session_state[f"show_{code}"] = not st.session_state[f"show_{code}"]
+
+    # Mostrar solo si está activo
+    if st.session_state[f"show_{code}"]:
+
 
         with st.spinner(f"Cargando {nombre}..."):
 
