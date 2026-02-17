@@ -9,21 +9,21 @@ from datetime import datetime, timedelta
 st.set_page_config(page_title="InsideBet", layout="wide")
 
 API_FOOTBALL_KEY = st.secrets["API_FOOTBALL_KEY"]
-BASE_URL_FD = "https://api.football-data.org/v4"
-BASE_URL_AF = "https://v3.football.api-sports.io"
-
-HEADERS_FD = {"X-Auth-Token": st.secrets["API_KEY"]}
 HEADERS_AF = {"x-apisports-key": API_FOOTBALL_KEY}
 
+API_FD_KEY = st.secrets["API_KEY"]
+HEADERS_FD = {"X-Auth-Token": API_FD_KEY}
+
+# Ligas y qué API usar
 LIGAS = {
-    "CL": "UEFA Champions League",
-    "PL": "Premier League",
-    "PD": "La Liga",
-    "SA": "Serie A",
-    "FL1": "Ligue 1",
-    "BL1": "Bundesliga",
-    "PPL": "Primeira Liga",
-    "DED": "Eredivisie",
+    "CL": {"nombre": "UEFA Champions League", "api": "FD"},
+    "PL": {"nombre": "Premier League", "api": "FD"},
+    "PD": {"nombre": "La Liga", "api": "AF"},
+    "SA": {"nombre": "Serie A", "api": "AF"},
+    "FL1": {"nombre": "Ligue 1", "api": "AF"},
+    "BL1": {"nombre": "Bundesliga", "api": "AF"},
+    "PPL": {"nombre": "Primeira Liga", "api": "AF"},
+    "DED": {"nombre": "Eredivisie", "api": "AF"},
 }
 
 BANDERAS = {
@@ -50,12 +50,11 @@ st.markdown("""
 # FUNCIONES
 # ────────────────────────────────────────────────
 @st.cache_data(ttl=3600)
-def cargar_partidos_liga(code):
+def cargar_partidos_fd(code):
     today = datetime.now().strftime('%Y-%m-%d')
     end_date = (datetime.now() + timedelta(days=dias_futuros)).strftime('%Y-%m-%d')
-    url = f"{BASE_URL_FD}/competitions/{code}/matches"
+    url = f"https://api.football-data.org/v4/competitions/{code}/matches"
     params = {"dateFrom": today, "dateTo": end_date}
-
     try:
         r = requests.get(url, headers=HEADERS_FD, params=params, timeout=10)
         if r.status_code != 200:
@@ -65,8 +64,27 @@ def cargar_partidos_liga(code):
         return [], f"Error conexión FD: {str(e)}"
 
 @st.cache_data(ttl=3600)
+def cargar_partidos_af(league_id, season=2025):
+    today = datetime.now().strftime('%Y-%m-%d')
+    end_date = (datetime.now() + timedelta(days=dias_futuros)).strftime('%Y-%m-%d')
+    url = f"https://v3.football.api-sports.io/fixtures"
+    params = {
+        "league": league_id,
+        "season": season,
+        "from": today,
+        "to": end_date
+    }
+    try:
+        r = requests.get(url, headers=HEADERS_AF, params=params, timeout=10)
+        if r.status_code != 200:
+            return [], f"Error AF {r.status_code}"
+        return r.json().get("response", []), None
+    except Exception as e:
+        return [], f"Error conexión AF: {str(e)}"
+
+@st.cache_data(ttl=3600)
 def get_stats_historicos(equipo_id, limite=5):
-    url = f"{BASE_URL_FD}/teams/{equipo_id}/matches"
+    url = f"https://api.football-data.org/v4/teams/{equipo_id}/matches"
     params = {"status": "FINISHED", "limit": limite}
     try:
         r = requests.get(url, headers=HEADERS_FD, params=params, timeout=10)
@@ -84,67 +102,51 @@ def get_stats_historicos(equipo_id, limite=5):
     except Exception:
         return {"avg_goles": 0, "pct_btts": 0}
 
-# ───────── API-FOOTBALL ─────────
-@st.cache_data(ttl=3600)
-def cargar_api_football_fixture(team_home, team_away, season=2025):
-    # Busca el fixture exacto por equipos
-    url = f"{BASE_URL_AF}/fixtures"
-    params = {"team": team_home, "season": season, "next": 10}
-    try:
-        r = requests.get(url, headers=HEADERS_AF, params=params, timeout=10)
-        if r.status_code != 200:
-            return None
-        response = r.json().get("response", [])
-        # Filtra partido exacto por equipo local/visitante
-        for f in response:
-            h = f["teams"]["home"]["id"]
-            a = f["teams"]["away"]["id"]
-            if str(h) == str(team_home) and str(a) == str(team_away):
-                return f
-        return None
-    except Exception:
-        return None
-
 # ───────── PROCESAR PARTIDOS ─────────
-def procesar_partidos(matches):
+def procesar_partidos(liga_code, matches, api_source):
     datos = []
     stats_cache = {}
-
     for p in matches:
-        home = p["homeTeam"]
-        away = p["awayTeam"]
-        home_name = home.get("shortName") or home.get("name")
-        away_name = away.get("shortName") or away.get("name")
-        fecha = p["utcDate"][:10]
-        hora = p["utcDate"][11:16]
-        home_id = home["id"]
-        away_id = away["id"]
+        if api_source == "FD":
+            home = p["homeTeam"]
+            away = p["awayTeam"]
+            home_name = home.get("shortName") or home.get("name")
+            away_name = away.get("shortName") or away.get("name")
+            fecha = p["utcDate"][:10]
+            hora = p["utcDate"][11:16]
+            home_id = home["id"]
+            away_id = away["id"]
+        else:  # API-Football
+            h = p["teams"]["home"]
+            a = p["teams"]["away"]
+            home_name = h["name"]
+            away_name = a["name"]
+            fecha = p["fixture"]["date"][:10]
+            hora = p["fixture"]["date"][11:16]
+            home_id = h["id"]
+            away_id = a["id"]
 
-        # Estadísticas históricas
+        # Stats históricos
         if home_id not in stats_cache:
             stats_cache[home_id] = get_stats_historicos(home_id)
         if away_id not in stats_cache:
             stats_cache[away_id] = get_stats_historicos(away_id)
-
         stats_home = stats_cache[home_id]
         stats_away = stats_cache[away_id]
 
         avg_goles = (stats_home["avg_goles"] + stats_away["avg_goles"]) / 2
         pct_btts = (stats_home["pct_btts"] + stats_away["pct_btts"]) / 2
-
-        # Score
         score = round(avg_goles * (pct_btts / 100) * 2.5, 1)
 
-        # Picks básicos
+        # Picks
         pick_btts = "Yes" if pct_btts > 65 else "No"
         pick_over = "Over 2.5" if avg_goles > 2.5 else "Under 2.5"
         top_pick = pick_btts if pct_btts > 70 else pick_over
 
-        # ───────── Datos API-Football (si disponible) ─────────
-        af_data = cargar_api_football_fixture(home_id, away_id)
-        prob_1x2 = None
-        if af_data and "predictions" in af_data and af_data["predictions"]:
-            pred = af_data["predictions"][0]
+        # Predicciones API-Football (1X2)
+        prob_1x2 = "N/A"
+        if api_source == "AF" and p.get("predictions"):
+            pred = p["predictions"][0]
             prob_1x2 = f"{pred['win']['home']}% / {pred['win']['draw']}% / {pred['win']['away']}%"
 
         datos.append({
@@ -155,9 +157,8 @@ def procesar_partidos(matches):
             "O/U 2.5 ⚽": pick_over,
             "Top Pick 🔥": top_pick,
             "Score": score,
-            "Prob 1X2 %": prob_1x2 or "N/A"
+            "Prob 1X2 %": prob_1x2
         })
-
     return pd.DataFrame(datos)
 
 # ────────────────────────────────────────────────
@@ -178,17 +179,25 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-tabs = st.tabs(list(LIGAS.values()))
-for tab, (code, nombre) in zip(tabs, LIGAS.items()):
+tabs = st.tabs([v["nombre"] for v in LIGAS.values()])
+
+for tab, (code, info) in zip(tabs, LIGAS.items()):
     with tab:
-        st.markdown(f"### {nombre}")
+        st.markdown(f"### {info['nombre']}")
         st.image(BANDERAS[code], width=60)
-        matches, error = cargar_partidos_liga(code)
+
+        if info["api"] == "FD":
+            matches, error = cargar_partidos_fd(code)
+        else:
+            # Para API-Football, necesitas el ID de liga en AF
+            # Aquí ejemplo: mapear los nombres a IDs de API-Football gratuitos
+            liga_ids_af = {"PD":140, "SA":135, "FL1":61, "BL1":78, "PPL":94, "DED":88}  
+            matches, error = cargar_partidos_af(liga_ids_af[code])
 
         if error:
             st.error(error)
         elif matches:
-            df = procesar_partidos(matches)
+            df = procesar_partidos(code, matches, info["api"])
             if df.empty:
                 st.warning("No hay datos disponibles.")
             else:
