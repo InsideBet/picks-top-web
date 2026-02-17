@@ -3,13 +3,6 @@ import pandas as pd
 import requests
 from datetime import datetime, timedelta
 
-min_hora = datetime.now() + timedelta(minutes=30)
-
-matches = [
-    m for m in matches
-    if datetime.fromisoformat(m["utcDate"].replace("Z", "")) >= min_hora
-]
-
 # ────────────────────────────────────────────────
 # CONFIGURACIÓN
 # ────────────────────────────────────────────────
