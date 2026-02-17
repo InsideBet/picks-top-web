@@ -16,15 +16,16 @@ BASE_URL = "https://api.football-data.org/v4"
 headers = {"X-Auth-Token": API_KEY}
 
 LIGAS = {
-    "CL": "UEFA Champions League",
-    "PL": "Premier League",
-    "PD": "La Liga",
-    "SA": "Serie A",
-    "FL1": "Ligue 1",
-    "BL1": "Bundesliga",
-    "PPL": "Primeira Liga",
-    "DED": "Eredivisie",
+    "CL": "🏆 UEFA Champions League",
+    "PL": "🇬🇧 Premier League",
+    "PD": "🇪🇸 La Liga",
+    "SA": "🇮🇹 Serie A",
+    "FL1": "🇫🇷 Ligue 1",
+    "BL1": "🇩🇪 Bundesliga",
+    "PPL": "🇵🇹 Primeira Liga",
+    "DED": "🇳🇱 Eredivisie",
 }
+
 
 dias_futuros = 2
 
@@ -167,10 +168,10 @@ st.markdown("### Próximos Partidos & Estadísticas")
 tabs = st.tabs(list(LIGAS.values()))
 
 for tab, (code, nombre) in zip(tabs, LIGAS.items()):
-
     with tab:
-
+        st.markdown(f"### {nombre}")  # ahora el emoji aparece al lado del nombre
         matches, error = cargar_partidos_liga(code)
+        # tu código existente para procesar y mostrar los partidos
 
         if error:
             st.error(error)
