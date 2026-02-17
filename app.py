@@ -32,11 +32,18 @@ def cargar_partidos_liga(code):
 
 def procesar_partidos(matches, liga_nombre):
     datos = []
+    vistos = set()  # Para evitar duplicados locales
     for p in matches:
-        home_id = p['homeTeam']['id']
-        away_id = p['awayTeam']['id']
         home_name = p['homeTeam']['shortName'] or p['homeTeam']['name']
         away_name = p['awayTeam']['shortName'] or p['awayTeam']['name']
+        partido_key = f"{home_name}-{away_name}-{p['utcDate']}"  # Clave única
+
+        if partido_key in vistos:
+            continue  # Salta si ya se procesó
+        vistos.add(partido_key)
+
+        home_id = p['homeTeam']['id']
+        away_id = p['awayTeam']['id']
 
         stats_home = get_stats_historicos(home_id)
         stats_away = get_stats_historicos(away_id)
@@ -50,6 +57,7 @@ def procesar_partidos(matches, liga_nombre):
         top_pick = pick_btts if pct_btts > 70 else pick_over
 
         datos.append({
+            "Liga": liga_nombre,
             "Hora": p['utcDate'][11:16],
             "Partido": f"{home_name} vs {away_name}",
             "BTTS": f"{pick_btts} ({round(pct_btts)}%)",
@@ -57,6 +65,7 @@ def procesar_partidos(matches, liga_nombre):
             "Top Pick": top_pick + (" 🔥" if score > 6 else ""),
             "Score": round(score, 1)
         })
+
     df = pd.DataFrame(datos)
     return df.sort_values("Hora") if not df.empty else pd.DataFrame()
 
