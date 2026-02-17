@@ -136,60 +136,63 @@ def procesar_partidos(matches, limite_recientes=5):
     datos = []
     stats_cache = {}
 
-    def get_recent_stats(team_id):
-        """Obtiene últimos 'limite_recientes' partidos y calcula avg goles, BTTS, corners y cards"""
+    def get_recent_stats_api_football(team_id):
+        """
+        Obtiene últimos 'limite_recientes' partidos de un equipo usando API-Football
+        y calcula avg_goles, pct_btts, corners_avg y cards_avg
+        """
         if team_id in stats_cache:
             return stats_cache[team_id]
 
-        # Históricos de Football-Data
-        url = f"{BASE_URL_FD}/teams/{team_id}/matches"
-        params = {"status": "FINISHED", "limit": limite_recientes}
-        try:
-            r = requests.get(url, headers=headers_fd, params=params, timeout=10)
-            matches_hist = r.json().get("matches", [])
-        except:
-            matches_hist = []
+        url = f"https://v3.football.api-sports.io/teams/statistics"
+        params = {"team": team_id, "season": datetime.now().year}
+        headers = {"x-apisports-key": st.secrets["API_KEY"]}
 
-        if not matches_hist:
+        try:
+            r = requests.get(url, headers=headers, params=params, timeout=10)
+            data = r.json().get("response", {})
+
+            # Si no hay partidos, devolvemos 0
+            if not data:
+                stats_cache[team_id] = {"avg_goles":0, "pct_btts":0, "corners_avg":0, "cards_avg":0}
+                return stats_cache[team_id]
+
+            matches_hist = data.get("fixtures", [])[:limite_recientes]
+            total_goles = 0
+            btts_count = 0
+            total_corners = 0
+            total_cards = 0
+            n = 0
+
+            for m in matches_hist:
+                # Goles
+                home_goals = m.get("goals", {}).get("for", 0)
+                away_goals = m.get("goals", {}).get("against", 0)
+                total_goles += home_goals + away_goals
+                if home_goals > 0 and away_goals > 0:
+                    btts_count += 1
+
+                # Corners y tarjetas
+                stats = m.get("statistics", {})
+                corners = stats.get("corners", 0)
+                cards = stats.get("cards", 0)
+                total_corners += corners
+                total_cards += cards
+
+                n += 1
+
             stats_cache[team_id] = {
-                "avg_goles": 0, "pct_btts": 0, "corners_avg": 0, "cards_avg": 0
+                "avg_goles": total_goles / n if n else 0,
+                "pct_btts": (btts_count / n) * 100 if n else 0,
+                "corners_avg": total_corners / n if n else 0,
+                "cards_avg": total_cards / n if n else 0
             }
             return stats_cache[team_id]
 
-        total_goles = 0
-        btts_count = 0
-        total_corners = 0
-        total_cards = 0
-        n = 0
-
-        for m in matches_hist:
-            # Goles BTTS
-            ft = m.get("score", {}).get("fullTime", {})
-            sh = ft.get("home") or 0
-            sa = ft.get("away") or 0
-            total_goles += sh + sa
-            if sh > 0 and sa > 0:
-                btts_count += 1
-
-            # Corners y tarjetas usando API-Football
-            try:
-                # Reemplazar con endpoint real de API-Football para últimos partidos del equipo
-                stats_foot = get_stats_corners_tarjetas(team_id)
-                total_corners += stats_foot.get("corners_avg", 0)
-                total_cards += stats_foot.get("cards_avg", 0)
-            except:
-                total_corners += 0
-                total_cards += 0
-
-            n += 1
-
-        stats_cache[team_id] = {
-            "avg_goles": total_goles / n if n else 0,
-            "pct_btts": (btts_count / n) * 100 if n else 0,
-            "corners_avg": total_corners / n if n else 0,
-            "cards_avg": total_cards / n if n else 0
-        }
-        return stats_cache[team_id]
+        except Exception as e:
+            print("Error stats API-Football:", e)
+            stats_cache[team_id] = {"avg_goles":0, "pct_btts":0, "corners_avg":0, "cards_avg":0}
+            return stats_cache[team_id]
 
     def format_plus_minus(value, threshold):
         if round(value) == 0:
@@ -204,7 +207,6 @@ def procesar_partidos(matches, limite_recientes=5):
         away = p["awayTeam"]
         home_name = home.get("shortName") or home.get("name")
         away_name = away.get("shortName") or away.get("name")
-
         fecha = p["utcDate"][:10]
         hora = p["utcDate"][11:16]
 
@@ -212,8 +214,8 @@ def procesar_partidos(matches, limite_recientes=5):
         away_id = away["id"]
 
         # ───────── Estadísticas recientes
-        stats_home = get_recent_stats(home_id)
-        stats_away = get_recent_stats(away_id)
+        stats_home = get_recent_stats_api_football(home_id)
+        stats_away = get_recent_stats_api_football(away_id)
 
         # Goles y BTTS
         avg_goles = (stats_home["avg_goles"] + stats_away["avg_goles"]) / 2
@@ -239,11 +241,12 @@ def procesar_partidos(matches, limite_recientes=5):
             "O/U 2.5 ⚽": pick_over,
             "Top Pick 🔥": top_pick,
             "Score": confidence_score,
-            "Corners ⚽": corners_display,
+            "Corners 🚩": corners_display,
             "Tarjetas 🟨🟥": cards_display
         })
 
     return pd.DataFrame(datos)
+
 
 
 
