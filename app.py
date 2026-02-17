@@ -145,6 +145,7 @@ for p in matches:
         "Score": score_display,
         "Confianza": confidence_score
     })
+
 return pd.DataFrame(datos)
 
 
