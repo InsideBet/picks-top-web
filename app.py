@@ -187,22 +187,23 @@ def procesar_partidos(matches):
 # ────────────────────────────────────────────────
 # INTERFAZ
 # ────────────────────────────────────────────────
-st.markdown("""
-<div style="text-align:center; margin-top:15px; margin-bottom:20px;">
-    <a href="javascript:window.location.reload();">
-        <img src="https://i.postimg.cc/hPkSPNcT/Sin-titulo-2.png" width="280">
-    </a><br>
+col1, col2, col3 = st.columns([1,2,1])
+with col2:
+    st.image(logo_url, width=280)
+    if st.button(" ", key="logo_home2"):
+        st.experimental_rerun()
+    st.markdown("""
     <p style="
         font-family: 'Montserrat', sans-serif;
         font-size:18px;
         font-weight:500;
         color:#e5e7eb;
+        text-align:center;
         margin-top:10px;
     ">
        Partidos & Estadísticas
     </p>
-</div>
-""", unsafe_allow_html=True)
+    """, unsafe_allow_html=True)
 
 tabs = st.tabs(list(LIGAS.values()))
 
