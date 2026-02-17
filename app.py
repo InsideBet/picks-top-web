@@ -9,10 +9,11 @@ headers = {"X-Auth-Token": API_KEY}
 
 LIGAS = {
     "CL": "UEFA Champions League",  # Solo esta por ahora para evitar 429
+    "PL": "Premier League",
     # "PL": "Premier League",  # Descomenta cuando pase el límite
 }
 
-dias_futuros = 7
+dias_futuros = 2
 
 @st.cache_data(ttl=3600)  # Cache 1 hora
 def cargar_partidos_liga(code):
