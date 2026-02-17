@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 # ────────────────────────────────────────────────
 # CONFIGURACIÓN (pegá tu key aquí)
 # ────────────────────────────────────────────────
-API_KEY = "TU_X_AUTH_TOKEN_AQUÍ"  # ← Cambiá esto por tu key real
+API_KEY = "19f74cf44a5449c29d2b3000848bdfa8"  # ← Cambiá esto por tu key real
 BASE_URL = "https://api.football-data.org/v4"
 headers = {"X-Auth-Token": API_KEY}
 
