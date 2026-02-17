@@ -3,7 +3,7 @@ import pandas as pd
 import requests
 from datetime import datetime, timedelta
 
-# 🔐 API desde secrets (NO hardcodear)
+# 🔐 API desde secrets
 API_KEY = st.secrets["API_KEY"]
 BASE_URL = "https://api.football-data.org/v4"
 headers = {"X-Auth-Token": API_KEY}
@@ -17,7 +17,84 @@ dias_futuros = 2
 
 
 # ────────────────────────────────────────────────
-# CARGAR PARTIDOS (cache 1 hora)
+# CSS MODERNO
+# ────────────────────────────────────────────────
+st.markdown("""
+<style>
+
+.table-container {
+    overflow-x: auto;
+    margin-top: 10px;
+}
+
+.custom-table {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: 15px;
+}
+
+.custom-table th {
+    background-color: #111827;
+    color: white;
+    padding: 12px;
+    text-align: center;
+}
+
+.custom-table td {
+    padding: 10px;
+    text-align: center;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.custom-table tr:hover {
+    background-color: #f3f4f6;
+}
+
+.badge-green {
+    background-color: #16a34a;
+    color: white;
+    padding: 5px 10px;
+    border-radius: 10px;
+    font-weight: bold;
+}
+
+.badge-red {
+    background-color: #dc2626;
+    color: white;
+    padding: 5px 10px;
+    border-radius: 10px;
+    font-weight: bold;
+}
+
+.badge-yellow {
+    background-color: #eab308;
+    color: black;
+    padding: 5px 10px;
+    border-radius: 10px;
+    font-weight: bold;
+}
+
+.score-high {
+    color: #16a34a;
+    font-weight: bold;
+}
+
+.score-mid {
+    color: #eab308;
+    font-weight: bold;
+}
+
+.score-low {
+    color: #dc2626;
+    font-weight: bold;
+}
+
+</style>
+""", unsafe_allow_html=True)
+
+
+# ────────────────────────────────────────────────
+# API CALLS
 # ────────────────────────────────────────────────
 @st.cache_data(ttl=3600)
 def cargar_partidos_liga(code):
@@ -46,9 +123,6 @@ def cargar_partidos_liga(code):
         return [], f"Error conexión: {str(e)}"
 
 
-# ────────────────────────────────────────────────
-# STATS HISTÓRICOS (cache 1 hora)
-# ────────────────────────────────────────────────
 @st.cache_data(ttl=3600)
 def get_stats_historicos(equipo_id, limite=5):
 
@@ -89,13 +163,13 @@ def get_stats_historicos(equipo_id, limite=5):
 
 
 # ────────────────────────────────────────────────
-# PROCESAR PARTIDOS (optimizado)
+# PROCESAR PARTIDOS
 # ────────────────────────────────────────────────
 def procesar_partidos(matches, liga_nombre):
 
     datos = []
     vistos = set()
-    stats_cache = {}   # 🔥 cache manual por ejecución
+    stats_cache = {}
 
     for p in matches:
 
@@ -114,7 +188,6 @@ def procesar_partidos(matches, liga_nombre):
         home_id = p["homeTeam"]["id"]
         away_id = p["awayTeam"]["id"]
 
-        # 🔥 Solo llama si no está en cache
         if home_id not in stats_cache:
             stats_cache[home_id] = get_stats_historicos(home_id)
 
@@ -135,7 +208,6 @@ def procesar_partidos(matches, liga_nombre):
 
         datos.append({
             "Fecha": fecha,
-            "Liga": liga_nombre,
             "Hora": hora,
             "Partido": f"{home_name} vs {away_name}",
             "BTTS": f"{pick_btts} ({round(pct_btts)}%)",
@@ -144,13 +216,7 @@ def procesar_partidos(matches, liga_nombre):
             "Score": round(score, 1)
         })
 
-    df = pd.DataFrame(datos)
-
-    if not df.empty:
-        df = df.drop_duplicates(subset=["Partido", "Hora", "Liga"])
-        return df.sort_values("Hora")
-
-    return pd.DataFrame()
+    return pd.DataFrame(datos).sort_values("Hora")
 
 
 # ────────────────────────────────────────────────
@@ -158,22 +224,18 @@ def procesar_partidos(matches, liga_nombre):
 # ────────────────────────────────────────────────
 st.set_page_config(page_title="InsideBet - Futbol Picks", layout="wide")
 
-st.title("⚽ InsideBet - Próximos Partidos")
-st.markdown("Selecciona una competencia para ver los partidos y picks")
+st.title("⚽ InsideBet")
+st.markdown("### Próximos Partidos & Picks Automáticos")
 
 for code, nombre in LIGAS.items():
 
-    # Inicializar estado si no existe
     if f"show_{code}" not in st.session_state:
         st.session_state[f"show_{code}"] = False
 
-    # Botón toggle
     if st.button(nombre, key=f"btn_{code}", use_container_width=True):
         st.session_state[f"show_{code}"] = not st.session_state[f"show_{code}"]
 
-    # Mostrar solo si está activo
     if st.session_state[f"show_{code}"]:
-
 
         with st.spinner(f"Cargando {nombre}..."):
 
@@ -186,17 +248,42 @@ for code, nombre in LIGAS.items():
 
                 df = procesar_partidos(matches, nombre)
 
-                st.subheader(f"Partidos en {nombre}")
+                html = "<div class='table-container'><table class='custom-table'>"
+                html += "<tr><th>Fecha</th><th>Hora</th><th>Partido</th><th>BTTS</th><th>O/U 2.5</th><th>Top Pick</th><th>Score</th></tr>"
 
-                st.dataframe(
-                    df.style
-                        .set_properties(**{"text-align": "center"})
-                        .highlight_max(subset=["Score"], color="#d4edda"),
-                    use_container_width=True,
-                    hide_index=True
-                )
+                for _, row in df.iterrows():
 
-                st.success(f"Encontrados {len(df)} partidos.")
+                    if row["Score"] >= 6:
+                        score_class = "score-high"
+                    elif row["Score"] >= 4:
+                        score_class = "score-mid"
+                    else:
+                        score_class = "score-low"
+
+                    if "Over" in row["Top Pick"] or "Yes" in row["Top Pick"]:
+                        badge_class = "badge-green"
+                    elif "Under" in row["Top Pick"] or "No" in row["Top Pick"]:
+                        badge_class = "badge-red"
+                    else:
+                        badge_class = "badge-yellow"
+
+                    html += f"""
+                    <tr>
+                        <td>{row['Fecha']}</td>
+                        <td>{row['Hora']}</td>
+                        <td><strong>{row['Partido']}</strong></td>
+                        <td>{row['BTTS']}</td>
+                        <td>{row['O/U 2.5']}</td>
+                        <td><span class="{badge_class}">{row['Top Pick']}</span></td>
+                        <td class="{score_class}">{row['Score']}</td>
+                    </tr>
+                    """
+
+                html += "</table></div>"
+
+                st.markdown(html, unsafe_allow_html=True)
+
+                st.success(f"{len(df)} partidos encontrados.")
 
             else:
                 st.warning("No hay partidos programados en el rango seleccionado.")
