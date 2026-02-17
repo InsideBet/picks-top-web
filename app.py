@@ -26,6 +26,31 @@ LIGAS = {
     "DED": "🇳🇱 Eredivisie",
 }
 
+BANDERAS = {
+    # Logo oficial de la Premier League
+    "PL": "https://upload.wikimedia.org/wikipedia/commons/0/0b/Premier_League_Logo.svg",  # :contentReference[oaicite:1]{index=1}
+
+    # La Liga (España) — último logo vertical disponible
+    "PD": "https://upload.wikimedia.org/wikipedia/commons/3/35/LaLiga_EA_Sports_Logo.svg",  # :contentReference[oaicite:2]{index=2}
+
+    # Serie A Italia logo oficial
+    "SA": "https://upload.wikimedia.org/wikipedia/commons/e/e1/Serie_A_Logo.svg",  # :contentReference[oaicite:3]{index=3}
+
+    # Ligue 1 logo oficial
+    "FL1": "https://upload.wikimedia.org/wikipedia/commons/2/23/Ligue1_Uber_Eats_logo.svg",  # :contentReference[oaicite:4]{index=4}
+
+    # Bundesliga logo oficial
+    "BL1": "https://upload.wikimedia.org/wikipedia/commons/d/df/Bundesliga_logo_%282017%29.svg",  # :contentReference[oaicite:5]{index=5}
+
+    # Primeira Liga (Portugal) — puede ser Liga NOS logo (similar)
+    "PPL": "https://upload.wikimedia.org/wikipedia/commons/4/49/Liga_NOS_logo.png",  # :contentReference[oaicite:6]{index=6}
+
+    # Eredivisie (Países Bajos) logo oficial
+    "DED": "https://upload.wikimedia.org/wikipedia/commons/0/0a/Eredivisie_logo_2017.svg",  # :contentReference[oaicite:7]{index=7}
+
+    # Champions League — logo UEFA
+    "CL": "https://upload.wikimedia.org/wikipedia/commons/1/15/UEFA_Champions_League_Logo.svg"
+}
 
 dias_futuros = 2
 
@@ -169,7 +194,9 @@ tabs = st.tabs(list(LIGAS.values()))
 
 for tab, (code, nombre) in zip(tabs, LIGAS.items()):
     with tab:
-        st.markdown(f"### {nombre}")  # ahora el emoji aparece al lado del nombre
+        st.markdown(f"### {nombre}")  # nombre de la liga
+        st.image(BANDERAS[code], width=60) # bandera/logo al lado
+        st.markdown(f"### {LIGAS[code]}")
         matches, error = cargar_partidos_liga(code)
         # tu código existente para procesar y mostrar los partidos
 
