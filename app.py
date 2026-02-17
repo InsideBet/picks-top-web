@@ -91,7 +91,7 @@ def cargar_fixtures_af(league_id):
     url = f"{BASE_URL_AF}/fixtures"
     params = {
         "league": league_id,
-        "season": 2026,
+        "season": 2025,
         "from": from_date,
         "to": to_date
     }
