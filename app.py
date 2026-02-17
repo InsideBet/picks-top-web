@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import requests
+import html
 from datetime import datetime, timedelta
 
 # ────────────────────────────────────────────────
@@ -277,11 +278,11 @@ for code, nombre in LIGAS.items():
 
                 html += f"""
                 <tr>
-                    <td>{row['Fecha']}</td>
-                    <td>{row['Hora']}</td>
-                    <td><strong>{row['Partido']}</strong></td>
-                    <td>{row['BTTS']}</td>
-                    <td>{row['O/U 2.5']}</td>
+                    <td>{html.escape(str(row['Fecha']))}</td>
+                    <td>{html.escape(str(row['Hora']))}</td>
+                    <td><strong>{html.escape(str(row['Partido']))}</strong></td>
+                    <td>{html.escape(str(row['BTTS']))}</td>
+                    <td>{html.escape(str(row['O/U 2.5']))}</td>
                     <td><span class="{badge_class}">{row['Top Pick']}</span></td>
                     <td class="{score_class}">{row['Score']}</td>
                 </tr>
