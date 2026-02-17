@@ -239,11 +239,12 @@ def procesar_partidos(matches, limite_recientes=5):
             "O/U 2.5 ⚽": pick_over,
             "Top Pick 🔥": top_pick,
             "Score": confidence_score,
-            "Tiros de esquina 🚩": corners_display,
+            "Corners ⚽": corners_display,
             "Tarjetas 🟨🟥": cards_display
         })
 
     return pd.DataFrame(datos)
+
 
 
 
