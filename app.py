@@ -13,11 +13,8 @@ st.set_page_config(
 
 API_KEY = st.secrets["API_KEY"]
 BASE_URL = "https://api.football-data.org/v4"
-HEADERS = {"X-Auth-Token": API_KEY}
+headers = {"X-Auth-Token": API_KEY}
 
-# ────────────────────────────────────────────────
-# LIGAS VÁLIDAS PARA API FOOTBALL-DATA (FREE)
-# ────────────────────────────────────────────────
 LIGAS = {
     "CL": "UEFA Champions League",
     "EL": "UEFA Europa League",
@@ -30,9 +27,7 @@ LIGAS = {
 
 dias_futuros = 2
 
-# ────────────────────────────────────────────────
-# Tema dark
-# ────────────────────────────────────────────────
+#Tema dark general
 st.markdown("""
 <style>
 .stApp {
@@ -43,13 +38,12 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ────────────────────────────────────────────────
-# FUNCIONES API
+# API CALLS
 # ────────────────────────────────────────────────
 @st.cache_data(ttl=3600)
 def cargar_partidos_liga(code):
-    """Cargar próximos partidos de la liga usando códigos válidos."""
-    today = datetime.utcnow().strftime('%Y-%m-%d')
-    end_date = (datetime.utcnow() + timedelta(days=dias_futuros)).strftime('%Y-%m-%d')
+    today = datetime.now().strftime('%Y-%m-%d')
+    end_date = (datetime.now() + timedelta(days=dias_futuros)).strftime('%Y-%m-%d')
 
     url = f"{BASE_URL}/competitions/{code}/matches"
     params = {
@@ -59,12 +53,11 @@ def cargar_partidos_liga(code):
     }
 
     try:
-        r = requests.get(url, headers=HEADERS, params=params, timeout=10)
+        r = requests.get(url, headers=headers, params=params, timeout=10)
 
         if r.status_code == 429:
             return [], "Rate limit alcanzado. Esperá 60 segundos."
-        if r.status_code == 400:
-            return [], "Error 400: solicitud inválida (código de liga incorrecto o parámetros mal formateados)."
+
         if r.status_code != 200:
             return [], f"Error {r.status_code}"
 
@@ -76,12 +69,11 @@ def cargar_partidos_liga(code):
 
 @st.cache_data(ttl=3600)
 def get_stats_historicos(equipo_id, limite=5):
-    """Obtiene estadísticas históricas del equipo."""
     url = f"{BASE_URL}/teams/{equipo_id}/matches"
     params = {"status": "FINISHED", "limit": limite}
 
     try:
-        r = requests.get(url, headers=HEADERS, params=params, timeout=10)
+        r = requests.get(url, headers=headers, params=params, timeout=10)
 
         if r.status_code != 200:
             return {"avg_goles": 0, "pct_btts": 0}
@@ -117,6 +109,7 @@ def get_stats_historicos(equipo_id, limite=5):
 # PROCESAMIENTO
 # ────────────────────────────────────────────────
 def procesar_partidos(matches):
+
     datos = []
     stats_cache = {}
 
@@ -165,7 +158,6 @@ def procesar_partidos(matches):
 
     return pd.DataFrame(datos)
 
-
 # ────────────────────────────────────────────────
 # INTERFAZ
 # ────────────────────────────────────────────────
@@ -175,11 +167,8 @@ st.markdown("### Próximos Partidos & Estadísticas")
 tabs = st.tabs(list(LIGAS.values()))
 
 for tab, (code, nombre) in zip(tabs, LIGAS.items()):
+
     with tab:
-        # Validación código válido
-        if code not in LIGAS:
-            st.warning(f"Código de liga inválido: {code}")
-            continue
 
         matches, error = cargar_partidos_liga(code)
 
@@ -187,11 +176,15 @@ for tab, (code, nombre) in zip(tabs, LIGAS.items()):
             st.error(error)
 
         elif matches:
+
             df = procesar_partidos(matches)
+
             if df.empty:
                 st.warning("No hay datos disponibles.")
             else:
+
                 df = df.sort_values("Score", ascending=False)
+
                 st.dataframe(
                     df,
                     use_container_width=True,
@@ -207,7 +200,9 @@ for tab, (code, nombre) in zip(tabs, LIGAS.items()):
                     },
                     hide_index=True
                 )
+
                 st.success(f"{len(df)} partidos encontrados.")
 
         else:
             st.warning("No hay partidos programados en el rango seleccionado.")
+
