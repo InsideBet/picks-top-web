@@ -167,24 +167,9 @@ for code, nombre in LIGAS.items():
     if st.button(nombre, key=f"btn_{code}", use_container_width=True):
         st.session_state[f"show_{code}"] = not st.session_state[f"show_{code}"]
 
-    if st.session_state[f"show_{code}"]:
-        with st.container():
-        st.dataframe(
-        df,
-        use_container_width=True,
-        height=600,   # 👈 altura más grande = scroll interno
-        column_config={
-            "Score": st.column_config.ProgressColumn(
-                "Score",
-                help="Nivel de confianza del pick",
-                min_value=0,
-                max_value=10,
-                format="%.1f",
-            ),
-        },
-        hide_index=True
-    )
+if st.session_state[f"show_{code}"]:
 
+    with st.container():
 
         matches, error = cargar_partidos_liga(code)
 
@@ -204,7 +189,7 @@ for code, nombre in LIGAS.items():
                 st.dataframe(
                     df,
                     use_container_width=True,
-                    height=500,
+                    height=600,
                     column_config={
                         "Score": st.column_config.ProgressColumn(
                             "Score",
@@ -218,6 +203,10 @@ for code, nombre in LIGAS.items():
                 )
 
                 st.success(f"{len(df)} partidos encontrados.")
+
+        else:
+            st.warning("No hay partidos programados en el rango seleccionado.")
+
 
         else:
             st.warning("No hay partidos programados en el rango seleccionado.")
