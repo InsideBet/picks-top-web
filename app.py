@@ -62,6 +62,7 @@ def procesar_partidos(matches, liga_nombre):
         top_pick = pick_btts if pct_btts > 70 else pick_over
 
         datos.append({
+            "Fecha": fecha,
             "Liga": liga_nombre,
             "Hora": hora,
             "Partido": f"{home_name} vs {away_name}",
@@ -128,6 +129,7 @@ for code, nombre in LIGAS.items():
                             .format(precision=1),
                     use_container_width=True,
                     hide_index=True
+                    column_order=["Fecha", "Hora", "Partido", "BTTS", "O/U 2.5", "Top Pick", "Score"]
                 )
                 st.success(f"Encontrados {len(df)} partidos.")
             else:
