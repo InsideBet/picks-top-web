@@ -201,3 +201,15 @@ for tab, (code, nombre) in zip(tabs, LIGAS.items()):
         else:
             st.warning("No hay partidos programados en el rango seleccionado.")
 
+st.write(" ")
+st.write(" ")
+st.write(" ")
+st.write(" ")
+st.write(" ")
+st.write(" ")
+st.write(" ")
+st.write(" ")
+st.write(" ")
+st.write(" ")
+
+
