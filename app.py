@@ -264,8 +264,12 @@ tabs = st.tabs(list(LIGAS.values()))
 
 for tab, (code, nombre) in zip(tabs, LIGAS.items()):
     with tab:
-        st.markdown(f"### {nombre}")
-        st.image(BANDERAS[code], width=40)
+        st.markdown(f"""
+        <h3 style="display:flex; align-items:center; color:#e5e7eb;">
+            <img src="{BANDERAS[code]}" width="30" style="margin-right:10px;">
+            {nombre}
+        </h3>
+        """, unsafe_allow_html=True)
 
         # Traer fixtures API-Football
         fixtures_af, error_af = cargar_fixtures_af(LIGAS_AF_ID[code])
