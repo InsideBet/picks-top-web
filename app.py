@@ -258,7 +258,7 @@ def procesar_fixtures_tsdb(fixtures):
     return pd.DataFrame(datos)
 
 # ────────────────────────────────────────────────
-# INTERFAZ STREAMLIT
+# INTERFAZ STREAMLIT SEGURA
 # ────────────────────────────────────────────────
 tabs = st.tabs(list(LIGAS.values()))
 
@@ -267,17 +267,37 @@ for tab, (code, nombre) in zip(tabs, LIGAS.items()):
         st.markdown(f"### {nombre}")
         st.image(BANDERAS[code], width=60)
 
-        # API-Football
+        # Traer fixtures API-Football
         fixtures_af, error_af = cargar_fixtures_af(LIGAS_AF_ID[code])
-        df_af = procesar_fixtures_af(fixtures_af) if fixtures_af else pd.DataFrame()
+        if error_af:
+            st.error(f"API-Football: {error_af}")
 
-        # TheSportsDB
-        fixtures_tsdb, error_tsdb = cargar_fixtures_tsdb(nombre)
-        df_tsdb = procesar_fixtures_tsdb(fixtures_tsdb) if fixtures_tsdb else pd.DataFrame()
+        df_af = procesar_fixtures(fixtures_af) if fixtures_af else pd.DataFrame()
 
-        # Unir DataFrames, eliminar duplicados
-        df = pd.concat([df_af, df_tsdb], ignore_index=True)
-        df.drop_duplicates(subset=["Fecha 📅","Partido 🆚"], inplace=True)
+        # Aquí podrías agregar TheSportsDB si querés combinar
+        # Ejemplo (opcional):
+        # fixtures_tsdb, error_tsdb = cargar_fixtures_tsdb(LIGAS_TSDB[code])
+        # df_tsdb = procesar_tsdb(fixtures_tsdb) if fixtures_tsdb else pd.DataFrame()
+
+        # Para probar solo API-Football:
+        df_tsdb = pd.DataFrame()  
+
+        # Concatenar de manera segura
+        if df_af.empty and df_tsdb.empty:
+            df = pd.DataFrame(columns=[
+                "Fecha 📅","Hora ⏱️","Partido 🆚","1X2 Odds","O/U 2.5 Odds","BTTS Odds",
+                "Corners Home","Corners Away","Yellow Home","Yellow Away",
+                "Red Home","Red Away","BTTS ⚽","O/U 2.5 ⚽","Top Pick 🔥","Score"
+            ])
+        else:
+            df = pd.concat([df_af, df_tsdb], ignore_index=True)
+            df.drop_duplicates(subset=["Fecha 📅","Partido 🆚"], inplace=True)
+
+        # Asegurarnos de que Score exista
+        if "Score" not in df.columns:
+            df["Score"] = 0
+
+        # Ordenar por Score
         df = df.sort_values("Score", ascending=False)
 
         if df.empty:
@@ -299,3 +319,4 @@ for tab, (code, nombre) in zip(tabs, LIGAS.items()):
                 }
             )
             st.success(f"{len(df)} partidos encontrados.")
+
