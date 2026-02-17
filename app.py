@@ -147,12 +147,12 @@ def procesar_partidos(matches):
         top_pick = pick_btts if pct_btts > 70 else pick_over
 
         datos.append({
-            "Fecha": fecha,
-            "Hora": hora,
-            "Partido": f"{home_name} vs {away_name}",
-            "BTTS": f"{pick_btts} ({round(pct_btts)}%)",
-            "O/U 2.5": pick_over,
-            "Top Pick": top_pick,
+            "Fecha 📅": fecha,
+            "Hora ⏱️": hora,
+            "Partido 🆚": f"{home_name} vs {away_name}",
+            "BTTS ⚽": f"{pick_btts} ({round(pct_btts)}%)",
+            "O/U 2.5 ⚽": pick_over,
+            "Top Pick 🔥": top_pick,
             "Score": round(score, 1)
         })
 
