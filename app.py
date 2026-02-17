@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 import requests
-import html
+from html import escape
 from datetime import datetime, timedelta
 
 # ────────────────────────────────────────────────
@@ -23,7 +23,7 @@ dias_futuros = 2
 
 
 # ────────────────────────────────────────────────
-# CSS MODERNO CON SCROLL VERTICAL
+# CSS
 # ────────────────────────────────────────────────
 st.markdown("""
 <style>
@@ -87,20 +87,9 @@ st.markdown("""
     font-weight: bold;
 }
 
-.score-high {
-    color: #16a34a;
-    font-weight: bold;
-}
-
-.score-mid {
-    color: #eab308;
-    font-weight: bold;
-}
-
-.score-low {
-    color: #dc2626;
-    font-weight: bold;
-}
+.score-high { color: #16a34a; font-weight: bold; }
+.score-mid { color: #eab308; font-weight: bold; }
+.score-low { color: #dc2626; font-weight: bold; }
 
 </style>
 """, unsafe_allow_html=True)
@@ -160,7 +149,6 @@ def get_stats_historicos(equipo_id, limite=5):
             sa = m["score"]["fullTime"]["away"] or 0
 
             total_goles += sh + sa
-
             if sh > 0 and sa > 0:
                 btts_count += 1
 
@@ -181,7 +169,6 @@ def get_stats_historicos(equipo_id, limite=5):
 def procesar_partidos(matches):
 
     datos = []
-    vistos = set()
     stats_cache = {}
 
     for p in matches:
@@ -191,12 +178,6 @@ def procesar_partidos(matches):
 
         fecha = p["utcDate"][:10]
         hora = p["utcDate"][11:16]
-
-        partido_key = f"{home_name}-{away_name}-{fecha}-{hora}"
-
-        if partido_key in vistos:
-            continue
-        vistos.add(partido_key)
 
         home_id = p["homeTeam"]["id"]
         away_id = p["awayTeam"]["id"]
@@ -278,19 +259,19 @@ for code, nombre in LIGAS.items():
 
                 table_html += f"""
                 <tr>
-                    <td>{html.escape(str(row['Fecha']))}</td>
-                    <td>{html.escape(str(row['Hora']))}</td>
-                    <td><strong>{html.escape(str(row['Partido']))}</strong></td>
-                    <td>{html.escape(str(row['BTTS']))}</td>
-                    <td>{html.escape(str(row['O/U 2.5']))}</td>
-                    <td><span class="{badge_class}">{row['Top Pick']}</span></td>
+                    <td>{escape(str(row['Fecha']))}</td>
+                    <td>{escape(str(row['Hora']))}</td>
+                    <td><strong>{escape(str(row['Partido']))}</strong></td>
+                    <td>{escape(str(row['BTTS']))}</td>
+                    <td>{escape(str(row['O/U 2.5']))}</td>
+                    <td><span class="{badge_class}">{escape(str(row['Top Pick']))}</span></td>
                     <td class="{score_class}">{row['Score']}</td>
                 </tr>
                 """
 
             table_html += "</table></div>"
 
-            st.markdown(html, unsafe_allow_html=True)
+            st.markdown(table_html, unsafe_allow_html=True)
             st.success(f"{len(df)} partidos encontrados.")
 
         else:
