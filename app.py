@@ -260,8 +260,10 @@ def procesar_fixtures_tsdb(fixtures):
 # ────────────────────────────────────────────────
 # INTERFAZ STREAMLIT SEGURA
 # ────────────────────────────────────────────────
-for tab, (code, nombre) in zip(tabs, LIGAS.items()):
-    with tab:
+tab_objects = st.tabs(list(LIGAS.values()))  # crea los tabs
+
+for i, (code, nombre) in enumerate(LIGAS.items()):
+    with tab_objects[i]:  # usamos el índice para acceder al tab correcto
         st.markdown(f"""
         <div style="display:flex; align-items:center; color:#e5e7eb; font-size:22px; font-weight:500; margin-bottom:10px;">
             <img src="{BANDERAS[code]}" width="30" style="vertical-align:middle; margin-right:10px;">
