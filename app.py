@@ -15,15 +15,16 @@ API_KEY = st.secrets["API_KEY"]
 HEADERS = {"x-apisports-key": API_KEY}
 BASE_URL = "https://v3.football.api-sports.io"
 
+# IDs correctos de ligas API-Football
 LIGAS = {
-    "2": "Champions League",
-    "3": "Europa League",
-    "39": "Premier League",
-    "140": "La Liga",
-    "135": "Serie A",
-    "61": "Ligue 1",
-    "78": "Bundesliga",
-    "128": "Liga Argentina",
+    2: "Champions League",
+    3: "Europa League",
+    39: "Premier League",
+    140: "La Liga",
+    135: "Serie A",
+    61: "Ligue 1",
+    78: "Bundesliga",
+    128: "Liga Argentina",
 }
 
 dias_futuros = 2
@@ -42,17 +43,18 @@ st.markdown("""
 # FUNCIONES API
 # ────────────────────────────────────────────────
 @st.cache_data(ttl=300)
-def cargar_partidos_liga(league_code):
-    today = datetime.now().strftime('%Y-%m-%d')
-    end_date = (datetime.now() + timedelta(days=dias_futuros)).strftime('%Y-%m-%d')
+def cargar_partidos_liga(league_id):
+    """Cargar próximos partidos de la liga usando IDs correctos."""
+    today = datetime.utcnow().strftime('%Y-%m-%d')
+    end_date = (datetime.utcnow() + timedelta(days=dias_futuros)).strftime('%Y-%m-%d')
 
     url = f"{BASE_URL}/fixtures"
     params = {
-        "league": league_code,
+        "league": league_id,
         "season": datetime.now().year,
         "from": today,
         "to": end_date,
-        "status": "NS,TBD,1H,2H,FT"  # Incluir todos los próximos y en vivo
+        "status": "NS,TBD,1H,2H,FT"  # Todos los estados
     }
 
     try:
@@ -62,15 +64,17 @@ def cargar_partidos_liga(league_code):
     except Exception as e:
         return [], f"Error conexión: {e}"
 
+
 @st.cache_data(ttl=3600)
 def get_stats_team(team_id, league_id):
-    """Obtiene estadísticas recientes reales de un equipo."""
+    """Devuelve estadísticas históricas reales de un equipo."""
     url = f"{BASE_URL}/teams/statistics"
     params = {"team": team_id, "league": league_id, "season": datetime.now().year}
     try:
         r = requests.get(url, headers=HEADERS, params=params, timeout=10)
         data = r.json().get("response", {})
 
+        # Evitar división por cero
         played_home = max(1, data['fixtures']['played']['total']['home'])
         played_away = max(1, data['fixtures']['played']['total']['away'])
         total_played = played_home + played_away
@@ -127,7 +131,7 @@ def procesar_partidos(matches, league_id):
         fecha = fixture['date'][:10]
         hora = fixture['date'][11:16]
 
-        # Estado del partido
+        # Estado
         estado_short = fixture['status']['short']
         if estado_short in ["NS", "TBD"]:
             estado_display = "Por empezar"
@@ -138,7 +142,7 @@ def procesar_partidos(matches, league_id):
         else:
             estado_display = estado_short
 
-        # Stats home
+        # Stats home/away
         if home_id not in stats_cache:
             stats_cache[home_id] = get_stats_team(home_id, league_id)
         if away_id not in stats_cache:
@@ -186,13 +190,13 @@ st.markdown("### Próximos Partidos & Estadísticas")
 
 tabs = st.tabs(list(LIGAS.values()))
 
-for tab, (league_code, league_name) in zip(tabs, LIGAS.items()):
+for tab, (league_id, league_name) in zip(tabs, LIGAS.items()):
     with tab:
-        matches, error = cargar_partidos_liga(league_code)
+        matches, error = cargar_partidos_liga(league_id)
         if error:
             st.error(error)
         elif matches:
-            df = procesar_partidos(matches, league_code)
+            df = procesar_partidos(matches, league_id)
             if df.empty:
                 st.warning("No hay datos disponibles.")
             else:
