@@ -114,7 +114,7 @@ def procesar_partidos(matches):
     datos = []
     stats_cache = {}
 
-    for p in matches:
+for p in matches:
     home = p["homeTeam"]
     away = p["awayTeam"]
     
