@@ -41,13 +41,13 @@ LIGAS_AF_ID = {
 
 BANDERAS = {
     "PL": "https://i.postimg.cc/7PcwYbk1/1.png",
-    "PD": "https://upload.wikimedia.org/wikipedia/en/thumb/9/9a/Flag_of_Spain.svg/960px-Flag_of_Spain.svg.png",
-    "SA": "https://upload.wikimedia.org/wikipedia/commons/thumb/0/03/Flag_of_Italy.svg/250px-Flag_of_Italy.svg.png",
-    "FL1": "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c3/Flag_of_France.svg/1280px-Flag_of_France.svg.png",
-    "BL1": "https://upload.wikimedia.org/wikipedia/commons/thumb/b/ba/Flag_of_Germany.svg/1280px-Flag_of_Germany.svg.png",
-    "PPL": "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a8/Flag_of_Portugal_%28official%29.svg/1280px-Flag_of_Portugal_%28official%29.svg.png",
-    "DED": "https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Flag_of_the_Netherlands.svg/1280px-Flag_of_the_Netherlands.svg.png",
-    "CL": "https://i.postimg.cc/28pJqYLN/UEFA-Champions-League-logo.png"
+    "PD": "https://i.postimg.cc/75d5mMQ2/8.png",
+    "SA": "https://i.postimg.cc/mzxTFmpm/4.png",
+    "FL1": "https://i.postimg.cc/jnbqBMz2/2.png",
+    "BL1": "https://i.postimg.cc/5X09cYFn/3.png",
+    "PPL": "https://i.postimg.cc/ZBr4P61R/5.png",
+    "DED": "https://i.postimg.cc/tnkbwpqv/6.png",
+    "CL": "https://i.postimg.cc/zb1V1DNy/7.png"
 }
 
 DIAS_FUTUROS = 2
