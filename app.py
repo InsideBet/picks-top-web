@@ -50,7 +50,6 @@ def cargar_partidos_liga(code):
     params = {
         "dateFrom": today,
         "dateTo": end_date,
-        "status": "SCHEDULED"
     }
 
     try:
