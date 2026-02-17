@@ -11,15 +11,13 @@ st.set_page_config(
     layout="wide"
 )
 
-API_KEY_FD = st.secrets["API_KEY"]  # Football-Data
-API_KEY_FOOT = st.secrets["API_FOOTBALL_KEY"]  # API-Football
-BASE_URL_FD = "https://api.football-data.org/v4"
-headers_fd = {"X-Auth-Token": API_KEY_FD}
-BASE_URL_FOOT = "https://v3.football.api-sports.io"
+API_KEY = st.secrets["API_KEY"]
+HEADERS = {"x-apisports-key": API_KEY}
+BASE_URL = "https://v3.football.api-sports.io"
 
 LIGAS = {
-    "CL": "UEFA Champions League",
-    "EL": "UEFA Europa League",
+    "CL": "Champions League",
+    "EL": "Europa League",
     "PL": "Premier League",
     "PD": "La Liga",
     "SA": "Serie A",
@@ -30,7 +28,7 @@ LIGAS = {
 
 dias_futuros = 2
 
-#Tema dark general
+# Tema dark
 st.markdown("""
 <style>
 .stApp {
@@ -41,160 +39,67 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ────────────────────────────────────────────────
-# API CALLS
+# FUNCIONES API
 # ────────────────────────────────────────────────
-@st.cache_data(ttl=3600)
-def cargar_partidos_liga(code):
+@st.cache_data(ttl=300)
+def cargar_partidos_liga(league_code):
     today = datetime.now().strftime('%Y-%m-%d')
     end_date = (datetime.now() + timedelta(days=dias_futuros)).strftime('%Y-%m-%d')
 
-    url = f"{BASE_URL_FD}/competitions/{code}/matches"
-    params = {
-        "dateFrom": today,
-        "dateTo": end_date,
-        "status": "SCHEDULED"
-    }
-
+    url = f"{BASE_URL}/fixtures"
+    params = {"league": league_code, "season": datetime.now().year,
+              "from": today, "to": end_date}
     try:
-        r = requests.get(url, headers=headers_fd, params=params, timeout=10)
-
-        if r.status_code == 429:
-            return [], "Rate limit alcanzado. Esperá 60 segundos."
-
-        if r.status_code != 200:
-            return [], f"Error {r.status_code}"
-
-        return r.json().get("matches", []), None
-
+        r = requests.get(url, headers=HEADERS, params=params, timeout=10)
+        data = r.json().get("response", [])
+        return data, None
     except Exception as e:
-        return [], f"Error conexión: {str(e)}"
+        return [], f"Error conexión: {e}"
 
 @st.cache_data(ttl=3600)
-def get_stats_historicos(equipo_id, limite=5):
-    url = f"{BASE_URL_FD}/teams/{equipo_id}/matches"
-    params = {"status": "FINISHED", "limit": limite}
-
-    try:
-        r = requests.get(url, headers=headers_fd, params=params, timeout=10)
-
-        if r.status_code != 200:
-            return {"avg_goles": 0, "pct_btts": 0}
-
-        matches = r.json().get("matches", [])
-        if not matches:
-            return {"avg_goles": 0, "pct_btts": 0}
-
-        total_goles = 0
-        btts_count = 0
-
-        for m in matches:
-            full_time = m.get("score", {}).get("fullTime", {})
-            sh = full_time.get("home") or 0
-            sa = full_time.get("away") or 0
-
-            total_goles += sh + sa
-            if sh > 0 and sa > 0:
-                btts_count += 1
-
-        n = len(matches)
-
-        return {
-            "avg_goles": total_goles / n if n else 0,
-            "pct_btts": (btts_count / n) * 100 if n else 0
-        }
-
-    except Exception:
-        return {"avg_goles": 0, "pct_btts": 0}
-
-
-@st.cache_data(ttl=3600)
-def get_stats_corners_tarjetas(team_id):
+def get_stats_team(team_id, league_id):
     """
-    Devuelve promedio de corners y tarjetas por partido de un equipo usando API-Football
+    Devuelve estadísticas recientes reales de un equipo
     """
-    url = f"{BASE_URL_FOOT}/teams/statistics"
-    headers = {"x-apisports-key": API_KEY_FOOT}
-    params = {"team": team_id, "season": 2026}  # ajustá temporada
-
+    url = f"{BASE_URL}/teams/statistics"
+    params = {"team": team_id, "league": league_id, "season": datetime.now().year}
     try:
-        r = requests.get(url, headers=headers, params=params, timeout=10)
+        r = requests.get(url, headers=HEADERS, params=params, timeout=10)
         data = r.json().get("response", {})
-        stats = data.get("statistics", {})
 
-        corners = stats.get("corners", {}).get("average", {}).get("total", 0)
-        cards = stats.get("cards", {}).get("average", {}).get("total", 0)
-        return {"corners_avg": corners, "cards_avg": cards}
+        # Goles
+        goals_for = data['fixtures']['goals']['for']['total']['home'] + data['fixtures']['goals']['for']['total']['away']
+        goals_against = data['fixtures']['goals']['against']['total']['home'] + data['fixtures']['goals']['against']['total']['away']
+        avg_goals = (goals_for + goals_against) / max(1, data['fixtures']['played']['total']['home'] + data['fixtures']['played']['total']['away'])
+
+        # BTTS
+        pct_btts = data.get("fixtures", {}).get("goals", {}).get("bothTeamsToScore", {}).get("total", 0)
+
+        # Corners
+        corners = data.get("fixtures", {}).get("corners", {}).get("total", {}).get("home", 0) + \
+                  data.get("fixtures", {}).get("corners", {}).get("total", {}).get("away", 0)
+        avg_corners = corners / max(1, data['fixtures']['played']['total']['home'] + data['fixtures']['played']['total']['away'])
+
+        # Tarjetas
+        cards = data.get("fixtures", {}).get("cards", {}).get("total", {}).get("home", 0) + \
+                data.get("fixtures", {}).get("cards", {}).get("total", {}).get("away", 0)
+        avg_cards = cards / max(1, data['fixtures']['played']['total']['home'] + data['fixtures']['played']['total']['away'])
+
+        return {"avg_goals": avg_goals, "pct_btts": pct_btts, "corners_avg": avg_corners, "cards_avg": avg_cards}
+
     except Exception as e:
-        print("Error corners/cards:", e)
-        return {"corners_avg": 0, "cards_avg": 0}
+        print("Error stats team:", e)
+        return {"avg_goals": 0, "pct_btts": 0, "corners_avg": 0, "cards_avg": 0}
 
 
 # ────────────────────────────────────────────────
 # PROCESAMIENTO
 # ────────────────────────────────────────────────
-def procesar_partidos(matches, limite_recientes=5):
+def procesar_partidos(matches, league_id):
     datos = []
     stats_cache = {}
 
-    def get_recent_stats_api_football(team_id):
-        """
-        Obtiene últimos 'limite_recientes' partidos de un equipo usando API-Football
-        y calcula avg_goles, pct_btts, corners_avg y cards_avg
-        """
-        if team_id in stats_cache:
-            return stats_cache[team_id]
-
-        url = f"https://v3.football.api-sports.io/teams/statistics"
-        params = {"team": team_id, "season": datetime.now().year}
-        headers = {"x-apisports-key": st.secrets["API_KEY"]}
-
-        try:
-            r = requests.get(url, headers=headers, params=params, timeout=10)
-            data = r.json().get("response", {})
-
-            # Si no hay partidos, devolvemos 0
-            if not data:
-                stats_cache[team_id] = {"avg_goles":0, "pct_btts":0, "corners_avg":0, "cards_avg":0}
-                return stats_cache[team_id]
-
-            matches_hist = data.get("fixtures", [])[:limite_recientes]
-            total_goles = 0
-            btts_count = 0
-            total_corners = 0
-            total_cards = 0
-            n = 0
-
-            for m in matches_hist:
-                # Goles
-                home_goals = m.get("goals", {}).get("for", 0)
-                away_goals = m.get("goals", {}).get("against", 0)
-                total_goles += home_goals + away_goals
-                if home_goals > 0 and away_goals > 0:
-                    btts_count += 1
-
-                # Corners y tarjetas
-                stats = m.get("statistics", {})
-                corners = stats.get("corners", 0)
-                cards = stats.get("cards", 0)
-                total_corners += corners
-                total_cards += cards
-
-                n += 1
-
-            stats_cache[team_id] = {
-                "avg_goles": total_goles / n if n else 0,
-                "pct_btts": (btts_count / n) * 100 if n else 0,
-                "corners_avg": total_corners / n if n else 0,
-                "cards_avg": total_cards / n if n else 0
-            }
-            return stats_cache[team_id]
-
-        except Exception as e:
-            print("Error stats API-Football:", e)
-            stats_cache[team_id] = {"avg_goles":0, "pct_btts":0, "corners_avg":0, "cards_avg":0}
-            return stats_cache[team_id]
-
-    def format_plus_minus(value, threshold):
+    def format_pm(value, threshold):
         if round(value) == 0:
             return "0"
         return f"+{round(value)}" if value >= threshold else f"-{round(value)}"
@@ -203,36 +108,42 @@ def procesar_partidos(matches, limite_recientes=5):
     threshold_cards = 3
 
     for p in matches:
-        home = p["homeTeam"]
-        away = p["awayTeam"]
-        home_name = home.get("shortName") or home.get("name")
-        away_name = away.get("shortName") or away.get("name")
-        fecha = p["utcDate"][:10]
-        hora = p["utcDate"][11:16]
+        fixture = p['fixture']
+        home = p['teams']['home']
+        away = p['teams']['away']
+        home_id = home['id']
+        away_id = away['id']
+        home_name = home['name']
+        away_name = away['name']
 
-        home_id = home["id"]
-        away_id = away["id"]
+        fecha = fixture['date'][:10]
+        hora = fixture['date'][11:16]
 
-        # ───────── Estadísticas recientes
-        stats_home = get_recent_stats_api_football(home_id)
-        stats_away = get_recent_stats_api_football(away_id)
+        # Stats home
+        if home_id not in stats_cache:
+            stats_cache[home_id] = get_stats_team(home_id, league_id)
+        if away_id not in stats_cache:
+            stats_cache[away_id] = get_stats_team(away_id, league_id)
 
-        # Goles y BTTS
-        avg_goles = (stats_home["avg_goles"] + stats_away["avg_goles"]) / 2
-        pct_btts = (stats_home["pct_btts"] + stats_away["pct_btts"]) / 2
-        confidence_score = round(avg_goles * (pct_btts / 100) * 2.5, 1)
+        sh = stats_cache[home_id]
+        sa = stats_cache[away_id]
 
+        # Promedios combinados
+        avg_goles = (sh['avg_goals'] + sa['avg_goals']) / 2
+        pct_btts = (sh['pct_btts'] + sa['pct_btts']) / 2
+        confidence = round(avg_goles * (pct_btts / 100) * 2.5, 1)
+
+        # Picks
         pick_btts = "Yes" if pct_btts > 65 else "No"
         pick_over = "Over 2.5" if avg_goles > 2.5 else "Under 2.5"
         top_pick = pick_btts if pct_btts > 70 else pick_over
 
         # Corners y tarjetas
-        corners_avg = (stats_home["corners_avg"] + stats_away["corners_avg"]) / 2
-        cards_avg = (stats_home["cards_avg"] + stats_away["cards_avg"]) / 2
-        corners_display = format_plus_minus(corners_avg, threshold_corners)
-        cards_display = format_plus_minus(cards_avg, threshold_cards)
+        avg_corners = (sh['corners_avg'] + sa['corners_avg']) / 2
+        avg_cards = (sh['cards_avg'] + sa['cards_avg']) / 2
+        corners_display = format_pm(avg_corners, threshold_corners)
+        cards_display = format_pm(avg_cards, threshold_cards)
 
-        # ───────── Agregar fila al DataFrame
         datos.append({
             "Fecha 📅": fecha,
             "Hora ⏱️": hora,
@@ -240,16 +151,12 @@ def procesar_partidos(matches, limite_recientes=5):
             "BTTS ⚽": f"{pick_btts} ({round(pct_btts)}%)",
             "O/U 2.5 ⚽": pick_over,
             "Top Pick 🔥": top_pick,
-            "Score": confidence_score,
+            "Score": confidence,
             "Corners 🚩": corners_display,
             "Tarjetas 🟨🟥": cards_display
         })
 
     return pd.DataFrame(datos)
-
-
-
-
 
 # ────────────────────────────────────────────────
 # INTERFAZ
@@ -259,16 +166,13 @@ st.markdown("### Próximos Partidos & Estadísticas")
 
 tabs = st.tabs(list(LIGAS.values()))
 
-for tab, (code, nombre) in zip(tabs, LIGAS.items()):
+for tab, (league_code, league_name) in zip(tabs, LIGAS.items()):
     with tab:
-        matches, error = cargar_partidos_liga(code)
-
+        matches, error = cargar_partidos_liga(league_code)
         if error:
             st.error(error)
-
         elif matches:
-            df = procesar_partidos(matches)
-
+            df = procesar_partidos(matches, league_code)
             if df.empty:
                 st.warning("No hay datos disponibles.")
             else:
