@@ -82,7 +82,7 @@ def cargar_partidos_liga(code):
         r = requests.get(url, headers=headers, params=params, timeout=10)
 
         if r.status_code == 429:
-            return [], "Rate limit alcanzado. Esperá 60 segundos."
+            return [], "Espera para volver a cargar."
 
         if r.status_code != 200:
             return [], f"Error {r.status_code}"
