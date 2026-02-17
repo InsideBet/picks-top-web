@@ -168,16 +168,26 @@ def procesar_partidos(matches):
         pick_over = "Over 2.5" if avg_goles > 2.5 else "Under 2.5"
         top_pick = pick_btts if pct_btts > 70 else pick_over
 
-        # ───────── Corners y tarjetas ─────────
-        if home_id not in stats_corners_cache:
-            stats_corners_cache[home_id] = get_stats_corners_tarjetas(home_id)
-        if away_id not in stats_corners_cache:
-            stats_corners_cache[away_id] = get_stats_corners_tarjetas(away_id)
+# Corners y tarjetas
+if home_id not in stats_corners_cache:
+    stats_corners_cache[home_id] = get_stats_corners_tarjetas(home_id)
+if away_id not in stats_corners_cache:
+    stats_corners_cache[away_id] = get_stats_corners_tarjetas(away_id)
 
-        corners_avg = (stats_corners_cache[home_id]["corners_avg"] +
-                       stats_corners_cache[away_id]["corners_avg"]) / 2
-        cards_avg = (stats_corners_cache[home_id]["cards_avg"] +
-                     stats_corners_cache[away_id]["cards_avg"]) / 2
+corners_avg = (stats_corners_cache[home_id]["corners_avg"] +
+               stats_corners_cache[away_id]["corners_avg"]) / 2
+cards_avg = (stats_corners_cache[home_id]["cards_avg"] +
+             stats_corners_cache[away_id]["cards_avg"]) / 2
+
+# ───────── Convertir a + / - ─────────
+# Corners
+threshold_corners = 10  # ajustable según tu criterio
+corners_display = f"+{round(corners_avg)}" if corners_avg >= threshold_corners else f"-{round(corners_avg)}"
+
+# Tarjetas
+threshold_cards = 3  # ajustable
+cards_display = f"+{round(cards_avg)}" if cards_avg >= threshold_cards else f"-{round(cards_avg)}"
+
 
         datos.append({
             "Fecha 📅": fecha,
