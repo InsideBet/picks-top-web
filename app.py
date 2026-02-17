@@ -176,60 +176,37 @@ for code, nombre in LIGAS.items():
 
         elif matches:
 
-            df = procesar_partidos(matches)
+    df = procesar_partidos(matches)
 
-            if df.empty:
-                st.warning("No hay datos disponibles.")
-                continue
+    if df.empty:
+        st.warning("No hay datos disponibles.")
+        continue
 
-            df = df.sort_values("Score", ascending=False)
+    df = df.sort_values("Score", ascending=False)
 
-            # Estilos dinámicos
-            def color_score(val):
-                if val >= 6:
-                    return "color: #22c55e; font-weight: 700;"
-                elif val >= 4:
-                    return "color: #facc15; font-weight: 700;"
-                else:
-                    return "color: #ef4444; font-weight: 700;"
+    st.dataframe(
+        df,
+        use_container_width=True,
+        height=500,
+        column_config={
+            "Score": st.column_config.ProgressColumn(
+                "Score",
+                help="Nivel de confianza del pick",
+                min_value=0,
+                max_value=10,
+                format="%.1f",
+            ),
+            "Top Pick": st.column_config.TextColumn(
+                "Top Pick",
+                help="Mejor pick sugerido",
+            ),
+            "BTTS": st.column_config.TextColumn("BTTS"),
+            "O/U 2.5": st.column_config.TextColumn("O/U 2.5"),
+        },
+        hide_index=True
+    )
 
-            def color_pick(val):
-                if "Over" in val or "Yes" in val:
-                    return "background-color: #16a34a; color: white;"
-                elif "Under" in val or "No" in val:
-                    return "background-color: #dc2626; color: white;"
-                else:
-                    return "background-color: #eab308; color: black;"
-
-            styled_df = (
-                df.style
-                .applymap(color_score, subset=["Score"])
-                .applymap(color_pick, subset=["Top Pick"])
-                .set_properties(**{
-                    "background-color": "#0f172a",
-                    "color": "#e5e7eb",
-                    "text-align": "center"
-                })
-                .set_table_styles([
-                    {
-                        "selector": "th",
-                        "props": [
-                            ("background-color", "#111827"),
-                            ("color", "white"),
-                            ("font-weight", "600"),
-                            ("text-align", "center")
-                        ]
-                    }
-                ])
-            )
-
-            st.dataframe(
-                styled_df,
-                use_container_width=True,
-                height=500
-            )
-
-            st.success(f"{len(df)} partidos encontrados.")
+    st.success(f"{len(df)} partidos encontrados.")
 
         else:
             st.warning("No hay partidos programados en el rango seleccionado.")
