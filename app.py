@@ -187,7 +187,7 @@ def procesar_partidos(matches):
 # ────────────────────────────────────────────────
 # INTERFAZ
 # ────────────────────────────────────────────────
-st.image("https://i.postimg.cc/bJcbxmxg/insidebet.png", width=250)
+st.image("https://i.postimg.cc/hPkSPNcT/Sin-titulo-2.png", width=300)
 st.markdown("### Próximos Partidos & Estadísticas", unsafe_allow_html=True)
 st.markdown("<br>", unsafe_allow_html=True)
 
