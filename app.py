@@ -6,24 +6,40 @@ from datetime import datetime, timedelta
 # ────────────────────────────────────────────────
 # CONFIGURACIÓN
 # ────────────────────────────────────────────────
-st.set_page_config(page_title="InsideBet", layout="wide")
+st.set_page_config(
+    page_title="InsideBet",
+    layout="wide"
+)
 
-API_FOOTBALL_KEY = st.secrets["API_FOOTBALL_KEY"]
-HEADERS_AF = {"x-apisports-key": API_FOOTBALL_KEY}
+# API Football
+API_KEY_AF = st.secrets["API_KEY_AF"]  # Tu key de API-Football
+BASE_URL_AF = "https://v3.football.api-sports.io"
 
-API_FD_KEY = st.secrets["API_KEY"]
-HEADERS_FD = {"X-Auth-Token": API_FD_KEY}
+HEADERS_AF = {"x-apisports-key": API_KEY_AF}
 
-# Ligas y qué API usar
+# Ligas y banderas
 LIGAS = {
-    "CL": {"nombre": "UEFA Champions League", "api": "FD"},
-    "PL": {"nombre": "Premier League", "api": "FD"},
-    "PD": {"nombre": "La Liga", "api": "AF"},
-    "SA": {"nombre": "Serie A", "api": "AF"},
-    "FL1": {"nombre": "Ligue 1", "api": "AF"},
-    "BL1": {"nombre": "Bundesliga", "api": "AF"},
-    "PPL": {"nombre": "Primeira Liga", "api": "AF"},
-    "DED": {"nombre": "Eredivisie", "api": "AF"},
+    "CL": "UEFA Champions League",
+    "PL": "Premier League",
+    "PD": "La Liga",
+    "SA": "Serie A",
+    "FL1": "Ligue 1",
+    "BL1": "Bundesliga",
+    "PPL": "Primeira Liga",
+    "DED": "Eredivisie",
+}
+
+# Mapa de IDs de API-Football (Free plan)
+# Asegurate que los IDs coincidan con la API
+LIGAS_AF_ID = {
+    "CL": 2,
+    "PL": 39,
+    "PD": 140,
+    "SA": 135,
+    "FL1": 61,
+    "BL1": 78,
+    "PPL": 94,
+    "DED": 88,
 }
 
 BANDERAS = {
@@ -37,133 +53,20 @@ BANDERAS = {
     "CL": "https://i.postimg.cc/28pJqYLN/UEFA-Champions-League-logo.png"
 }
 
-dias_futuros = 2
+DIAS_FUTUROS = 5
 
-# Tema dark
+# ────────────────────────────────────────────────
+# ESTILO STREAMLIT
+# ────────────────────────────────────────────────
 st.markdown("""
 <style>
-.stApp { background-color: #0e1117; color: #e5e7eb; }
+.stApp {
+    background-color: #0e1117;
+    color: #e5e7eb;
+}
 </style>
 """, unsafe_allow_html=True)
 
-# ────────────────────────────────────────────────
-# FUNCIONES
-# ────────────────────────────────────────────────
-@st.cache_data(ttl=3600)
-def cargar_partidos_fd(code):
-    today = datetime.now().strftime('%Y-%m-%d')
-    end_date = (datetime.now() + timedelta(days=dias_futuros)).strftime('%Y-%m-%d')
-    url = f"https://api.football-data.org/v4/competitions/{code}/matches"
-    params = {"dateFrom": today, "dateTo": end_date}
-    try:
-        r = requests.get(url, headers=HEADERS_FD, params=params, timeout=10)
-        if r.status_code != 200:
-            return [], f"Error FD {r.status_code}"
-        return r.json().get("matches", []), None
-    except Exception as e:
-        return [], f"Error conexión FD: {str(e)}"
-
-@st.cache_data(ttl=3600)
-def cargar_partidos_af(league_id, season=2025):
-    today = datetime.now().strftime('%Y-%m-%d')
-    end_date = (datetime.now() + timedelta(days=dias_futuros)).strftime('%Y-%m-%d')
-    url = f"https://v3.football.api-sports.io/fixtures"
-    params = {
-        "league": league_id,
-        "season": season,
-        "from": today,
-        "to": end_date
-    }
-    try:
-        r = requests.get(url, headers=HEADERS_AF, params=params, timeout=10)
-        if r.status_code != 200:
-            return [], f"Error AF {r.status_code}"
-        return r.json().get("response", []), None
-    except Exception as e:
-        return [], f"Error conexión AF: {str(e)}"
-
-@st.cache_data(ttl=3600)
-def get_stats_historicos(equipo_id, limite=5):
-    url = f"https://api.football-data.org/v4/teams/{equipo_id}/matches"
-    params = {"status": "FINISHED", "limit": limite}
-    try:
-        r = requests.get(url, headers=HEADERS_FD, params=params, timeout=10)
-        if r.status_code != 200:
-            return {"avg_goles": 0, "pct_btts": 0}
-        matches = r.json().get("matches", [])
-        total_goles = sum((m.get("score", {}).get("fullTime", {}).get("home") or 0) +
-                          (m.get("score", {}).get("fullTime", {}).get("away") or 0)
-                          for m in matches)
-        btts_count = sum(1 for m in matches if (m.get("score", {}).get("fullTime", {}).get("home") or 0) > 0
-                                                and (m.get("score", {}).get("fullTime", {}).get("away") or 0) > 0)
-        n = len(matches)
-        return {"avg_goles": total_goles / n if n else 0,
-                "pct_btts": (btts_count / n * 100) if n else 0}
-    except Exception:
-        return {"avg_goles": 0, "pct_btts": 0}
-
-# ───────── PROCESAR PARTIDOS ─────────
-def procesar_partidos(liga_code, matches, api_source):
-    datos = []
-    stats_cache = {}
-    for p in matches:
-        if api_source == "FD":
-            home = p["homeTeam"]
-            away = p["awayTeam"]
-            home_name = home.get("shortName") or home.get("name")
-            away_name = away.get("shortName") or away.get("name")
-            fecha = p["utcDate"][:10]
-            hora = p["utcDate"][11:16]
-            home_id = home["id"]
-            away_id = away["id"]
-        else:  # API-Football
-            h = p["teams"]["home"]
-            a = p["teams"]["away"]
-            home_name = h["name"]
-            away_name = a["name"]
-            fecha = p["fixture"]["date"][:10]
-            hora = p["fixture"]["date"][11:16]
-            home_id = h["id"]
-            away_id = a["id"]
-
-        # Stats históricos
-        if home_id not in stats_cache:
-            stats_cache[home_id] = get_stats_historicos(home_id)
-        if away_id not in stats_cache:
-            stats_cache[away_id] = get_stats_historicos(away_id)
-        stats_home = stats_cache[home_id]
-        stats_away = stats_cache[away_id]
-
-        avg_goles = (stats_home["avg_goles"] + stats_away["avg_goles"]) / 2
-        pct_btts = (stats_home["pct_btts"] + stats_away["pct_btts"]) / 2
-        score = round(avg_goles * (pct_btts / 100) * 2.5, 1)
-
-        # Picks
-        pick_btts = "Yes" if pct_btts > 65 else "No"
-        pick_over = "Over 2.5" if avg_goles > 2.5 else "Under 2.5"
-        top_pick = pick_btts if pct_btts > 70 else pick_over
-
-        # Predicciones API-Football (1X2)
-        prob_1x2 = "N/A"
-        if api_source == "AF" and p.get("predictions"):
-            pred = p["predictions"][0]
-            prob_1x2 = f"{pred['win']['home']}% / {pred['win']['draw']}% / {pred['win']['away']}%"
-
-        datos.append({
-            "Fecha 📅": fecha,
-            "Hora ⏱️": hora,
-            "Partido 🆚": f"{home_name} vs {away_name}",
-            "BTTS ⚽": f"{pick_btts} ({round(pct_btts)}%)",
-            "O/U 2.5 ⚽": pick_over,
-            "Top Pick 🔥": top_pick,
-            "Score": score,
-            "Prob 1X2 %": prob_1x2
-        })
-    return pd.DataFrame(datos)
-
-# ────────────────────────────────────────────────
-# INTERFAZ
-# ────────────────────────────────────────────────
 st.markdown("""
 <div style="text-align:center; margin-top:15px; margin-bottom:20px;">
     <img src="https://i.postimg.cc/hPkSPNcT/Sin-titulo-2.png" width="280"><br>
@@ -179,44 +82,173 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-tabs = st.tabs([v["nombre"] for v in LIGAS.values()])
+# ────────────────────────────────────────────────
+# FUNCIONES API
+# ────────────────────────────────────────────────
+@st.cache_data(ttl=3600)
+def cargar_fixtures_af(league_id):
+    """Trae fixtures próximos de la API-Football"""
+    from_date = datetime.now().strftime("%Y-%m-%d")
+    to_date = (datetime.now() + timedelta(days=DIAS_FUTUROS)).strftime("%Y-%m-%d")
 
-for tab, (code, info) in zip(tabs, LIGAS.items()):
+    url = f"{BASE_URL_AF}/fixtures"
+    params = {
+        "league": league_id,
+        "season": 2026,  # ajustá a temporada actual
+        "from": from_date,
+        "to": to_date
+    }
+
+    r = requests.get(url, headers=HEADERS_AF, params=params, timeout=10)
+    if r.status_code != 200:
+        return [], f"Error {r.status_code}"
+    return r.json().get("response", []), None
+
+
+@st.cache_data(ttl=3600)
+def get_odds_af(fixture_id):
+    """Obtiene odds 1X2, Over/Under, BTTS"""
+    url = f"{BASE_URL_AF}/odds"
+    params = {
+        "fixture": fixture_id,
+        "bookmaker": 6  # free plan: select one bookmaker (ej. Bet365 id=6)
+    }
+    r = requests.get(url, headers=HEADERS_AF, params=params, timeout=10)
+    if r.status_code != 200:
+        return {}
+    data = r.json().get("response", [])
+    if not data:
+        return {}
+    markets = data[0].get("bookmakers", [{}])[0].get("bets", [])
+    odds_dict = {}
+    for m in markets:
+        name = m.get("name")
+        values = m.get("values", [])
+        if values:
+            if name == "Match Winner":
+                odds_dict["1X2"] = {v["value"]: v["odd"] for v in values}
+            elif name == "Over/Under 2.5":
+                odds_dict["O/U 2.5"] = {v["value"]: v["odd"] for v in values}
+            elif name == "Both Teams To Score":
+                odds_dict["BTTS"] = {v["value"]: v["odd"] for v in values}
+    return odds_dict
+
+
+@st.cache_data(ttl=3600)
+def get_statistics_af(fixture_id):
+    """Obtiene corners y tarjetas"""
+    url = f"{BASE_URL_AF}/fixtures/statistics"
+    params = {"fixture": fixture_id}
+    r = requests.get(url, headers=HEADERS_AF, params=params, timeout=10)
+    if r.status_code != 200:
+        return {}
+    stats = r.json().get("response", [])
+    if not stats:
+        return {}
+    result = {}
+    for s in stats:
+        team = s.get("team", {}).get("name")
+        for st in s.get("statistics", []):
+            if st.get("type") == "Corner":
+                result[f"Corners {team}"] = st.get("value")
+            if st.get("type") == "Yellow Card":
+                result[f"Yellow {team}"] = st.get("value")
+            if st.get("type") == "Red Card":
+                result[f"Red {team}"] = st.get("value")
+    return result
+
+# ────────────────────────────────────────────────
+# PROCESAMIENTO
+# ────────────────────────────────────────────────
+def procesar_fixtures(fixtures):
+    datos = []
+    for f in fixtures:
+        fixture_id = f["fixture"]["id"]
+        home = f["teams"]["home"]
+        away = f["teams"]["away"]
+
+        fecha = f["fixture"]["date"][:10]
+        hora = f["fixture"]["date"][11:16]
+        partido = f"{home['name']} vs {away['name']}"
+
+        # Odds
+        odds = get_odds_af(fixture_id)
+        odds_1X2 = odds.get("1X2", {})
+        odds_OU = odds.get("O/U 2.5", {})
+        odds_BTTS = odds.get("BTTS", {})
+
+        # Stats
+        stats = get_statistics_af(fixture_id)
+        corners_home = stats.get(f"Corners {home['name']}", "N/A")
+        corners_away = stats.get(f"Corners {away['name']}", "N/A")
+        yellow_home = stats.get(f"Yellow {home['name']}", "N/A")
+        yellow_away = stats.get(f"Yellow {away['name']}", "N/A")
+        red_home = stats.get(f"Red {home['name']}", "N/A")
+        red_away = stats.get(f"Red {away['name']}", "N/A")
+
+        # Picks
+        pct_btts = 50  # como antes, podés reemplazar con tu fórmula
+        avg_goles = 2  # ejemplo, podés calcular real si querés
+        score = round(avg_goles * (pct_btts/100) * 2.5,1)
+        pick_btts = "Yes" if pct_btts > 65 else "No"
+        pick_over = "Over 2.5" if avg_goles > 2.5 else "Under 2.5"
+        top_pick = pick_btts if pct_btts > 70 else pick_over
+
+        datos.append({
+            "Fecha 📅": fecha,
+            "Hora ⏱️": hora,
+            "Partido 🆚": partido,
+            "1X2 Odds": odds_1X2 or "N/A",
+            "O/U 2.5 Odds": odds_OU or "N/A",
+            "BTTS Odds": odds_BTTS or "N/A",
+            "Corners Home": corners_home,
+            "Corners Away": corners_away,
+            "Yellow Home": yellow_home,
+            "Yellow Away": yellow_away,
+            "Red Home": red_home,
+            "Red Away": red_away,
+            "BTTS ⚽": pick_btts,
+            "O/U 2.5 ⚽": pick_over,
+            "Top Pick 🔥": top_pick,
+            "Score": score
+        })
+    return pd.DataFrame(datos)
+
+# ────────────────────────────────────────────────
+# INTERFAZ STREAMLIT
+# ────────────────────────────────────────────────
+tabs = st.tabs(list(LIGAS.values()))
+
+for tab, (code, nombre) in zip(tabs, LIGAS.items()):
     with tab:
-        st.markdown(f"### {info['nombre']}")
+        st.markdown(f"### {nombre}")
         st.image(BANDERAS[code], width=60)
 
-        if info["api"] == "FD":
-            matches, error = cargar_partidos_fd(code)
-        else:
-            # Para API-Football, necesitas el ID de liga en AF
-            # Aquí ejemplo: mapear los nombres a IDs de API-Football gratuitos
-            liga_ids_af = {"PD":140, "SA":135, "FL1":61, "BL1":78, "PPL":94, "DED":88}  
-            matches, error = cargar_partidos_af(liga_ids_af[code])
-
+        fixtures, error = cargar_fixtures_af(LIGAS_AF_ID[code])
         if error:
             st.error(error)
-        elif matches:
-            df = procesar_partidos(code, matches, info["api"])
-            if df.empty:
-                st.warning("No hay datos disponibles.")
-            else:
-                df = df.sort_values("Score", ascending=False)
-                st.dataframe(
-                    df,
-                    use_container_width=True,
-                    height=600,
-                    column_config={
-                        "Score": st.column_config.ProgressColumn(
-                            "Score",
-                            help="Nivel de confianza del pick",
-                            min_value=0,
-                            max_value=10,
-                            format="%.1f",
-                        ),
-                    },
-                    hide_index=True
-                )
-                st.success(f"{len(df)} partidos encontrados.")
-        else:
+            continue
+
+        if not fixtures:
             st.warning("No hay partidos programados en el rango seleccionado.")
+            continue
+
+        df = procesar_fixtures(fixtures)
+        df = df.sort_values("Score", ascending=False)
+
+        st.dataframe(
+            df,
+            use_container_width=True,
+            height=600,
+            hide_index=True,
+            column_config={
+                "Score": st.column_config.ProgressColumn(
+                    "Score",
+                    help="Nivel de confianza del pick",
+                    min_value=0,
+                    max_value=10,
+                    format="%.1f"
+                ),
+            }
+        )
+        st.success(f"{len(df)} partidos encontrados.")
