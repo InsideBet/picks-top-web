@@ -167,48 +167,43 @@ for code, nombre in LIGAS.items():
     if st.button(nombre, key=f"btn_{code}", use_container_width=True):
         st.session_state[f"show_{code}"] = not st.session_state[f"show_{code}"]
 
-if st.session_state[f"show_{code}"]:
+    if st.session_state[f"show_{code}"]:
 
-    with st.container():
+        with st.container():
 
-        matches, error = cargar_partidos_liga(code)
+            matches, error = cargar_partidos_liga(code)
 
-        if error:
-            st.error(error)
+            if error:
+                st.error(error)
 
-        elif matches:
+            elif matches:
 
-            df = procesar_partidos(matches)
+                df = procesar_partidos(matches)
 
-            if df.empty:
-                st.warning("No hay datos disponibles.")
+                if df.empty:
+                    st.warning("No hay datos disponibles.")
+
+                else:
+
+                    df = df.sort_values("Score", ascending=False)
+
+                    st.dataframe(
+                        df,
+                        use_container_width=True,
+                        height=600,
+                        column_config={
+                            "Score": st.column_config.ProgressColumn(
+                                "Score",
+                                help="Nivel de confianza del pick",
+                                min_value=0,
+                                max_value=10,
+                                format="%.1f",
+                            ),
+                        },
+                        hide_index=True
+                    )
+
+                    st.success(f"{len(df)} partidos encontrados.")
+
             else:
-
-                df = df.sort_values("Score", ascending=False)
-
-                st.dataframe(
-                    df,
-                    use_container_width=True,
-                    height=600,
-                    column_config={
-                        "Score": st.column_config.ProgressColumn(
-                            "Score",
-                            help="Nivel de confianza del pick",
-                            min_value=0,
-                            max_value=10,
-                            format="%.1f",
-                        ),
-                    },
-                    hide_index=True
-                )
-
-                st.success(f"{len(df)} partidos encontrados.")
-
-        else:
-            st.warning("No hay partidos programados en el rango seleccionado.")
-
-
-        else:
-            st.warning("No hay partidos programados en el rango seleccionado.")
-
-
+                st.warning("No hay partidos programados en el rango seleccionado.")
