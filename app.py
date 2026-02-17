@@ -114,40 +114,50 @@ def procesar_partidos(matches):
     datos = []
     stats_cache = {}
 
-for p in matches:
-    home = p["homeTeam"]
-    away = p["awayTeam"]
-    
-    home_name = home.get("shortName") or home.get("name")
-    away_name = away.get("shortName") or away.get("name")
-    
-    fecha = p["utcDate"][:10]
-    hora = p["utcDate"][11:16]
-    
-    estado = p.get("status")
-    full_time = p.get("score", {}).get("fullTime", {})
-    live_score = p.get("score", {}).get("live", {})
-    
-    stats_home = stats_cache[home["id"]]
-    stats_away = stats_cache[away["id"]]
-    
-    avg_goles = (stats_home["avg_goles"] + stats_away["avg_goles"]) / 2
-    pct_btts = (stats_home["pct_btts"] + stats_away["pct_btts"]) / 2
-    confidence_score = round(avg_goles * (pct_btts / 100) * 2.5, 1)
-    
-    datos.append({
-        "Fecha 📅": fecha,
-        "Hora ⏱️": hora,
-        "Partido 🆚": f"{home_name} vs {away_name}",
-        "BTTS ⚽": "Yes" if pct_btts > 65 else "No",
-        "O/U 2.5 ⚽": "Over 2.5" if avg_goles > 2.5 else "Under 2.5",
-        "Top Pick 🔥": "BTTS" if pct_btts > 70 else "Over/Under",
-        "Score": score_display,
-        "Confianza": confidence_score
-    })
+    for p in matches:
+        home = p["homeTeam"]
+        away = p["awayTeam"]
+
+        home_name = home.get("shortName") or home.get("name")
+        away_name = away.get("shortName") or away.get("name")
+
+        fecha = p["utcDate"][:10]
+        hora = p["utcDate"][11:16]
+
+        home_id = home["id"]
+        away_id = away["id"]
+
+        # Obtener estadísticas históricas
+        if home_id not in stats_cache:
+            stats_cache[home_id] = get_stats_historicos(home_id)
+        if away_id not in stats_cache:
+            stats_cache[away_id] = get_stats_historicos(away_id)
+
+        stats_home = stats_cache[home_id]
+        stats_away = stats_cache[away_id]
+
+        avg_goles = (stats_home["avg_goles"] + stats_away["avg_goles"]) / 2
+        pct_btts = (stats_home["pct_btts"] + stats_away["pct_btts"]) / 2
+
+        # Nivel de confianza
+        score = round(avg_goles * (pct_btts / 100) * 2.5, 1)
+
+        # Picks
+        pick_btts = "Yes" if pct_btts > 65 else "No"
+        pick_over = "Over 2.5" if avg_goles > 2.5 else "Under 2.5"
+        top_pick = pick_btts if pct_btts > 70 else pick_over
+
+        datos.append({
+            "Fecha 📅": fecha,
+            "Hora ⏱️": hora,
+            "Partido 🆚": f"{home_name} vs {away_name}",
+            "BTTS ⚽": f"{pick_btts} ({round(pct_btts)}%)",
+            "O/U 2.5 ⚽": pick_over,
+            "Top Pick 🔥": top_pick,
+            "Score": score
+        })
 
     return pd.DataFrame(datos)
-
 
 # ────────────────────────────────────────────────
 # INTERFAZ
