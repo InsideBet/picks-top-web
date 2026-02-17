@@ -265,7 +265,7 @@ tabs = st.tabs(list(LIGAS.values()))
 for tab, (code, nombre) in zip(tabs, LIGAS.items()):
     with tab:
         st.markdown(f"### {nombre}")
-        st.image(BANDERAS[code], width=60)
+        st.image(BANDERAS[code], width=40)
 
         # Traer fixtures API-Football
         fixtures_af, error_af = cargar_fixtures_af(LIGAS_AF_ID[code])
