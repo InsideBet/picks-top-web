@@ -83,70 +83,70 @@ st.markdown("""
 # ────────────────────────────────────────────────
 # FUNCIONES API
 # ────────────────────────────────────────────────
-@st.cache_data(ttl=3600)
-def cargar_fixtures_af(league_id):
-    """Trae fixtures próximos de API-Football"""
-    from_date = datetime.now().strftime("%Y-%m-%d")
-    to_date = (datetime.now() + timedelta(days=DIAS_FUTUROS)).strftime("%Y-%m-%d")
-    url = f"{BASE_URL_AF}/fixtures"
-    params = {
-        "league": league_id,
-        "season": 2025,
-        "from": from_date,
-        "to": to_date
-    }
-    r = requests.get(url, headers=HEADERS_AF, params=params, timeout=10)
-    if r.status_code != 200:
-        return [], f"Error {r.status_code}"
-    return r.json().get("response", []), None
+#@st.cache_data(ttl=3600)
+#def cargar_fixtures_af(league_id):
+#    """Trae fixtures próximos de API-Football"""
+#    from_date = datetime.now().strftime("%Y-%m-%d")
+#    to_date = (datetime.now() + timedelta(days=DIAS_FUTUROS)).strftime("%Y-%m-%d")
+#    url = f"{BASE_URL_AF}/fixtures"
+#    params = {
+#        "league": league_id,
+#        "season": 2025,
+#        "from": from_date,
+#        "to": to_date
+#    }
+#    r = requests.get(url, headers=HEADERS_AF, params=params, timeout=10)
+#    if r.status_code != 200:
+#        return [], f"Error {r.status_code}"
+#    return r.json().get("response", []), None
 
-@st.cache_data(ttl=3600)
-def get_odds_af(fixture_id):
-    """Obtiene odds 1X2, Over/Under 2.5 y BTTS"""
-    url = f"{BASE_URL_AF}/odds"
-    params = {"fixture": fixture_id, "bookmaker": 6}
-    r = requests.get(url, headers=HEADERS_AF, params=params, timeout=10)
-    if r.status_code != 200:
-        return {}
-    data = r.json().get("response", [])
-    if not data:
-        return {}
-    markets = data[0].get("bookmakers", [{}])[0].get("bets", [])
-    odds_dict = {}
-    for m in markets:
-        name = m.get("name")
-        values = m.get("values", [])
-        if values:
-            if name == "Match Winner":
-                odds_dict["1X2"] = {v["value"]: v["odd"] for v in values}
-            elif name == "Over/Under 2.5":
-                odds_dict["O/U 2.5"] = {v["value"]: v["odd"] for v in values}
-            elif name == "Both Teams To Score":
-                odds_dict["BTTS"] = {v["value"]: v["odd"] for v in values}
-    return odds_dict
+#@st.cache_data(ttl=3600)
+#def get_odds_af(fixture_id):
+#    """Obtiene odds 1X2, Over/Under 2.5 y BTTS"""
+#    url = f"{BASE_URL_AF}/odds"
+#    params = {"fixture": fixture_id, "bookmaker": 6}
+#    r = requests.get(url, headers=HEADERS_AF, params=params, timeout=10)
+#    if r.status_code != 200:
+#        return {}
+#    data = r.json().get("response", [])
+#    if not data:
+#        return {}
+#    markets = data[0].get("bookmakers", [{}])[0].get("bets", [])
+#    odds_dict = {}
+#    for m in markets:
+#        name = m.get("name")
+#        values = m.get("values", [])
+#        if values:
+#            if name == "Match Winner":
+#                odds_dict["1X2"] = {v["value"]: v["odd"] for v in values}
+#            elif name == "Over/Under 2.5":
+#                odds_dict["O/U 2.5"] = {v["value"]: v["odd"] for v in values}
+#            elif name == "Both Teams To Score":
+#                odds_dict["BTTS"] = {v["value"]: v["odd"] for v in values}
+#    return odds_dict
 
-@st.cache_data(ttl=3600)
-def get_statistics_af(fixture_id):
-    """Obtiene corners y tarjetas"""
-    url = f"{BASE_URL_AF}/fixtures/statistics"
-    params = {"fixture": fixture_id}
-    r = requests.get(url, headers=HEADERS_AF, params=params, timeout=10)
-    if r.status_code != 200:
-        return {}
-    stats = r.json().get("response", [])
-    if not stats:
-        return {}
-    result = {}
-    for s in stats:
-        team = s.get("team", {}).get("name")
-        for st in s.get("statistics", []):
-            if st.get("type") == "Corner":
-                result[f"Corners {team}"] = st.get("value")
-            if st.get("type") == "Yellow Card":
-                result[f"Yellow {team}"] = st.get("value")
-            if st.get("type") == "Red Card":
-                result[f"Red {team}"] = st.get("value")
-    return result
+#@st.cache_data(ttl=3600)
+#def get_statistics_af(fixture_id):
+#    """Obtiene corners y tarjetas"""
+#    url = f"{BASE_URL_AF}/fixtures/statistics"
+#    params = {"fixture": fixture_id}
+#    r = requests.get(url, headers=HEADERS_AF, params=params, timeout=10)
+#    if r.status_code != 200:
+#        return {}
+#    stats = r.json().get("response", [])
+#    if not stats:
+#        return {}
+#    result = {}
+#    for s in stats:
+#        team = s.get("team", {}).get("name")
+#        for st in s.get("statistics", []):
+#            if st.get("type") == "Corner":
+#                result[f"Corners {team}"] = st.get("value")
+#            if st.get("type") == "Yellow Card":
+#                result[f"Yellow {team}"] = st.get("value")
+#            if st.get("type") == "Red Card":
+#                result[f"Red {team}"] = st.get("value")
+#    return result
 
 # ────────────────────────────────────────────────
 # TheSportsDB funciones
