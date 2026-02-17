@@ -132,15 +132,76 @@ def get_stats_corners_tarjetas(team_id):
 # ────────────────────────────────────────────────
 # PROCESAMIENTO
 # ────────────────────────────────────────────────
-def procesar_partidos(matches):
+def procesar_partidos(matches, limite_recientes=5):
     datos = []
     stats_cache = {}
-    stats_corners_cache = {}
+
+    def get_recent_stats(team_id):
+        """Obtiene últimos 'limite_recientes' partidos y calcula avg goles, BTTS, corners y cards"""
+        if team_id in stats_cache:
+            return stats_cache[team_id]
+
+        # Históricos de Football-Data
+        url = f"{BASE_URL_FD}/teams/{team_id}/matches"
+        params = {"status": "FINISHED", "limit": limite_recientes}
+        try:
+            r = requests.get(url, headers=headers_fd, params=params, timeout=10)
+            matches_hist = r.json().get("matches", [])
+        except:
+            matches_hist = []
+
+        if not matches_hist:
+            stats_cache[team_id] = {
+                "avg_goles": 0, "pct_btts": 0, "corners_avg": 0, "cards_avg": 0
+            }
+            return stats_cache[team_id]
+
+        total_goles = 0
+        btts_count = 0
+        total_corners = 0
+        total_cards = 0
+        n = 0
+
+        for m in matches_hist:
+            # Goles BTTS
+            ft = m.get("score", {}).get("fullTime", {})
+            sh = ft.get("home") or 0
+            sa = ft.get("away") or 0
+            total_goles += sh + sa
+            if sh > 0 and sa > 0:
+                btts_count += 1
+
+            # Corners y tarjetas usando API-Football
+            try:
+                # Reemplazar con endpoint real de API-Football para últimos partidos del equipo
+                stats_foot = get_stats_corners_tarjetas(team_id)
+                total_corners += stats_foot.get("corners_avg", 0)
+                total_cards += stats_foot.get("cards_avg", 0)
+            except:
+                total_corners += 0
+                total_cards += 0
+
+            n += 1
+
+        stats_cache[team_id] = {
+            "avg_goles": total_goles / n if n else 0,
+            "pct_btts": (btts_count / n) * 100 if n else 0,
+            "corners_avg": total_corners / n if n else 0,
+            "cards_avg": total_cards / n if n else 0
+        }
+        return stats_cache[team_id]
+
+    def format_plus_minus(value, threshold):
+        if round(value) == 0:
+            return "0"
+        return f"+{round(value)}" if value >= threshold else f"-{round(value)}"
+
+    threshold_corners = 10
+    threshold_cards = 3
 
     for p in matches:
         home = p["homeTeam"]
         away = p["awayTeam"]
-
         home_name = home.get("shortName") or home.get("name")
         away_name = away.get("shortName") or away.get("name")
 
@@ -150,15 +211,11 @@ def procesar_partidos(matches):
         home_id = home["id"]
         away_id = away["id"]
 
-        # Estadísticas históricas
-        if home_id not in stats_cache:
-            stats_cache[home_id] = get_stats_historicos(home_id)
-        if away_id not in stats_cache:
-            stats_cache[away_id] = get_stats_historicos(away_id)
+        # ───────── Estadísticas recientes
+        stats_home = get_recent_stats(home_id)
+        stats_away = get_recent_stats(away_id)
 
-        stats_home = stats_cache[home_id]
-        stats_away = stats_cache[away_id]
-
+        # Goles y BTTS
         avg_goles = (stats_home["avg_goles"] + stats_away["avg_goles"]) / 2
         pct_btts = (stats_home["pct_btts"] + stats_away["pct_btts"]) / 2
         confidence_score = round(avg_goles * (pct_btts / 100) * 2.5, 1)
@@ -168,24 +225,12 @@ def procesar_partidos(matches):
         top_pick = pick_btts if pct_btts > 70 else pick_over
 
         # Corners y tarjetas
-        if home_id not in stats_corners_cache:
-            stats_corners_cache[home_id] = get_stats_corners_tarjetas(home_id)
-        if away_id not in stats_corners_cache:
-            stats_corners_cache[away_id] = get_stats_corners_tarjetas(away_id)
+        corners_avg = (stats_home["corners_avg"] + stats_away["corners_avg"]) / 2
+        cards_avg = (stats_home["cards_avg"] + stats_away["cards_avg"]) / 2
+        corners_display = format_plus_minus(corners_avg, threshold_corners)
+        cards_display = format_plus_minus(cards_avg, threshold_cards)
 
-        corners_avg = (stats_corners_cache[home_id]["corners_avg"] +
-                       stats_corners_cache[away_id]["corners_avg"]) / 2
-        cards_avg = (stats_corners_cache[home_id]["cards_avg"] +
-                     stats_corners_cache[away_id]["cards_avg"]) / 2
-
-        # Convertir a + / -
-        threshold_corners = 10
-        threshold_cards = 3
-
-        corners_display = f"+{round(corners_avg)}" if corners_avg >= threshold_corners else f"-{round(corners_avg)}"
-        cards_display = f"+{round(cards_avg)}" if cards_avg >= threshold_cards else f"-{round(cards_avg)}"
-
-        # ───────── Agregar al DataFrame ─────────
+        # ───────── Agregar fila al DataFrame
         datos.append({
             "Fecha 📅": fecha,
             "Hora ⏱️": hora,
@@ -194,11 +239,12 @@ def procesar_partidos(matches):
             "O/U 2.5 ⚽": pick_over,
             "Top Pick 🔥": top_pick,
             "Score": confidence_score,
-            "Corners 🚩": corners_display,
+            "Tiros de esquina 🚩": corners_display,
             "Tarjetas 🟨🟥": cards_display
         })
 
     return pd.DataFrame(datos)
+
 
 
 # ────────────────────────────────────────────────
