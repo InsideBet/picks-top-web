@@ -18,7 +18,7 @@ LIGAS = {
 
 dias_futuros = 7  # Ampliamos para traer más de una vez y evitar rate limit
 
-@st.cache_data(ttl=600)  # Cache 10 minutos (600 segundos) para no abusar de la API
+@st.cache_data(ttl=1800)  # Cache 10 minutos (600 segundos) para no abusar de la API
 def cargar_datos():
     todos_datos = []
     for code, liga in LIGAS.items():
@@ -101,6 +101,10 @@ st.set_page_config(page_title="InsideBet - Futbol Picks", layout="wide")
 
 st.title("⚽ InsideBet - Próximos Partidos")
 st.markdown("Datos reales de football-data.org | Actualizado automáticamente")
+
+if st.button("Refrescar datos (usa la API)"):
+    st.cache_data.clear()  # Limpia cache para forzar recarga
+    st.experimental_rerun()
 
 df = cargar_datos()
 
