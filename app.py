@@ -187,23 +187,31 @@ def procesar_partidos(matches):
 # ────────────────────────────────────────────────
 # INTERFAZ
 # ────────────────────────────────────────────────
-col1, col2, col3 = st.columns([1,2,1])
-with col2:
-    st.image(logo_url, width=280)
-    if st.button(" ", key="logo_home2"):
-        st.experimental_rerun()
-    st.markdown("""
-    <p style="
-        font-family: 'Montserrat', sans-serif;
-        font-size:18px;
-        font-weight:500;
-        color:#e5e7eb;
-        text-align:center;
-        margin-top:10px;
-    ">
-       Partidos & Estadísticas
-    </p>
-    """, unsafe_allow_html=True)
+import streamlit as st
+
+logo_url = "https://i.postimg.cc/hPkSPNcT/Sin-titulo-2.png"
+
+# Mostramos el logo
+st.image(logo_url, width=280)
+
+# Creamos un botón “invisible” justo después
+if st.button(" ", key="logo_home"):
+    st.experimental_rerun()  # vuelve al inicio de la app
+
+# Subtítulo debajo
+st.markdown("""
+<p style="
+    font-family: 'Montserrat', sans-serif;
+    font-size:18px;
+    font-weight:500;
+    color:#e5e7eb;
+    text-align:center;
+    margin-top:10px;
+">
+   Partidos & Estadísticas
+</p>
+""", unsafe_allow_html=True)
+
 
 tabs = st.tabs(list(LIGAS.values()))
 
