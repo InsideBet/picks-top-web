@@ -169,6 +169,24 @@ for code, nombre in LIGAS.items():
 
     if st.session_state[f"show_{code}"]:
 
+    with st.container():
+       st.dataframe(
+        df,
+        use_container_width=True,
+        height=600,   # 👈 altura más grande = scroll interno
+        column_config={
+            "Score": st.column_config.ProgressColumn(
+                "Score",
+                help="Nivel de confianza del pick",
+                min_value=0,
+                max_value=10,
+                format="%.1f",
+            ),
+        },
+        hide_index=True
+    )
+
+
         matches, error = cargar_partidos_liga(code)
 
         if error:
