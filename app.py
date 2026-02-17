@@ -50,7 +50,7 @@ BANDERAS = {
     "CL": "https://i.postimg.cc/28pJqYLN/UEFA-Champions-League-logo.png"
 }
 
-DIAS_FUTUROS = 7
+DIAS_FUTUROS = 2
 THESPORTSDB_KEY = "123"  # Key pública TheSportsDB
 
 # ────────────────────────────────────────────────
