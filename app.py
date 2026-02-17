@@ -163,7 +163,7 @@ def procesar_partidos(matches):
 # INTERFAZ
 # ────────────────────────────────────────────────
 st.title("⚽ InsideBet")
-st.markdown("### Próximos Partidos & Picks Automáticos")
+st.markdown("### Próximos Partidos & Estadísticas")
 
 tabs = st.tabs(list(LIGAS.values()))
 
