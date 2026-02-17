@@ -189,7 +189,9 @@ def procesar_partidos(matches):
 # ────────────────────────────────────────────────
 st.markdown("""
 <div style="text-align:center; margin-top:15px; margin-bottom:20px;">
-    <img src="https://i.postimg.cc/hPkSPNcT/Sin-titulo-2.png" width="280"><br>
+    <a href="javascript:window.location.reload();">
+        <img src="https://i.postimg.cc/hPkSPNcT/Sin-titulo-2.png" width="280">
+    </a><br>
     <p style="
         font-family: 'Montserrat', sans-serif;
         font-size:18px;
@@ -201,7 +203,6 @@ st.markdown("""
     </p>
 </div>
 """, unsafe_allow_html=True)
-
 
 tabs = st.tabs(list(LIGAS.values()))
 
