@@ -22,7 +22,7 @@ LIGAS = {
 
 dias_futuros = 2
 
- Tema dark general
+Tema dark general
 st.markdown("""
 <style>
 .stApp {
