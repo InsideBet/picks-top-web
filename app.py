@@ -166,8 +166,18 @@ for code, nombre in LIGAS.items():
 
     if st.button(nombre, key=f"btn_{code}", use_container_width=True):
         st.session_state[f"show_{code}"] = not st.session_state[f"show_{code}"]
+        st.markdown(f"<div id='liga_{code}'></div>", unsafe_allow_html=True)
 
     if st.session_state[f"show_{code}"]:
+        st.markdown(
+    f"""
+    <script>
+    document.getElementById("liga_{code}").scrollIntoView({{behavior: "smooth"}});
+    </script>
+    """,
+    unsafe_allow_html=True
+)
+
 
         with st.container():
 
