@@ -168,8 +168,7 @@ for code, nombre in LIGAS.items():
         st.session_state[f"show_{code}"] = not st.session_state[f"show_{code}"]
 
     if st.session_state[f"show_{code}"]:
-
-    with st.container():
+        with st.container():
        st.dataframe(
         df,
         use_container_width=True,
