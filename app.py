@@ -150,7 +150,7 @@ def procesar_partidos(matches):
             "Score": round(score, 1)
         })
 
-        df = pd.DataFrame(datos)
+    df = pd.DataFrame(datos)
 
     # 🔥 TEST SCROLL (temporal)
     df = pd.concat([df] * 5, ignore_index=True)
@@ -205,6 +205,4 @@ for tab, (code, nombre) in zip(tabs, LIGAS.items()):
 
         else:
             st.warning("No hay partidos programados en el rango seleccionado.")
-
-            st.markdown("<br><br><br><br><br><br><br><br><br><br>", unsafe_allow_html=True)
 
