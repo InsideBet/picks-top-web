@@ -1,14 +1,15 @@
 import streamlit as st
-import streamlit.components.v1 as components
 import pandas as pd
 import requests
-from html import escape
 from datetime import datetime, timedelta
 
 # ────────────────────────────────────────────────
-# CONFIG
+# CONFIGURACIÓN
 # ────────────────────────────────────────────────
-st.set_page_config(page_title="InsideBet - Futbol Picks", layout="wide")
+st.set_page_config(
+    page_title="InsideBet - Futbol Picks",
+    layout="wide"
+)
 
 API_KEY = st.secrets["API_KEY"]
 BASE_URL = "https://api.football-data.org/v4"
@@ -21,104 +22,13 @@ LIGAS = {
 
 dias_futuros = 2
 
-# ────────────────────────────────────────────────
-# CSS
-# ────────────────────────────────────────────────
+# Tema dark general
 st.markdown("""
 <style>
-
-.table-container {
-    overflow-x: auto;
-    margin-top: 20px;
-    border-radius: 14px;
-    background: #0f172a;
-    padding: 15px;
-    box-shadow: 0 8px 30px rgba(0,0,0,0.35);
-}
-
-.custom-table {
-    border-collapse: collapse;
-    width: 100%;
-    font-size: 15px;
+.stApp {
+    background-color: #0f172a;
     color: #e5e7eb;
 }
-
-.custom-table thead th {
-    background: linear-gradient(90deg, #111827, #1f2937);
-    color: #f9fafb;
-    padding: 14px;
-    text-align: center;
-    font-weight: 600;
-    letter-spacing: 0.5px;
-    border-bottom: 2px solid #374151;
-}
-
-.custom-table td {
-    padding: 12px;
-    text-align: center;
-    border-bottom: 1px solid #1f2937;
-}
-
-.custom-table tr:hover {
-    background-color: rgba(255,255,255,0.05);
-    transition: 0.2s ease-in-out;
-}
-
-/* Badges */
-
-.badge-green {
-    background: linear-gradient(135deg, #16a34a, #22c55e);
-    color: white;
-    padding: 6px 12px;
-    border-radius: 20px;
-    font-weight: 600;
-    font-size: 13px;
-}
-
-.badge-red {
-    background: linear-gradient(135deg, #dc2626, #ef4444);
-    color: white;
-    padding: 6px 12px;
-    border-radius: 20px;
-    font-weight: 600;
-    font-size: 13px;
-}
-
-.badge-yellow {
-    background: linear-gradient(135deg, #eab308, #facc15);
-    color: #111827;
-    padding: 6px 12px;
-    border-radius: 20px;
-    font-weight: 600;
-    font-size: 13px;
-}
-
-/* Score styling */
-
-.score-high {
-    color: #22c55e;
-    font-weight: 700;
-    font-size: 16px;
-}
-
-.score-mid {
-    color: #facc15;
-    font-weight: 700;
-    font-size: 16px;
-}
-
-.score-low {
-    color: #ef4444;
-    font-weight: 700;
-    font-size: 16px;
-}
-
-/* Partido column emphasis */
-.custom-table td strong {
-    color: #ffffff;
-    font-weight: 600;
-}
-
 </style>
 """, unsafe_allow_html=True)
 
@@ -191,21 +101,26 @@ def get_stats_historicos(equipo_id, limite=5):
 
 
 # ────────────────────────────────────────────────
-# PROCESAR PARTIDOS
+# PROCESAMIENTO
 # ────────────────────────────────────────────────
 def procesar_partidos(matches):
+
     datos = []
     stats_cache = {}
 
     for p in matches:
-        home_name = p["homeTeam"].get("shortName") or p["homeTeam"].get("name")
-        away_name = p["awayTeam"].get("shortName") or p["awayTeam"].get("name")
+
+        home = p["homeTeam"]
+        away = p["awayTeam"]
+
+        home_name = home.get("shortName") or home.get("name")
+        away_name = away.get("shortName") or away.get("name")
 
         fecha = p["utcDate"][:10]
         hora = p["utcDate"][11:16]
 
-        home_id = p["homeTeam"]["id"]
-        away_id = p["awayTeam"]["id"]
+        home_id = home["id"]
+        away_id = away["id"]
 
         if home_id not in stats_cache:
             stats_cache[home_id] = get_stats_historicos(home_id)
@@ -231,14 +146,11 @@ def procesar_partidos(matches):
             "Partido": f"{home_name} vs {away_name}",
             "BTTS": f"{pick_btts} ({round(pct_btts)}%)",
             "O/U 2.5": pick_over,
-            "Top Pick": top_pick + (" 🔥" if score > 6 else ""),
+            "Top Pick": top_pick,
             "Score": round(score, 1)
         })
 
-    if datos:
-        return pd.DataFrame(datos).sort_values("Hora")
-    else:
-        return pd.DataFrame()
+    return pd.DataFrame(datos)
 
 
 # ────────────────────────────────────────────────
@@ -270,54 +182,53 @@ for code, nombre in LIGAS.items():
                 st.warning("No hay datos disponibles.")
                 continue
 
-            table_html = """
-            <div class='table-container'>
-            <table class='custom-table'>
-            <thead>
-            <tr>
-                <th>Fecha</th>
-                <th>Hora</th>
-                <th>Partido</th>
-                <th>BTTS</th>
-                <th>O/U 2.5</th>
-                <th>Top Pick</th>
-                <th>Score</th>
-            </tr>
-            </thead>
-            <tbody>
-            """
+            df = df.sort_values("Score", ascending=False)
 
-            for _, row in df.iterrows():
-
-                if row["Score"] >= 6:
-                    score_class = "score-high"
-                elif row["Score"] >= 4:
-                    score_class = "score-mid"
+            # Estilos dinámicos
+            def color_score(val):
+                if val >= 6:
+                    return "color: #22c55e; font-weight: 700;"
+                elif val >= 4:
+                    return "color: #facc15; font-weight: 700;"
                 else:
-                    score_class = "score-low"
+                    return "color: #ef4444; font-weight: 700;"
 
-                if "Over" in row["Top Pick"] or "Yes" in row["Top Pick"]:
-                    badge_class = "badge-green"
-                elif "Under" in row["Top Pick"] or "No" in row["Top Pick"]:
-                    badge_class = "badge-red"
+            def color_pick(val):
+                if "Over" in val or "Yes" in val:
+                    return "background-color: #16a34a; color: white;"
+                elif "Under" in val or "No" in val:
+                    return "background-color: #dc2626; color: white;"
                 else:
-                    badge_class = "badge-yellow"
+                    return "background-color: #eab308; color: black;"
 
-                table_html += f"""
-                <tr>
-                    <td>{escape(str(row['Fecha']))}</td>
-                    <td>{escape(str(row['Hora']))}</td>
-                    <td><strong>{escape(str(row['Partido']))}</strong></td>
-                    <td>{escape(str(row['BTTS']))}</td>
-                    <td>{escape(str(row['O/U 2.5']))}</td>
-                    <td><span class="{badge_class}">{escape(str(row['Top Pick']))}</span></td>
-                    <td class="{score_class}">⭐ {row['Score']}</td>
-                </tr>
-                """
+            styled_df = (
+                df.style
+                .applymap(color_score, subset=["Score"])
+                .applymap(color_pick, subset=["Top Pick"])
+                .set_properties(**{
+                    "background-color": "#0f172a",
+                    "color": "#e5e7eb",
+                    "text-align": "center"
+                })
+                .set_table_styles([
+                    {
+                        "selector": "th",
+                        "props": [
+                            ("background-color", "#111827"),
+                            ("color", "white"),
+                            ("font-weight", "600"),
+                            ("text-align", "center")
+                        ]
+                    }
+                ])
+            )
 
-            table_html += "</tbody></table></div>"
+            st.dataframe(
+                styled_df,
+                use_container_width=True,
+                height=500
+            )
 
-            components.html(table_html, height=520, scrolling=True)
             st.success(f"{len(df)} partidos encontrados.")
 
         else:
