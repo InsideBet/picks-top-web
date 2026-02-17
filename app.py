@@ -21,7 +21,7 @@ to_date = (datetime.now() + timedelta(days=DIAS_FUTUROS)).strftime("%Y-%m-%d")
 url = f"{BASE_URL_AF}/fixtures"
 params = {
     "league": LEAGUE_ID,
-    "season": 2026,  # ajustá si es necesario
+    "season": 2025,  # ajustá si es necesario
     "from": from_date,
     "to": to_date
 }
