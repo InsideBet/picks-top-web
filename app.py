@@ -128,7 +128,7 @@ for code, nombre in LIGAS.items():
                             .highlight_max(subset=['Score'], color='#d4edda')
                             .format(precision=1),
                     use_container_width=True,
-                    hide_index=True
+                    hide_index=True,
                     column_order=["Fecha", "Hora", "Partido", "BTTS", "O/U 2.5", "Top Pick", "Score"]
                 )
                 st.success(f"Encontrados {len(df)} partidos.")
