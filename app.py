@@ -187,9 +187,13 @@ def procesar_partidos(matches):
 # ────────────────────────────────────────────────
 # INTERFAZ
 # ────────────────────────────────────────────────
-st.image("https://i.postimg.cc/hPkSPNcT/Sin-titulo-2.png", width=300)
-st.markdown("### Partidos & Estadísticas", unsafe_allow_html=True)
-st.markdown("<br>", unsafe_allow_html=True)
+st.markdown("""
+<div style="text-align: center;">
+    <img src="https://i.postimg.cc/hPkSPNcT/Sin-titulo-2.png" width="300">
+    <h3>Partidos & Estadísticas</h3>
+</div>
+<br>
+""", unsafe_allow_html=True)
 
 tabs = st.tabs(list(LIGAS.values()))
 
