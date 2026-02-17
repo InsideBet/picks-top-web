@@ -12,24 +12,23 @@ st.set_page_config(
 )
 
 API_KEY = st.secrets["API_KEY"]
-HEADERS = {"x-apisports-key": API_KEY}
-BASE_URL = "https://v3.football.api-sports.io"
+BASE_URL = "https://api.football-data.org/v4"
+headers = {"X-Auth-Token": API_KEY}
 
-# IDs correctos de ligas API-Football
 LIGAS = {
-    2: "Champions League",
-    3: "Europa League",
-    39: "Premier League",
-    140: "La Liga",
-    135: "Serie A",
-    61: "Ligue 1",
-    78: "Bundesliga",
-    128: "Liga Argentina",
+    "CL": "UEFA Champions League",
+    "EL": "UEFA Europa League",
+    "PL": "Premier League",
+    "PD": "La Liga",
+    "SA": "Serie A",
+    "FL1": "Ligue 1",
+    "BL1": "Bundesliga",
+    "ASL": "Liga Argentina",
 }
 
 dias_futuros = 2
 
-# Tema dark
+#Tema dark general
 st.markdown("""
 <style>
 .stApp {
@@ -40,144 +39,122 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ────────────────────────────────────────────────
-# FUNCIONES API
+# API CALLS
 # ────────────────────────────────────────────────
-@st.cache_data(ttl=300)
-def cargar_partidos_liga(league_id):
-    """Cargar próximos partidos de la liga usando IDs correctos."""
-    today = datetime.utcnow().strftime('%Y-%m-%d')
-    end_date = (datetime.utcnow() + timedelta(days=dias_futuros)).strftime('%Y-%m-%d')
+@st.cache_data(ttl=3600)
+def cargar_partidos_liga(code):
+    today = datetime.now().strftime('%Y-%m-%d')
+    end_date = (datetime.now() + timedelta(days=dias_futuros)).strftime('%Y-%m-%d')
 
-    url = f"{BASE_URL}/fixtures"
+    url = f"{BASE_URL}/competitions/{code}/matches"
     params = {
-        "league": league_id,
-        "season": datetime.now().year,
-        "from": today,
-        "to": end_date,
-        "status": "NS,TBD,1H,2H,FT"  # Todos los estados
+        "dateFrom": today,
+        "dateTo": end_date,
+        "status": "SCHEDULED"
     }
 
     try:
-        r = requests.get(url, headers=HEADERS, params=params, timeout=10)
-        data = r.json().get("response", [])
-        return data, None
+        r = requests.get(url, headers=headers, params=params, timeout=10)
+
+        if r.status_code == 429:
+            return [], "Rate limit alcanzado. Esperá 60 segundos."
+
+        if r.status_code != 200:
+            return [], f"Error {r.status_code}"
+
+        return r.json().get("matches", []), None
+
     except Exception as e:
-        return [], f"Error conexión: {e}"
+        return [], f"Error conexión: {str(e)}"
 
 
 @st.cache_data(ttl=3600)
-def get_stats_team(team_id, league_id):
-    """Devuelve estadísticas históricas reales de un equipo."""
-    url = f"{BASE_URL}/teams/statistics"
-    params = {"team": team_id, "league": league_id, "season": datetime.now().year}
+def get_stats_historicos(equipo_id, limite=5):
+    url = f"{BASE_URL}/teams/{equipo_id}/matches"
+    params = {"status": "FINISHED", "limit": limite}
+
     try:
-        r = requests.get(url, headers=HEADERS, params=params, timeout=10)
-        data = r.json().get("response", {})
+        r = requests.get(url, headers=headers, params=params, timeout=10)
 
-        # Evitar división por cero
-        played_home = max(1, data['fixtures']['played']['total']['home'])
-        played_away = max(1, data['fixtures']['played']['total']['away'])
-        total_played = played_home + played_away
+        if r.status_code != 200:
+            return {"avg_goles": 0, "pct_btts": 0}
 
-        # Goles promedio
-        goals_for = data['fixtures']['goals']['for']['total']['home'] + data['fixtures']['goals']['for']['total']['away']
-        goals_against = data['fixtures']['goals']['against']['total']['home'] + data['fixtures']['goals']['against']['total']['away']
-        avg_goals = (goals_for + goals_against) / total_played
+        matches = r.json().get("matches", [])
+        if not matches:
+            return {"avg_goles": 0, "pct_btts": 0}
 
-        # BTTS %
-        pct_btts = data.get("fixtures", {}).get("goals", {}).get("bothTeamsToScore", {}).get("total", 0)
+        total_goles = 0
+        btts_count = 0
 
-        # Corners promedio
-        corners_total = data.get("fixtures", {}).get("corners", {}).get("total", {}).get("home", 0) + \
-                        data.get("fixtures", {}).get("corners", {}).get("total", {}).get("away", 0)
-        avg_corners = corners_total / total_played
+        for m in matches:
+            full_time = m.get("score", {}).get("fullTime", {})
+            sh = full_time.get("home") or 0
+            sa = full_time.get("away") or 0
 
-        # Tarjetas promedio
-        cards_total = data.get("fixtures", {}).get("cards", {}).get("total", {}).get("home", 0) + \
-                      data.get("fixtures", {}).get("cards", {}).get("total", {}).get("away", 0)
-        avg_cards = cards_total / total_played
+            total_goles += sh + sa
+            if sh > 0 and sa > 0:
+                btts_count += 1
 
-        return {"avg_goals": avg_goals, "pct_btts": pct_btts,
-                "corners_avg": avg_corners, "cards_avg": avg_cards}
+        n = len(matches)
 
-    except Exception as e:
-        print("Error stats team:", e)
-        return {"avg_goals": 0, "pct_btts": 0, "corners_avg": 0, "cards_avg": 0}
+        return {
+            "avg_goles": total_goles / n if n else 0,
+            "pct_btts": (btts_count / n) * 100 if n else 0
+        }
+
+    except Exception:
+        return {"avg_goles": 0, "pct_btts": 0}
+
 
 # ────────────────────────────────────────────────
 # PROCESAMIENTO
 # ────────────────────────────────────────────────
-def procesar_partidos(matches, league_id):
+def procesar_partidos(matches):
+
     datos = []
     stats_cache = {}
 
-    def format_pm(value, threshold):
-        if round(value) == 0:
-            return "0"
-        return f"+{round(value)}" if value >= threshold else f"-{round(value)}"
-
-    threshold_corners = 10
-    threshold_cards = 3
-
     for p in matches:
-        fixture = p['fixture']
-        home = p['teams']['home']
-        away = p['teams']['away']
-        home_id = home['id']
-        away_id = away['id']
-        home_name = home['name']
-        away_name = away['name']
+        home = p["homeTeam"]
+        away = p["awayTeam"]
 
-        fecha = fixture['date'][:10]
-        hora = fixture['date'][11:16]
+        home_name = home.get("shortName") or home.get("name")
+        away_name = away.get("shortName") or away.get("name")
 
-        # Estado
-        estado_short = fixture['status']['short']
-        if estado_short in ["NS", "TBD"]:
-            estado_display = "Por empezar"
-        elif estado_short in ["1H", "2H"]:
-            estado_display = "En Vivo"
-        elif estado_short == "FT":
-            estado_display = "Finalizado"
-        else:
-            estado_display = estado_short
+        fecha = p["utcDate"][:10]
+        hora = p["utcDate"][11:16]
 
-        # Stats home/away
+        home_id = home["id"]
+        away_id = away["id"]
+
+        # Obtener estadísticas históricas
         if home_id not in stats_cache:
-            stats_cache[home_id] = get_stats_team(home_id, league_id)
+            stats_cache[home_id] = get_stats_historicos(home_id)
         if away_id not in stats_cache:
-            stats_cache[away_id] = get_stats_team(away_id, league_id)
+            stats_cache[away_id] = get_stats_historicos(away_id)
 
-        sh = stats_cache[home_id]
-        sa = stats_cache[away_id]
+        stats_home = stats_cache[home_id]
+        stats_away = stats_cache[away_id]
 
-        # Promedios combinados
-        avg_goles = (sh['avg_goals'] + sa['avg_goals']) / 2
-        pct_btts = (sh['pct_btts'] + sa['pct_btts']) / 2
-        confidence = round(avg_goles * (pct_btts / 100) * 2.5, 1)
+        avg_goles = (stats_home["avg_goles"] + stats_away["avg_goles"]) / 2
+        pct_btts = (stats_home["pct_btts"] + stats_away["pct_btts"]) / 2
+
+        # Nivel de confianza
+        score = round(avg_goles * (pct_btts / 100) * 2.5, 1)
 
         # Picks
         pick_btts = "Yes" if pct_btts > 65 else "No"
         pick_over = "Over 2.5" if avg_goles > 2.5 else "Under 2.5"
         top_pick = pick_btts if pct_btts > 70 else pick_over
 
-        # Corners y tarjetas
-        avg_corners = (sh['corners_avg'] + sa['corners_avg']) / 2
-        avg_cards = (sh['cards_avg'] + sa['cards_avg']) / 2
-        corners_display = format_pm(avg_corners, threshold_corners)
-        cards_display = format_pm(avg_cards, threshold_cards)
-
         datos.append({
             "Fecha 📅": fecha,
             "Hora ⏱️": hora,
             "Partido 🆚": f"{home_name} vs {away_name}",
-            "Estado 🕒": estado_display,
             "BTTS ⚽": f"{pick_btts} ({round(pct_btts)}%)",
             "O/U 2.5 ⚽": pick_over,
             "Top Pick 🔥": top_pick,
-            "Score": confidence,
-            "Corners 🚩": corners_display,
-            "Tarjetas 🟨🟥": cards_display
+            "Score": score
         })
 
     return pd.DataFrame(datos)
@@ -190,17 +167,25 @@ st.markdown("### Próximos Partidos & Estadísticas")
 
 tabs = st.tabs(list(LIGAS.values()))
 
-for tab, (league_id, league_name) in zip(tabs, LIGAS.items()):
+for tab, (code, nombre) in zip(tabs, LIGAS.items()):
+
     with tab:
-        matches, error = cargar_partidos_liga(league_id)
+
+        matches, error = cargar_partidos_liga(code)
+
         if error:
             st.error(error)
+
         elif matches:
-            df = procesar_partidos(matches, league_id)
+
+            df = procesar_partidos(matches)
+
             if df.empty:
                 st.warning("No hay datos disponibles.")
             else:
+
                 df = df.sort_values("Score", ascending=False)
+
                 st.dataframe(
                     df,
                     use_container_width=True,
@@ -216,6 +201,9 @@ for tab, (league_id, league_name) in zip(tabs, LIGAS.items()):
                     },
                     hide_index=True
                 )
+
                 st.success(f"{len(df)} partidos encontrados.")
+
         else:
             st.warning("No hay partidos programados en el rango seleccionado.")
+
