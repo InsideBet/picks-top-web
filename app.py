@@ -3,26 +3,18 @@ import pandas as pd
 import requests
 from datetime import datetime, timedelta
 
-# ────────────────────────────────────────────────
-# CONFIGURACIÓN
-# ────────────────────────────────────────────────
-API_KEY = "19f74cf44a5449c29d2b3000848bdfa8"  # Pegá tu key real
+API_KEY = "19f74cf44a5449c29d2b3000848bdfa8"
 BASE_URL = "https://api.football-data.org/v4"
 headers = {"X-Auth-Token": API_KEY}
 
-# Ligas con sus códigos y nombres amigables
 LIGAS = {
-    "PL": "Premier League",
-    "CL": "UEFA Champions League",
-    "PD": "La Liga",
-    "BL1": "Bundesliga",
-    "SA": "Serie A",
-    # Agregá más cuando quieras: "FL1": "Ligue 1", etc.
+    "CL": "UEFA Champions League",  # Solo esta por ahora para evitar 429
+    # "PL": "Premier League",  # Descomenta cuando pase el límite
 }
 
-dias_futuros = 7  # Próxima semana para traer más datos
+dias_futuros = 7
 
-@st.cache_data(ttl=1800)  # Cache 30 min para evitar rate limit
+@st.cache_data(ttl=3600)  # Cache 1 hora
 def cargar_partidos_liga(code):
     today = datetime.now().strftime('%Y-%m-%d')
     end_date = (datetime.now() + timedelta(days=dias_futuros)).strftime('%Y-%m-%d')
@@ -30,12 +22,13 @@ def cargar_partidos_liga(code):
     params = {"dateFrom": today, "dateTo": end_date, "status": "SCHEDULED"}
     try:
         r = requests.get(url, headers=headers, params=params, timeout=10)
+        if r.status_code == 429:
+            return [], "Rate limit (esperá 60 segundos)"
         if r.status_code != 200:
-            return pd.DataFrame(), f"Error en API ({r.status_code})"
-        matches = r.json().get('matches', [])
-        return matches, None
+            return [], f"Error {r.status_code}: {r.text}"
+        return r.json().get('matches', []), None
     except Exception as e:
-        return pd.DataFrame(), str(e)
+        return [], str(e)
 
 def procesar_partidos(matches, liga_nombre):
     datos = []
@@ -45,7 +38,6 @@ def procesar_partidos(matches, liga_nombre):
         home_name = p['homeTeam']['shortName'] or p['homeTeam']['name']
         away_name = p['awayTeam']['shortName'] or p['awayTeam']['name']
 
-        # Stats históricos (simplificado)
         stats_home = get_stats_historicos(home_id)
         stats_away = get_stats_historicos(away_id)
 
@@ -101,27 +93,26 @@ def get_stats_historicos(equipo_id, limite=5):
 st.set_page_config(page_title="InsideBet - Futbol Picks", layout="wide")
 
 st.title("⚽ InsideBet - Próximos Partidos")
-st.markdown("Selecciona una liga para ver los partidos y picks")
+st.markdown("Selecciona una competencia para ver los partidos y picks")
 
-# Botones para cada liga
-cols = st.columns(min(3, len(LIGAS)))  # Columnas para botones (máx 3 por fila)
-for i, (code, nombre) in enumerate(LIGAS.items()):
-    with cols[i % len(cols)]:
-        if st.button(nombre, key=f"btn_{code}", use_container_width=True):
-            with st.spinner(f"Cargando partidos de {nombre}..."):
-                matches, error = cargar_partidos_liga(code)
-                if error:
-                    st.error(error)
-                elif matches:
-                    df = procesar_partidos(matches, nombre)
-                    st.subheader(f"Partidos en {nombre}")
-                    st.dataframe(
-                        df.style.set_properties(**{'text-align': 'center'})
-                                .highlight_max(subset=['Score'], color='#d4edda')
-                                .format(precision=1),
-                        use_container_width=True,
-                        hide_index=True
-                    )
-                    st.success(f"Encontrados {len(df)} partidos.")
-                else:
-                    st.warning("No hay partidos programados en el rango para esta liga.")
+for code, nombre in LIGAS.items():
+    if st.button(nombre, key=f"btn_{code}", use_container_width=True):
+        with st.spinner(f"Cargando {nombre}..."):
+            matches, error = cargar_partidos_liga(code)
+            if error:
+                st.error(error)
+                if "429" in error or "limit" in error:
+                    st.warning("Límite de API alcanzado. Esperá 1 minuto y volvé a hacer clic.")
+            elif matches:
+                df = procesar_partidos(matches, nombre)
+                st.subheader(f"Partidos en {nombre}")
+                st.dataframe(
+                    df.style.set_properties(**{'text-align': 'center'})
+                            .highlight_max(subset=['Score'], color='#d4edda')
+                            .format(precision=1),
+                    use_container_width=True,
+                    hide_index=True
+                )
+                st.success(f"Encontrados {len(df)} partidos.")
+            else:
+                st.warning("No hay partidos programados en el rango para esta competencia.")
