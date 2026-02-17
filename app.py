@@ -162,7 +162,7 @@ for p in matches:
         "Confianza": confidence_score
     })
 
-return pd.DataFrame(datos)
+ return pd.DataFrame(datos)
 
 
 # ────────────────────────────────────────────────
