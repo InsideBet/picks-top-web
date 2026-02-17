@@ -32,14 +32,19 @@ def cargar_partidos_liga(code):
 
 def procesar_partidos(matches, liga_nombre):
     datos = []
-    vistos = set()  # Para evitar duplicados locales
+    vistos = set()  # Set para claves únicas
+
     for p in matches:
         home_name = p['homeTeam']['shortName'] or p['homeTeam']['name']
         away_name = p['awayTeam']['shortName'] or p['awayTeam']['name']
-        partido_key = f"{home_name}-{away_name}-{p['utcDate']}"  # Clave única
+        hora = p['utcDate'][11:16]
+        fecha = p['utcDate'][:10]
+
+        # Clave única: equipos + fecha + hora (evita duplicados)
+        partido_key = f"{home_name}-{away_name}-{fecha}-{hora}"
 
         if partido_key in vistos:
-            continue  # Salta si ya se procesó
+            continue  # Salta si ya lo procesamos
         vistos.add(partido_key)
 
         home_id = p['homeTeam']['id']
@@ -58,7 +63,7 @@ def procesar_partidos(matches, liga_nombre):
 
         datos.append({
             "Liga": liga_nombre,
-            "Hora": p['utcDate'][11:16],
+            "Hora": hora,
             "Partido": f"{home_name} vs {away_name}",
             "BTTS": f"{pick_btts} ({round(pct_btts)}%)",
             "O/U 2.5": pick_over,
@@ -67,6 +72,8 @@ def procesar_partidos(matches, liga_nombre):
         })
 
     df = pd.DataFrame(datos)
+    # Doble seguridad: eliminar duplicados por columnas clave
+    df = df.drop_duplicates(subset=['Partido', 'Hora', 'Liga'])
     return df.sort_values("Hora") if not df.empty else pd.DataFrame()
 
 def get_stats_historicos(equipo_id, limite=5):
