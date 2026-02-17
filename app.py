@@ -159,61 +159,45 @@ def procesar_partidos(matches):
 st.title("⚽ InsideBet")
 st.markdown("### Próximos Partidos & Picks Automáticos")
 
-for code, nombre in LIGAS.items():
+tabs = st.tabs(list(LIGAS.values()))
 
-    if f"show_{code}" not in st.session_state:
-        st.session_state[f"show_{code}"] = False
+for tab, (code, nombre) in zip(tabs, LIGAS.items()):
 
-    if st.button(nombre, key=f"btn_{code}", use_container_width=True):
-        st.session_state[f"show_{code}"] = not st.session_state[f"show_{code}"]
-        st.markdown(f"<div id='liga_{code}'></div>", unsafe_allow_html=True)
+    with tab:
 
-    if st.session_state[f"show_{code}"]:
-        st.markdown(
-    f"""
-    <script>
-    document.getElementById("liga_{code}").scrollIntoView({{behavior: "smooth"}});
-    </script>
-    """,
-    unsafe_allow_html=True
-)
+        matches, error = cargar_partidos_liga(code)
 
+        if error:
+            st.error(error)
 
-        with st.container():
+        elif matches:
 
-            matches, error = cargar_partidos_liga(code)
+            df = procesar_partidos(matches)
 
-            if error:
-                st.error(error)
-
-            elif matches:
-
-                df = procesar_partidos(matches)
-
-                if df.empty:
-                    st.warning("No hay datos disponibles.")
-
-                else:
-
-                    df = df.sort_values("Score", ascending=False)
-
-                    st.dataframe(
-                        df,
-                        use_container_width=True,
-                        height=600,
-                        column_config={
-                            "Score": st.column_config.ProgressColumn(
-                                "Score",
-                                help="Nivel de confianza del pick",
-                                min_value=0,
-                                max_value=10,
-                                format="%.1f",
-                            ),
-                        },
-                        hide_index=True
-                    )
-
-                    st.success(f"{len(df)} partidos encontrados.")
-
+            if df.empty:
+                st.warning("No hay datos disponibles.")
             else:
-                st.warning("No hay partidos programados en el rango seleccionado.")
+
+                df = df.sort_values("Score", ascending=False)
+
+                st.dataframe(
+                    df,
+                    use_container_width=True,
+                    height=600,
+                    column_config={
+                        "Score": st.column_config.ProgressColumn(
+                            "Score",
+                            help="Nivel de confianza del pick",
+                            min_value=0,
+                            max_value=10,
+                            format="%.1f",
+                        ),
+                    },
+                    hide_index=True
+                )
+
+                st.success(f"{len(df)} partidos encontrados.")
+
+        else:
+            st.warning("No hay partidos programados en el rango seleccionado.")
+
