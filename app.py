@@ -89,7 +89,7 @@ st.markdown("""
 def cargar_fixtures_af(league_id):
     """Trae fixtures próximos de la API-Football"""
     from_date = datetime.now().strftime("%Y-%m-%d")
-    to_date = (datetime.now() + timedelta(days=7)).strftime("%Y-%m-%d")
+    to_date = (datetime.now() + timedelta(days=DIAS_FUTUROS)).strftime("%Y-%m-%d")
 
     url = f"{BASE_URL_AF}/fixtures"
     params = {
