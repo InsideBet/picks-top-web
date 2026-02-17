@@ -201,5 +201,5 @@ for tab, (code, nombre) in zip(tabs, LIGAS.items()):
         else:
             st.warning("No hay partidos programados en el rango seleccionado.")
 
-st.markdown("<br><br><br><br><br><br><br><br><br><br>", unsafe_allow_html=True)
+            st.markdown("<br><br><br><br><br><br><br><br><br><br>", unsafe_allow_html=True)
 
