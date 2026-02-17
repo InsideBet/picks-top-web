@@ -49,7 +49,7 @@ BANDERAS = {
     "DED": "https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Flag_of_the_Netherlands.svg/1280px-Flag_of_the_Netherlands.svg.png",  # :contentReference[oaicite:7]{index=7}
 
     # Champions League — logo UEFA
-    "CL": "https://i.postimg.cc/HWvRT5dY/UEFA-Champions-League-logo.png"
+    "CL": "https://i.postimg.cc/28pJqYLN/UEFA-Champions-League-logo.png"
 }
 
 dias_futuros = 2
