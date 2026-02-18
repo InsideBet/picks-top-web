@@ -2,6 +2,8 @@ import streamlit as st
 import pandas as pd
 import requests
 from datetime import datetime, timedelta
+import os
+from pathlib import Path
 
 # ────────────────────────────────────────────────
 # CONFIGURACIÓN
@@ -12,7 +14,7 @@ st.set_page_config(
 )
 
 # API Football
-API_KEY_AF = st.secrets["API_KEY_AF"]  # Tu key de API-Football
+API_KEY_AF = st.secrets["API_KEY_AF"] # Tu key de API-Football
 BASE_URL_AF = "https://v3.football.api-sports.io"
 HEADERS_AF = {"x-apisports-key": API_KEY_AF}
 
@@ -27,7 +29,6 @@ LIGAS = {
     "PPL": "Primeira Liga",
     "DED": "Eredivisie",
 }
-
 LIGAS_AF_ID = {
     "CL": 2,
     "PL": 39,
@@ -38,7 +39,6 @@ LIGAS_AF_ID = {
     "PPL": 94,
     "DED": 88,
 }
-
 BANDERAS = {
     "PL": "https://i.postimg.cc/7PcwYbk1/1.png",
     "PD": "https://i.postimg.cc/75d5mMQ2/8.png",
@@ -49,7 +49,6 @@ BANDERAS = {
     "DED": "https://i.postimg.cc/tnkbwpqv/6.png",
     "CL": "https://i.postimg.cc/zb1V1DNy/7.png"
 }
-
 DIAS_FUTUROS = 2
 
 # ────────────────────────────────────────────────
@@ -63,7 +62,6 @@ st.markdown("""
 }
 </style>
 """, unsafe_allow_html=True)
-
 st.markdown("""
 <div style="text-align:center; margin-top:15px; margin-bottom:20px;">
     <img src="https://i.postimg.cc/hPkSPNcT/Sin-titulo-2.png" width="280"><br>
@@ -195,52 +193,169 @@ def procesar_fixtures(fixtures):
     return pd.DataFrame(datos)
 
 # ────────────────────────────────────────────────
+# RUTAS PARA GITHUB / STREAMLIT CLOUD (archivos subidos manualmente)
+# ────────────────────────────────────────────────
+RUTA_DATOS_FBREF = "datos_fbref"                     # carpeta en la raíz del repo
+RUTA_EQUIPOS_FBREF = os.path.join(RUTA_DATOS_FBREF, "Ligas_Equipos")
+
+@st.cache_data(ttl=1800)
+def cargar_resumen_fbref():
+    ruta = os.path.join(RUTA_DATOS_FBREF, "RESUMEN_STATS_Premier_League.xlsx")
+    if not os.path.exists(ruta):
+        return None, f"No se encontró {ruta} en el repositorio. Subilo manualmente a GitHub."
+    try:
+        return pd.read_excel(ruta), None
+    except Exception as e:
+        return None, f"Error al leer resumen: {str(e)}"
+
+@st.cache_data(ttl=1800)
+def cargar_cartelera_fbref():
+    ruta = os.path.join(RUTA_DATOS_FBREF, "CARTELERA_PROXIMOS_Premier_League.xlsx")
+    if not os.path.exists(ruta):
+        return None, f"No se encontró {ruta} en el repositorio. Subilo manualmente."
+    try:
+        return pd.read_excel(ruta), None
+    except Exception as e:
+        return None, f"Error al leer cartelera: {str(e)}"
+
+@st.cache_data(ttl=1800)
+def listar_equipos_fbref():
+    if not os.path.exists(RUTA_EQUIPOS_FBREF):
+        return []
+    return [
+        f.replace('.xlsx', '').replace('_', ' ')
+        for f in os.listdir(RUTA_EQUIPOS_FBREF)
+        if f.endswith('.xlsx')
+    ]
+
+@st.cache_data(ttl=1800)
+def cargar_excel_equipo_fbref(nombre_equipo):
+    nombre_archivo = nombre_equipo.replace(' ', '_') + '.xlsx'
+    ruta = os.path.join(RUTA_EQUIPOS_FBREF, nombre_archivo)
+    if not os.path.exists(ruta):
+        return None, f"No se encontró {nombre_archivo} en datos_fbref/Ligas_Equipos"
+    try:
+        excel = pd.ExcelFile(ruta)
+        datos = {}
+        for sheet in excel.sheet_names:
+            datos[sheet] = excel.parse(sheet)
+        return datos, None
+    except Exception as e:
+        return None, f"Error al leer {nombre_equipo}: {str(e)}"
+
+# ────────────────────────────────────────────────
 # INTERFAZ STREAMLIT
 # ────────────────────────────────────────────────
-tab_objects = st.tabs(list(LIGAS.values()))  # crea los tabs
-
+tab_objects = st.tabs(list(LIGAS.values())) # crea los tabs
 for i, (code, nombre) in enumerate(LIGAS.items()):
-    with tab_objects[i]:  # usamos el índice para acceder al tab correcto
+    with tab_objects[i]: # usamos el índice para acceder al tab correcto
         st.markdown(f"""
         <div style="display:flex; align-items:center; color:#e5e7eb; font-size:22px; font-weight:500; margin-bottom:10px;">
             <img src="{BANDERAS[code]}" width="30" style="vertical-align:middle; margin-right:10px;">
             <span>{nombre}</span>
         </div>
         """, unsafe_allow_html=True)
+        
+        if code == "PL":
+            # ── Sección combinada: API-Football + FBRef ──
+            col1, col2 = st.columns([3, 2])
 
-        # Traer fixtures API-Football
-        fixtures_af, error_af = cargar_fixtures_af(LIGAS_AF_ID[code])
-        if error_af:
-            st.error(f"API-Football: {error_af}")
+            with col1:
+                st.subheader("Próximos Partidos (API-Football)")
+                fixtures_af, error_af = cargar_fixtures_af(LIGAS_AF_ID[code])
+                if error_af:
+                    st.error(f"API-Football: {error_af}")
+                df_af = procesar_fixtures(fixtures_af) if fixtures_af else pd.DataFrame()
+                if "Score" not in df_af.columns:
+                    df_af["Score"] = 0
+                df_af = df_af.sort_values("Score", ascending=False)
+                if df_af.empty:
+                    st.warning("No hay partidos programados en el rango seleccionado.")
+                else:
+                    st.dataframe(
+                        df_af,
+                        use_container_width=True,
+                        height=600,
+                        hide_index=True,
+                        column_config={
+                            "Score": st.column_config.ProgressColumn(
+                                "Score",
+                                help="Nivel de confianza del pick",
+                                min_value=0,
+                                max_value=10,
+                                format="%.1f"
+                            ),
+                        }
+                    )
+                    st.success(f"{len(df_af)} partidos encontrados.")
 
-        df_af = procesar_fixtures(fixtures_af) if fixtures_af else pd.DataFrame()
+            with col2:
+                st.subheader("Datos FBRef (scrapeados)")
+                if st.button("🔄 Recargar / Verificar FBRef", key="reload_fbref"):
+                    st.rerun()  # simple refresh
 
-        # Solo API-Football
-        df = df_af
+                # Debug temporal (podés quitar después de probar)
+                st.caption(f"Directorio actual: {os.getcwd()}")
+                st.caption(f"¿Existe 'datos_fbref'? {os.path.exists('datos_fbref')}")
+                if os.path.exists('datos_fbref'):
+                    st.caption(f"Contenido de datos_fbref: {os.listdir('datos_fbref')}")
 
-        # Asegurarnos de que Score exista
-        if "Score" not in df.columns:
-            df["Score"] = 0
+                df_resumen, err_res = cargar_resumen_fbref()
+                if df_resumen is not None:
+                    st.caption("Estadísticas generales de equipos (xG, posesión, etc.)")
+                    st.dataframe(df_resumen.head(10), use_container_width=True, hide_index=True)
+                else:
+                    st.info(err_res or "Resumen FBRef no encontrado – subilo a /datos_fbref/")
 
-        # Ordenar por Score
-        df = df.sort_values("Score", ascending=False)
+                df_cart, err_cart = cargar_cartelera_fbref()
+                if df_cart is not None and not df_cart.empty:
+                    st.caption("Próximos partidos según FBRef")
+                    st.dataframe(df_cart.head(8), use_container_width=True, hide_index=True)
+                else:
+                    st.info(err_cart or "Cartelera FBRef no encontrada")
 
-        if df.empty:
-            st.warning("No hay partidos programados en el rango seleccionado.")
+            # Selector de equipo (abajo)
+            st.markdown("---")
+            st.subheader("Estadísticas por equipo (FBRef)")
+            equipos = listar_equipos_fbref()
+            if equipos:
+                equipo_sel = st.selectbox("Elige equipo", ["-- Selecciona --"] + sorted(equipos))
+                if equipo_sel != "-- Selecciona --":
+                    datos_eq, err_eq = cargar_excel_equipo_fbref(equipo_sel)
+                    if datos_eq:
+                        for sheet, df_sheet in datos_eq.items():
+                            st.caption(f"{equipo_sel} → {sheet}")
+                            st.dataframe(df_sheet, use_container_width=True, hide_index=True)
+                    else:
+                        st.error(err_eq)
+            else:
+                st.info("No hay Excels por equipo en /datos_fbref/Ligas_Equipos – subilos manualmente")
+
         else:
-            st.dataframe(
-                df,
-                use_container_width=True,
-                height=600,
-                hide_index=True,
-                column_config={
-                    "Score": st.column_config.ProgressColumn(
-                        "Score",
-                        help="Nivel de confianza del pick",
-                        min_value=0,
-                        max_value=10,
-                        format="%.1f"
-                    ),
-                }
-            )
-            st.success(f"{len(df)} partidos encontrados.")
+            # Lógica original para otras ligas
+            fixtures_af, error_af = cargar_fixtures_af(LIGAS_AF_ID[code])
+            if error_af:
+                st.error(f"API-Football: {error_af}")
+            df_af = procesar_fixtures(fixtures_af) if fixtures_af else pd.DataFrame()
+            if "Score" not in df_af.columns:
+                df_af["Score"] = 0
+            df_af = df_af.sort_values("Score", ascending=False)
+            if df_af.empty:
+                st.warning("No hay partidos programados en el rango seleccionado.")
+            else:
+                st.dataframe(
+                    df_af,
+                    use_container_width=True,
+                    height=600,
+                    hide_index=True,
+                    column_config={
+                        "Score": st.column_config.ProgressColumn(
+                            "Score",
+                            help="Nivel de confianza del pick",
+                            min_value=0,
+                            max_value=10,
+                            format="%.1f"
+                        ),
+                    }
+                )
+                st.success(f"{len(df_af)} partidos encontrados.")
