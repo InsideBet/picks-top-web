@@ -51,7 +51,6 @@ BANDERAS = {
 }
 
 DIAS_FUTUROS = 2
-THESPORTSDB_KEY = "123"  # Key pública TheSportsDB
 
 # ────────────────────────────────────────────────
 # ESTILO STREAMLIT
@@ -148,35 +147,7 @@ def get_statistics_af(fixture_id):
                 result[f"Red {team}"] = st.get("value")
     return result
 
-# ────────────────────────────────────────────────
-# TheSportsDB funciones
-# ────────────────────────────────────────────────
-@st.cache_data(ttl=3600)
-def cargar_fixtures_tsdb(liga_nombre):
-    """Trae fixtures próximos de TheSportsDB"""
-    url_teams = f"https://www.thesportsdb.com/api/v1/json/{THESPORTSDB_KEY}/search_all_teams.php"
-    params = {"l": liga_nombre}
-    r = requests.get(url_teams, params=params, timeout=10)
-    if r.status_code != 200:
-        return [], f"Error TSDB {r.status_code}"
-    teams = r.json().get("teams")
-    if not teams:
-        return [], "No se encontraron equipos en TSDB"
-    fixtures = []
-    for team in teams:
-        team_id = team.get("idTeam")
-        if not team_id:
-            continue
-        url_events = f"https://www.thesportsdb.com/api/v1/json/{THESPORTSDB_KEY}/eventsnext.php"
-        r2 = requests.get(url_events, params={"id": team_id}, timeout=10)
-        if r2.status_code != 200:
-            continue
-        events = r2.json().get("events")
-        if events:
-            fixtures.extend(events)
-    return fixtures, None
-
-def procesar_fixtures_af(fixtures):
+def procesar_fixtures(fixtures):
     """Convierte fixtures API-Football a DataFrame"""
     datos = []
     for f in fixtures:
@@ -223,42 +194,8 @@ def procesar_fixtures_af(fixtures):
         })
     return pd.DataFrame(datos)
 
-def procesar_fixtures_tsdb(fixtures):
-    """Convierte fixtures TSDB a DataFrame"""
-    datos = []
-    for f in fixtures:
-        home = f.get("strHomeTeam")
-        away = f.get("strAwayTeam")
-        fecha = f.get("dateEvent") or "N/A"
-        hora = f.get("strTime") or "N/A"
-        pct_btts = 50
-        avg_goles = 2
-        score = round(avg_goles * (pct_btts/100) * 2.5,1)
-        pick_btts = "Yes" if pct_btts > 65 else "No"
-        pick_over = "Over 2.5" if avg_goles > 2.5 else "Under 2.5"
-        top_pick = pick_btts if pct_btts > 70 else pick_over
-        datos.append({
-            "Fecha 📅": fecha,
-            "Hora ⏱️": hora,
-            "Partido 🆚": f"{home} vs {away}",
-            "1X2 Odds": "N/A",
-            "O/U 2.5 Odds": "N/A",
-            "BTTS Odds": "N/A",
-            "Corners Home": "N/A",
-            "Corners Away": "N/A",
-            "Yellow Home": "N/A",
-            "Yellow Away": "N/A",
-            "Red Home": "N/A",
-            "Red Away": "N/A",
-            "BTTS ⚽": pick_btts,
-            "O/U 2.5 ⚽": pick_over,
-            "Top Pick 🔥": top_pick,
-            "Score": score
-        })
-    return pd.DataFrame(datos)
-
 # ────────────────────────────────────────────────
-# INTERFAZ STREAMLIT SEGURA
+# INTERFAZ STREAMLIT
 # ────────────────────────────────────────────────
 tab_objects = st.tabs(list(LIGAS.values()))  # crea los tabs
 
@@ -278,24 +215,8 @@ for i, (code, nombre) in enumerate(LIGAS.items()):
 
         df_af = procesar_fixtures(fixtures_af) if fixtures_af else pd.DataFrame()
 
-        # Aquí podrías agregar TheSportsDB si querés combinar
-        # Ejemplo (opcional):
-        # fixtures_tsdb, error_tsdb = cargar_fixtures_tsdb(LIGAS_TSDB[code])
-        # df_tsdb = procesar_tsdb(fixtures_tsdb) if fixtures_tsdb else pd.DataFrame()
-
-        # Para probar solo API-Football:
-        df_tsdb = pd.DataFrame()  
-
-        # Concatenar de manera segura
-        if df_af.empty and df_tsdb.empty:
-            df = pd.DataFrame(columns=[
-                "Fecha 📅","Hora ⏱️","Partido 🆚","1X2 Odds","O/U 2.5 Odds","BTTS Odds",
-                "Corners Home","Corners Away","Yellow Home","Yellow Away",
-                "Red Home","Red Away","BTTS ⚽","O/U 2.5 ⚽","Top Pick 🔥","Score"
-            ])
-        else:
-            df = pd.concat([df_af, df_tsdb], ignore_index=True)
-            df.drop_duplicates(subset=["Fecha 📅","Partido 🆚"], inplace=True)
+        # Solo API-Football
+        df = df_af
 
         # Asegurarnos de que Score exista
         if "Score" not in df.columns:
@@ -323,4 +244,3 @@ for i, (code, nombre) in enumerate(LIGAS.items()):
                 }
             )
             st.success(f"{len(df)} partidos encontrados.")
-
