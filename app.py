@@ -34,6 +34,18 @@ BANDERAS = {
     "CL": "https://i.postimg.cc/zb1V1DNy/7.png"
 }
 
+# Map nombres exactos TSDB
+LIGAS_TSDB_NAME = {
+    "PL": "English Premier League",
+    "PD": "Spanish La Liga",
+    "SA": "Italian Serie A",
+    "FL1": "French Ligue 1",
+    "BL1": "German Bundesliga",
+    "PPL": "Portuguese Primeira Liga",
+    "DED": "Dutch Eredivisie",
+    "CL": "UEFA Champions League"
+}
+
 DIAS_FUTUROS = 7
 THESPORTSDB_KEY = "123"  # Key pública TSDB
 
@@ -70,6 +82,7 @@ st.markdown("""
 @st.cache_data(ttl=3600)
 def cargar_fixtures_tsdb(liga_nombre):
     """Trae próximos fixtures de TheSportsDB"""
+    # Primero obtener equipos de la liga
     url_teams = f"https://www.thesportsdb.com/api/v1/json/{THESPORTSDB_KEY}/search_all_teams.php"
     params = {"l": liga_nombre}
     r = requests.get(url_teams, params=params, timeout=10)
@@ -78,7 +91,7 @@ def cargar_fixtures_tsdb(liga_nombre):
     teams = r.json().get("teams")
     if not teams:
         return [], "No se encontraron equipos en TSDB"
-    
+
     fixtures = []
     for team in teams:
         team_id = team.get("idTeam")
@@ -91,7 +104,19 @@ def cargar_fixtures_tsdb(liga_nombre):
         events = r2.json().get("events")
         if events:
             fixtures.extend(events)
-    return fixtures, None
+    # Filtrar fechas futuras dentro del rango
+    fecha_limite = datetime.now() + timedelta(days=DIAS_FUTUROS)
+    fixtures_filtrados = []
+    for f in fixtures:
+        date_str = f.get("dateEvent")
+        if date_str:
+            try:
+                fecha = datetime.strptime(date_str, "%Y-%m-%d")
+                if fecha <= fecha_limite:
+                    fixtures_filtrados.append(f)
+            except:
+                continue
+    return fixtures_filtrados, None
 
 def procesar_fixtures_tsdb(fixtures):
     """Convierte fixtures TSDB a DataFrame"""
@@ -101,12 +126,14 @@ def procesar_fixtures_tsdb(fixtures):
         away = f.get("strAwayTeam")
         fecha = f.get("dateEvent") or "N/A"
         hora = f.get("strTime") or "N/A"
+
         pct_btts = 50
         avg_goles = 2
         score = round(avg_goles * (pct_btts/100) * 2.5,1)
         pick_btts = "Yes" if pct_btts > 65 else "No"
         pick_over = "Over 2.5" if avg_goles > 2.5 else "Under 2.5"
         top_pick = pick_btts if pct_btts > 70 else pick_over
+
         datos.append({
             "Fecha 📅": fecha,
             "Hora ⏱️": hora,
@@ -130,10 +157,11 @@ def procesar_fixtures_tsdb(fixtures):
 # ────────────────────────────────────────────────
 # INTERFAZ STREAMLIT
 # ────────────────────────────────────────────────
-tab_objects = st.tabs(list(LIGAS.values()))  # crea los tabs
+tab_objects = st.tabs(list(LIGAS.values()))
 
 for i, (code, nombre) in enumerate(LIGAS.items()):
     with tab_objects[i]:
+        # Cabecera con bandera y nombre
         st.markdown(f"""
         <div style="display:flex; align-items:center; color:#e5e7eb; font-size:22px; font-weight:500; margin-bottom:10px;">
             <img src="{BANDERAS[code]}" width="30" style="vertical-align:middle; margin-right:10px;">
@@ -141,30 +169,22 @@ for i, (code, nombre) in enumerate(LIGAS.items()):
         </div>
         """, unsafe_allow_html=True)
 
-        fixtures_tsdb, error_tsdb = cargar_fixtures_tsdb(nombre)
+        # Traer fixtures TSDB
+        liga_tsdb_nombre = LIGAS_TSDB_NAME[code]
+        fixtures_tsdb, error_tsdb = cargar_fixtures_tsdb(liga_tsdb_nombre)
         if error_tsdb:
             st.error(f"TheSportsDB: {error_tsdb}")
-            continue
 
         df_tsdb = procesar_fixtures_tsdb(fixtures_tsdb) if fixtures_tsdb else pd.DataFrame()
 
         if df_tsdb.empty:
             st.warning("No hay partidos programados en el rango seleccionado.")
         else:
-            df_tsdb = df_tsdb.sort_values("Score", ascending=False)
+            df = df_tsdb.sort_values("Score", ascending=False)
             st.dataframe(
-                df_tsdb,
+                df,
                 use_container_width=True,
                 height=600,
-                hide_index=True,
-                column_config={
-                    "Score": st.column_config.ProgressColumn(
-                        "Score",
-                        help="Nivel de confianza del pick",
-                        min_value=0,
-                        max_value=10,
-                        format="%.1f"
-                    ),
-                }
+                hide_index=True
             )
-            st.success(f"{len(df_tsdb)} partidos encontrados.")
+            st.success(f"{len(df)} partidos encontrados.")
