@@ -6,11 +6,11 @@ import pandas as pd
 # ────────────────────────────────────────────────
 st.set_page_config(page_title="InsideBet", layout="wide")
 
+# SUSTITUYE CON TU USUARIO REAL DE GITHUB
 USER = "InsideBet" 
 REPO = "picks-top-web"
 BASE_URL = f"https://raw.githubusercontent.com/{USER}/{REPO}/main/datos_fbref"
 
-# Lista completa de tus ligas (se activarán según existan los archivos)
 LIGAS = {
     "PL": "Premier League",
     "PD": "La Liga",
@@ -45,9 +45,28 @@ BANDERAS = {
 }
 
 # ────────────────────────────────────────────────
-# ESTILO Y LOGO
+# ESTILO Y SCROLL GLOBAL
 # ────────────────────────────────────────────────
-st.markdown("""<style>.stApp { background-color: #0e1117; color: #e5e7eb; }</style>""", unsafe_allow_html=True)
+st.markdown("""
+<style>
+    /* Fondo y color de texto */
+    .stApp { 
+        background-color: #0e1117; 
+        color: #e5e7eb; 
+    }
+    
+    /* Forzar scroll en el contenedor principal */
+    .main .block-container {
+        max-width: 95%;
+        padding-bottom: 100px; /* Espacio extra al final para que no roce el borde */
+    }
+
+    /* Estilo para que la tabla no bloquee el scroll del ratón */
+    .stDataFrame {
+        overflow: visible !important;
+    }
+</style>
+""", unsafe_allow_html=True)
 
 st.markdown("""
 <div style="text-align:center; margin-top:15px; margin-bottom:20px;">
@@ -59,18 +78,24 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ────────────────────────────────────────────────
-# FUNCIONES DE CARGA Y LIMPIEZA
+# FUNCIONES DE CARGA
 # ────────────────────────────────────────────────
-@st.cache_data(ttl=600)
+@st.cache_data(ttl=300)
 def cargar_excel(ruta_archivo):
+    url = f"{BASE_URL}/{ruta_archivo}"
     try:
-        df = pd.read_excel(f"{BASE_URL}/{ruta_archivo}")
-        # LIMPIEZA: Eliminamos filas donde todas las columnas sean NaN o falte el equipo Local
-        # Esto quita los espacios en blanco que mencionaste
-        col_local = 'Local' if 'Local' in df.columns else 'Home'
-        df = df.dropna(subset=[col_local]) 
+        # Cargamos el dataframe
+        df = pd.read_excel(url)
+        
+        # Limpieza de filas vacías (None) en el fixture
+        # Buscamos columnas comunes de equipos
+        for col in ['Local', 'Home', 'Squad', 'Equipo']:
+            if col in df.columns:
+                df = df.dropna(subset=[col])
+                break
         return df
-    except:
+    except Exception as e:
+        # Imprime el error en la consola de Streamlit para debuggear si hace falta
         return None
 
 # ────────────────────────────────────────────────
@@ -80,7 +105,6 @@ tab_objects = st.tabs(list(LIGAS.values()))
 
 for i, (code, nombre_pantalla) in enumerate(LIGAS.items()):
     with tab_objects[i]:
-        # Título de Liga con Bandera
         st.markdown(f"""
         <div style="display:flex; align-items:center; color:#e5e7eb; font-size:22px; font-weight:500; margin-bottom:20px;">
             <img src="{BANDERAS[code]}" width="30" style="vertical-align:middle; margin-right:10px;">
@@ -90,52 +114,47 @@ for i, (code, nombre_pantalla) in enumerate(LIGAS.items()):
 
         archivo_sufijo = MAPEO_ARCHIVOS.get(nombre_pantalla)
         
-        # --- MENÚ DE NAVEGACIÓN INTERNO ---
-        col_btn1, col_btn2 = st.columns(2)
+        # Intentamos cargar el resumen de stats primero para llenar el selector
+        df_stats = cargar_excel(f"RESUMEN_STATS_{archivo_sufijo}.xlsx")
+
+        # Layout de botones superiores
+        col_btn1, col_btn2 = st.columns([1, 2])
         
         with col_btn1:
-            mostrar_fixture = st.button(f"📅 Ver Fixture {nombre_pantalla}", key=f"fix_{code}")
+            mostrar_fixture = st.button(f"📅 Ver Fixture {nombre_pantalla}", key=f"btn_fix_{code}")
         
         with col_btn2:
-            # Seleccionador de equipo
-            df_stats = cargar_excel(f"RESUMEN_STATS_{archivo_sufijo}.xlsx")
             if df_stats is not None:
-                col_equipo = 'Equipo' if 'Equipo' in df_stats.columns else 'Squad'
-                lista_equipos = df_stats[col_equipo].unique().tolist()
-                equipo_sel = st.selectbox("🔍 Ver Estadísticas de Equipo:", ["Seleccionar..."] + lista_equipos, key=f"sel_{code}")
+                col_eq_name = next((c for c in df_stats.columns if c in ['Equipo', 'Squad', 'Unnamed: 1']), df_stats.columns[1])
+                lista_equipos = sorted([str(x) for x in df_stats[col_eq_name].unique() if str(x) != 'nan'])
+                equipo_sel = st.selectbox("🔍 Analizar Equipo:", ["Seleccionar..."] + lista_equipos, key=f"sel_{code}")
             else:
-                st.warning("Excel de estadísticas no encontrado.")
+                st.error("⚠️ No se pudo conectar con el Excel de estadísticas en GitHub.")
                 equipo_sel = "Seleccionar..."
 
         st.divider()
 
-        # --- LÓGICA DE VISUALIZACIÓN ---
-        
-        # 1. Si elige un equipo específico
+        # ÁREA DE RESULTADOS
         if equipo_sel != "Seleccionar...":
-            st.subheader(f"📊 Estadísticas: {equipo_sel}")
-            # Cargamos el excel individual del equipo desde la carpeta Ligas_Equipos
+            st.subheader(f"📊 Reporte Detallado: {equipo_sel}")
+            # Carpeta Ligas_Equipos tiene los archivos individuales
             nombre_file = equipo_sel.replace(" ", "_")
-            df_individual = cargar_excel(f"Ligas_Equipos/{nombre_file}.xlsx")
-            
-            if df_individual is not None:
-                st.dataframe(df_individual, use_container_width=True, hide_index=True)
+            df_ind = cargar_excel(f"Ligas_Equipos/{nombre_file}.xlsx")
+            if df_ind is not None:
+                st.dataframe(df_ind, use_container_width=True, hide_index=True)
             else:
-                st.error("No se encontró el archivo individual para este equipo.")
+                st.warning(f"No se encontró el archivo específico para {equipo_sel}")
 
-        # 2. Si presiona el botón de Fixture (Cartelera)
         elif mostrar_fixture:
-            st.subheader(f"📅 Próximos Partidos: {nombre_pantalla}")
-            df_cartelera = cargar_excel(f"CARTELERA_PROXIMOS_{archivo_sufijo}.xlsx")
-            
-            if df_cartelera is not None:
-                # Mostramos fixture limpio (sin Nonnes)
-                st.dataframe(df_cartelera, use_container_width=True, hide_index=True)
+            st.subheader(f"📅 Calendario Próximo: {nombre_pantalla}")
+            df_fix = cargar_excel(f"CARTELERA_PROXIMOS_{archivo_sufijo}.xlsx")
+            if df_fix is not None:
+                st.dataframe(df_fix, use_container_width=True, hide_index=True, height=800)
             else:
-                st.error("No se encontró el archivo de cartelera.")
-        
-        # 3. Vista por defecto (Resumen de Liga)
+                st.error("No se pudo cargar la cartelera.")
+
         else:
+            # Vista por defecto: Tabla de la liga
             if df_stats is not None:
-                st.subheader("🏆 Tabla General y Rendimiento")
-                st.dataframe(df_stats, use_container_width=True, hide_index=True)
+                st.subheader("🏆 Clasificación y Stats Generales")
+                st.dataframe(df_stats, use_container_width=True, hide_index=True, height=600)
