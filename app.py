@@ -35,7 +35,7 @@ BANDERAS = {
 }
 
 DIAS_FUTUROS = 7
-THESPORTSDB_KEY = "1"  # Key pública TSDB
+THESPORTSDB_KEY = "123"  # Key pública TSDB
 
 # ────────────────────────────────────────────────
 # ESTILO STREAMLIT
@@ -69,7 +69,7 @@ st.markdown("""
 # ────────────────────────────────────────────────
 @st.cache_data(ttl=3600)
 def cargar_fixtures_tsdb(liga_nombre):
-    """Trae fixtures próximos de TheSportsDB"""
+    """Trae próximos fixtures de TheSportsDB"""
     url_teams = f"https://www.thesportsdb.com/api/v1/json/{THESPORTSDB_KEY}/search_all_teams.php"
     params = {"l": liga_nombre}
     r = requests.get(url_teams, params=params, timeout=10)
@@ -78,6 +78,7 @@ def cargar_fixtures_tsdb(liga_nombre):
     teams = r.json().get("teams")
     if not teams:
         return [], "No se encontraron equipos en TSDB"
+    
     fixtures = []
     for team in teams:
         team_id = team.get("idTeam")
@@ -129,7 +130,7 @@ def procesar_fixtures_tsdb(fixtures):
 # ────────────────────────────────────────────────
 # INTERFAZ STREAMLIT
 # ────────────────────────────────────────────────
-tab_objects = st.tabs(list(LIGAS.values()))
+tab_objects = st.tabs(list(LIGAS.values()))  # crea los tabs
 
 for i, (code, nombre) in enumerate(LIGAS.items()):
     with tab_objects[i]:
@@ -140,19 +141,19 @@ for i, (code, nombre) in enumerate(LIGAS.items()):
         </div>
         """, unsafe_allow_html=True)
 
-        # Traer fixtures de TSDB
         fixtures_tsdb, error_tsdb = cargar_fixtures_tsdb(nombre)
         if error_tsdb:
             st.error(f"TheSportsDB: {error_tsdb}")
+            continue
 
         df_tsdb = procesar_fixtures_tsdb(fixtures_tsdb) if fixtures_tsdb else pd.DataFrame()
 
         if df_tsdb.empty:
             st.warning("No hay partidos programados en el rango seleccionado.")
         else:
-            df = df_tsdb.sort_values("Score", ascending=False)
+            df_tsdb = df_tsdb.sort_values("Score", ascending=False)
             st.dataframe(
-                df,
+                df_tsdb,
                 use_container_width=True,
                 height=600,
                 hide_index=True,
@@ -166,4 +167,4 @@ for i, (code, nombre) in enumerate(LIGAS.items()):
                     ),
                 }
             )
-            st.success(f"{len(df)} partidos encontrados.")
+            st.success(f"{len(df_tsdb)} partidos encontrados.")
