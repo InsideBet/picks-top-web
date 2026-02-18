@@ -45,25 +45,36 @@ BANDERAS = {
 }
 
 # ────────────────────────────────────────────────
-# ESTILO Y SCROLL GLOBAL
+# ESTILO, SCROLL GLOBAL Y AJUSTES VISUALES
 # ────────────────────────────────────────────────
 st.markdown("""
 <style>
-    /* Fondo y color de texto */
+    /* 1. Forzar que la página tenga scroll natural */
+    html, body , [data-testid="stDecoration"] {
+        overflow: visible !important;
+    }
+
+    .main {
+        overflow: visible !important;
+    }
+
+    /* 2. Ajustar el contenedor para que no corte el contenido */
+    .block-container {
+        max-width: 95% !important;
+        padding-top: 2rem !important;
+        padding-bottom: 10rem !important; /* Espacio extra al final */
+        overflow: visible !important;
+    }
+
+    /* 3. Evitar que las tablas "bloqueen" el scroll del mouse */
+    .stDataFrame, [data-testid="stTable"] {
+        margin-bottom: 20px;
+    }
+
+    /* 4. Estilo general de colores */
     .stApp { 
         background-color: #0e1117; 
         color: #e5e7eb; 
-    }
-    
-    /* Forzar scroll en el contenedor principal */
-    .main .block-container {
-        max-width: 95%;
-        padding-bottom: 100px; /* Espacio extra al final para que no roce el borde */
-    }
-
-    /* Estilo para que la tabla no bloquee el scroll del ratón */
-    .stDataFrame {
-        overflow: visible !important;
     }
 </style>
 """, unsafe_allow_html=True)
