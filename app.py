@@ -6,8 +6,8 @@ import pandas as pd
 # ────────────────────────────────────────────────
 st.set_page_config(page_title="InsideBet", layout="wide")
 
-USER = "TU_USUARIO" 
-REPO = "InsideBet"
+USER = "InsideBet" 
+REPO = "picks-top-web"
 BASE_URL = f"https://raw.githubusercontent.com/{USER}/{REPO}/main/datos_fbref"
 
 LIGAS = {
