@@ -45,24 +45,37 @@ BANDERAS = {
 }
 
 # ────────────────────────────────────────────────
-# ESTILO Y SCROLL GLOBAL
+# ESTILO Y SCROLL GLOBAL (SOLUCIÓN DEFINITIVA)
 # ────────────────────────────────────────────────
 st.markdown("""
 <style>
-    /* Fondo y color de texto */
+    /* 1. Forzar scroll en todos los niveles del DOM de Streamlit */
+    html, body, [data-testid="stAppViewContainer"], [data-testid="stMainViewContainer"], .main {
+        overflow: visible !important;
+        height: auto !important;
+    }
+
+    /* 2. Eliminar el bloqueo de posición fija que causa Streamlit */
+    [data-testid="stAppViewContainer"] {
+        display: block !important;
+    }
+
+    /* 3. Ajustar el contenedor de contenido para que se estire */
+    .block-container {
+        max-width: 95% !important;
+        padding-top: 2rem !important;
+        padding-bottom: 20rem !important; /* Gran espacio final */
+        height: auto !important;
+    }
+
+    /* 4. Estilo de la App */
     .stApp { 
         background-color: #0e1117; 
         color: #e5e7eb; 
     }
-    
-    /* Forzar scroll en el contenedor principal */
-    .main .block-container {
-        max-width: 95%;
-        padding-bottom: 100px; /* Espacio extra al final para que no roce el borde */
-    }
 
-    /* Estilo para que la tabla no bloquee el scroll del ratón */
-    .stDataFrame {
+    /* 5. Asegurar que las pestañas (tabs) no corten el contenido */
+    [data-testid="stExpander"] div, [data-testid="stVerticalBlock"] {
         overflow: visible !important;
     }
 </style>
