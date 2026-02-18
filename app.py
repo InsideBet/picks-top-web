@@ -45,36 +45,38 @@ BANDERAS = {
 }
 
 # ────────────────────────────────────────────────
-# ESTILO, SCROLL GLOBAL Y AJUSTES VISUALES
+# ESTILO Y SCROLL GLOBAL (SOLUCIÓN DEFINITIVA)
 # ────────────────────────────────────────────────
 st.markdown("""
 <style>
-    /* 1. Forzar que la página tenga scroll natural */
-    html, body , [data-testid="stDecoration"] {
+    /* 1. Forzar scroll en todos los niveles del DOM de Streamlit */
+    html, body, [data-testid="stAppViewContainer"], [data-testid="stMainViewContainer"], .main {
         overflow: visible !important;
+        height: auto !important;
     }
 
-    .main {
-        overflow: visible !important;
+    /* 2. Eliminar el bloqueo de posición fija que causa Streamlit */
+    [data-testid="stAppViewContainer"] {
+        display: block !important;
     }
 
-    /* 2. Ajustar el contenedor para que no corte el contenido */
+    /* 3. Ajustar el contenedor de contenido para que se estire */
     .block-container {
         max-width: 95% !important;
         padding-top: 2rem !important;
-        padding-bottom: 10rem !important; /* Espacio extra al final */
-        overflow: visible !important;
+        padding-bottom: 20rem !important; /* Gran espacio final */
+        height: auto !important;
     }
 
-    /* 3. Evitar que las tablas "bloqueen" el scroll del mouse */
-    .stDataFrame, [data-testid="stTable"] {
-        margin-bottom: 20px;
-    }
-
-    /* 4. Estilo general de colores */
+    /* 4. Estilo de la App */
     .stApp { 
         background-color: #0e1117; 
         color: #e5e7eb; 
+    }
+
+    /* 5. Asegurar que las pestañas (tabs) no corten el contenido */
+    [data-testid="stExpander"] div, [data-testid="stVerticalBlock"] {
+        overflow: visible !important;
     }
 </style>
 """, unsafe_allow_html=True)
