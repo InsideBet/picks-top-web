@@ -22,13 +22,6 @@ MAPEO_ARCHIVOS = {
     "Eredivisie": "Eredivisie", "Champions League": "Champions_League"
 }
 
-BANDERAS = {
-    "PL": "https://i.postimg.cc/7PcwYbk1/1.png", "PD": "https://i.postimg.cc/75d5mMQ2/8.png",
-    "SA": "https://i.postimg.cc/mzxTFmpm/4.png", "BL1": "https://i.postimg.cc/5X09cYFn/3.png",
-    "FL1": "https://i.postimg.cc/jnbqBMz2/2.png", "PPL": "https://i.postimg.cc/ZBr4S61R/5.png",
-    "DED": "https://i.postimg.cc/tnkbwpqv/6.png", "CL": "https://i.postimg.cc/zb1V1DNy/7.png"
-}
-
 # Diccionario Maestro de Traducción de Cabeceras
 TRADUCCIONES = {
     'Rk': 'POS', 'Squad': 'EQUIPO', 'MP': 'PJ', 'W': 'G', 'D': 'E', 'L': 'P',
@@ -62,7 +55,6 @@ st.markdown("""
     div[role="alert"] {
         color: white !important;
         font-weight: 600 !important;
-        text-shadow: 1px 1px 2px rgba(0,0,0,0.2); /* Sutil sombra para mejorar contraste */
     }
 
     /* Color del icono de la alerta en blanco */
@@ -130,15 +122,12 @@ def cargar_excel(ruta_archivo, tipo="general"):
     url = f"{BASE_URL}/{ruta_archivo}"
     try:
         df = pd.read_excel(url)
-        
-        # Filtro de columnas según sección
         if tipo == "clasificacion":
             drop_cols = ['Notes', 'Goalkeeper', 'Top Team Scorer', 'Attendance', 'Pts/MP', 'Pts/PJ']
         elif tipo == "fixture":
             drop_cols = ['Day', 'Score', 'Referee', 'Match Report', 'Notes', 'Attendance']
         else:
             drop_cols = []
-            
         df = df.drop(columns=[c for c in drop_cols if c in df.columns])
         df = df.rename(columns=TRADUCCIONES)
         return df.dropna(how='all')
@@ -156,42 +145,48 @@ for i, (code, nombre_pantalla) in enumerate(LIGAS.items()):
     with tab_objects[i]:
         archivo_sufijo = MAPEO_ARCHIVOS.get(nombre_pantalla)
         
+        # Inicializar estados para esta liga si no existen
+        if f"show_{code}" not in st.session_state:
+            st.session_state[f"show_{code}"] = None
+
         col1, col2, col3 = st.columns(3)
-        with col1: btn_clasif = st.button(f"🏆 Clasificación", key=f"btn_clas_{code}")
-        with col2: btn_stats = st.button(f"📊 Stats Generales", key=f"btn_stats_{code}")
-        with col3: btn_fix = st.button(f"📅 Ver Fixture", key=f"btn_fix_{code}")
+        
+        # Lógica de Botones con Toggle
+        if col1.button(f"🏆 Clasificación", key=f"btn_clas_{code}"):
+            st.session_state[f"show_{code}"] = "clas" if st.session_state[f"show_{code}"] != "clas" else None
+        
+        if col2.button(f"📊 Stats Generales", key=f"btn_stats_{code}"):
+            st.session_state[f"show_{code}"] = "stats" if st.session_state[f"show_{code}"] != "stats" else None
+            
+        if col3.button(f"📅 Ver Fixture", key=f"btn_fix_{code}"):
+            st.session_state[f"show_{code}"] = "fix" if st.session_state[f"show_{code}"] != "fix" else None
 
         st.divider()
 
-        # --- LÓGICA CLASIFICACIÓN ---
-        if btn_clasif:
+        # Renderizado basado en el estado
+        current_view = st.session_state[f"show_{code}"]
+
+        if current_view == "clas":
             df_c = cargar_excel(f"CLASIFICACION_LIGA_{archivo_sufijo}.xlsx", tipo="clasificacion")
             if df_c is not None:
-                # Formatear Últimos 5
                 col_forma = 'ÚLTIMOS 5' if 'ÚLTIMOS 5' in df_c.columns else 'Last 5'
                 if col_forma in df_c.columns:
                     df_c[col_forma] = df_c[col_forma].apply(formatear_last_5)
-                
-                # Styler: Ocultar índice y color sólido en PTS
                 styler = df_c.style.hide(axis='index')
                 if 'PTS' in df_c.columns:
                     styler = styler.set_properties(subset=['PTS'], **{'background-color': '#262c35', 'font-weight': 'bold'})
-                
                 st.write(styler.to_html(escape=False), unsafe_allow_html=True)
             else:
                 st.error("Archivo no encontrado.")
 
-        # --- LÓGICA STATS GENERALES ---
-        elif btn_stats:
+        elif current_view == "stats":
             df_s = cargar_excel(f"RESUMEN_STATS_{archivo_sufijo}.xlsx")
             if df_s is not None:
                 st.dataframe(df_s, use_container_width=True, hide_index=True)
 
-        # --- LÓGICA FIXTURE ---
-        elif btn_fix:
+        elif current_view == "fix":
             df_f = cargar_excel(f"CARTELERA_PROXIMOS_{archivo_sufijo}.xlsx", tipo="fixture")
             if df_f is not None:
-                # Ocultar índice y renderizar
                 styler_f = df_f.style.hide(axis='index')
                 st.write(styler_f.to_html(escape=False), unsafe_allow_html=True)
             else:
