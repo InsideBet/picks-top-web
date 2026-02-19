@@ -41,21 +41,51 @@ st.markdown("""
         color: #e5e7eb; 
     }
     
-    /* Contenedor con Scroll para Tablas (Solución PC/Móvil) */
-    .table-container {
+    /* CONTENEDOR DE SCROLL MAESTRO (Horizontal y Vertical) */
+    .table-scroll {
         width: 100%;
-        overflow-x: auto;
-        white-space: nowrap; /* Evita que el texto baje de renglón */
+        max-height: 450px; /* Altura máxima para scrolleo vertical */
+        overflow-x: auto !important; /* Scroll horizontal */
+        overflow-y: auto !important; /* Scroll vertical */
+        display: block;
+        border: 1px solid #374151;
+        border-radius: 8px;
     }
 
-    /* Box de información (st.info) - Color de marca INSIDEBET */
+    /* Estilo de la barra de scroll para que sea fina y roja */
+    .table-scroll::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+    }
+    .table-scroll::-webkit-scrollbar-thumb {
+        background: #ff1800;
+        border-radius: 10px;
+    }
+    .table-scroll::-webkit-scrollbar-track {
+        background: #1f2937;
+    }
+
+    /* Forzar que la tabla no se encoja en PC */
+    .table-scroll table {
+        min-width: 850px; 
+        width: 100%;
+    }
+
+    /* Fijar el encabezado de la tabla para que no desaparezca al scrollear abajo */
+    .table-scroll th {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        background-color: #1f2937 !important;
+    }
+
+    /* Box de información (st.info) */
     div[data-testid="stNotification"], div[role="alert"] {
         background-color: #ff1800 !important;
         border: none !important;
         border-radius: 8px !important;
     }
     
-    /* Forzar texto blanco y legible dentro del box */
     div[data-testid="stNotificationContent"] p, 
     div[data-testid="stNotificationContent"],
     div[role="alert"] div,
@@ -64,72 +94,34 @@ st.markdown("""
         font-weight: 600 !important;
     }
 
-    /* Color del icono de la alerta en blanco */
-    div[role="alert"] svg {
-        fill: white !important;
-    }
+    div[role="alert"] svg { fill: white !important; }
 
     /* Contenedor Cuadraditos Forma */
-    .forma-container {
-        display: flex;
-        justify-content: center;
-        gap: 4px;
-        min-width: 120px;
-        white-space: nowrap;
-    }
-    .forma-box {
-        flex: 0 0 22px;
-        height: 22px;
-        line-height: 22px;
-        text-align: center;
-        border-radius: 4px;
-        font-weight: bold;
-        font-size: 11px;
-        color: white;
-    }
+    .forma-container { display: flex; justify-content: center; gap: 4px; min-width: 120px; }
+    .forma-box { flex: 0 0 22px; height: 22px; line-height: 22px; text-align: center; border-radius: 4px; font-weight: bold; font-size: 11px; color: white; }
     .win { background-color: #137031; }
     .loss { background-color: #821f1f; }
     .draw { background-color: #82711f; }
 
     /* Estilo de Tablas HTML */
-    table { width: 100%; border-collapse: collapse; color: #e5e7eb; }
-    th { 
-        background-color: #1f2937; 
-        padding: 12px; 
-        border: 1px solid #374151; 
-        font-size: 13px; 
-        text-align: center !important; 
-    }
-    td { 
-        padding: 10px; 
-        border: 1px solid #374151; 
-        font-size: 14px; 
-        text-align: center !important; 
-        white-space: nowrap; /* Mantiene nombres en una sola línea */
-    }
+    table { border-collapse: collapse; color: #e5e7eb; }
+    th { padding: 12px; border: 1px solid #374151; font-size: 13px; text-align: center !important; }
+    td { padding: 10px; border: 1px solid #374151; font-size: 14px; text-align: center !important; white-space: nowrap !important; }
     tr:hover { background-color: #21262d; }
 
-    /* Estilo para los botones (Clasificación, Stats, Fixture) */
+    /* Estilo para los botones */
     div.stButton > button {
         background-color: #ff1800 !important;
         color: white !important;
         border: none !important;
         border-radius: 8px !important;
         padding: 10px 20px !important;
-        transition: all 0.3s ease;
         width: 100% !important;
         font-weight: bold !important;
     }
-
     div.stButton > button:hover {
         background-color: #cc1300 !important;
         border: 1px solid white !important;
-        transform: scale(1.02);
-    }
-
-    div.stButton > button:active {
-        background-color: #990e00 !important;
-        transform: scale(0.98);
     }
 </style>
 """, unsafe_allow_html=True)
@@ -153,7 +145,6 @@ def cargar_excel(ruta_archivo, tipo="general"):
     url = f"{BASE_URL}/{ruta_archivo}"
     try:
         df = pd.read_excel(url)
-        # Filtros específicos por tipo
         if tipo == "clasificacion":
             drop_cols = ['Notes', 'Goalkeeper', 'Top Team Scorer', 'Attendance', 'Pts/MP', 'Pts/PJ']
         elif tipo == "fixture":
@@ -164,7 +155,6 @@ def cargar_excel(ruta_archivo, tipo="general"):
         df = df.drop(columns=[c for c in drop_cols if c in df.columns])
         df = df.rename(columns=TRADUCCIONES)
         
-        # Petición 1: Mover PTS después de EQUIPO
         if tipo == "clasificacion" and 'PTS' in df.columns and 'EQUIPO' in df.columns:
             cols = list(df.columns)
             cols.insert(cols.index('EQUIPO') + 1, cols.pop(cols.index('PTS')))
@@ -203,7 +193,6 @@ for i, (code, nombre_pantalla) in enumerate(LIGAS.items()):
 
         current_view = st.session_state[f"show_{code}"]
 
-        # Envoltorio de tabla con clase "table-container" para scroll horizontal (Petición 3 y 4)
         if current_view == "clas":
             df_c = cargar_excel(f"CLASIFICACION_LIGA_{archivo_sufijo}.xlsx", tipo="clasificacion")
             if df_c is not None:
@@ -214,14 +203,15 @@ for i, (code, nombre_pantalla) in enumerate(LIGAS.items()):
                 if 'PTS' in df_c.columns:
                     styler = styler.set_properties(subset=['PTS'], **{'background-color': '#262c35', 'font-weight': 'bold'})
                 
-                st.markdown(f'<div class="table-container">{styler.to_html(escape=False)}</div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="table-scroll">{styler.to_html(escape=False)}</div>', unsafe_allow_html=True)
             else:
                 st.error("Archivo no encontrado.")
 
         elif current_view == "stats":
             df_s = cargar_excel(f"RESUMEN_STATS_{archivo_sufijo}.xlsx")
             if df_s is not None:
-                st.markdown('<div class="table-container">', unsafe_allow_html=True)
+                # También aplicamos el contenedor de scroll a Stats Generales
+                st.markdown('<div class="table-scroll">', unsafe_allow_html=True)
                 st.dataframe(df_s, use_container_width=True, hide_index=True)
                 st.markdown('</div>', unsafe_allow_html=True)
 
@@ -229,7 +219,7 @@ for i, (code, nombre_pantalla) in enumerate(LIGAS.items()):
             df_f = cargar_excel(f"CARTELERA_PROXIMOS_{archivo_sufijo}.xlsx", tipo="fixture")
             if df_f is not None:
                 styler_f = df_f.style.hide(axis='index')
-                st.markdown(f'<div class="table-container">{styler_f.to_html(escape=False)}</div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="table-scroll">{styler_f.to_html(escape=False)}</div>', unsafe_allow_html=True)
             else:
                 st.error("Archivo no encontrado.")
 
