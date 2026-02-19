@@ -103,7 +103,6 @@ def cargar_excel(ruta_archivo, tipo="general"):
             drop_c = ['Notes', 'Goalkeeper', 'Top Team Scorer', 'Attendance', 'Pts/MP', 'Pts/PJ']
             df = df.drop(columns=[c for c in drop_c if c in df.columns])
             df = df.rename(columns=TRADUCCIONES)
-            # REORDENAR COLUMNAS PARA PONER PTS AL LADO DE EQUIPO
             cols = list(df.columns)
             if 'EQUIPO' in cols and 'PTS' in cols:
                 cols.remove('PTS')
@@ -156,14 +155,37 @@ def procesar_cuotas(data):
     return pd.DataFrame(rows)
 
 # ────────────────────────────────────────────────
-# ESTILOS CSS
+# ESTILOS CSS (CORREGIDO PARA SCROLL GENERAL)
 # ────────────────────────────────────────────────
 st.markdown("""
 <style>
+    /* Estilo General */
     .stApp { background-color: #0e1117; color: #e5e7eb; }
-    .table-scroll { width: 100%; max-height: 550px; overflow: auto; border: 1px solid #374151; border-radius: 8px; margin-bottom: 20px; }
-    th { position: sticky; top: 0; background-color: #1f2937 !important; color: white !important; padding: 12px; border: 1px solid #374151; text-align: center !important; }
+    
+    /* Contenedor de tabla: QUITAMOS el max-height para permitir scroll de página */
+    .table-container { 
+        width: 100%; 
+        overflow-x: auto; /* Solo scroll horizontal si es necesario */
+        border: 1px solid #374151; 
+        border-radius: 8px; 
+        margin-bottom: 40px; 
+    }
+    
+    /* Forzamos que los headers se queden arriba al scrollear la PÁGINA */
+    th { 
+        position: sticky; 
+        top: -1px; /* Se pega al borde superior de la pantalla */
+        z-index: 10;
+        background-color: #1f2937 !important; 
+        color: white !important; 
+        padding: 12px; 
+        border: 1px solid #374151; 
+        text-align: center !important; 
+    }
+    
     td { padding: 12px; border: 1px solid #374151; text-align: center !important; }
+    
+    /* Otros Estilos */
     .header-container { display: flex; align-items: center; justify-content: flex-start; gap: 15px; margin: 20px 0; padding-left: 10px; }
     .header-title { color: white !important; font-size: 2rem; font-weight: bold; margin: 0; }
     .flag-img { width: 45px; height: auto; border-radius: 4px; }
@@ -227,7 +249,7 @@ if st.session_state.liga_sel:
                         row['1'], row['X'], row['2'] = badge_cuota(row['1'], row['1']==m), badge_cuota(row['X'], row['X']==m), badge_cuota(row['2'], row['2']==m)
                         return row
                     html = df_odds.apply(aplicar_b, axis=1).style.hide(axis="index").to_html(escape=False)
-                    st.markdown(f'<div class="table-scroll">{html}</div>', unsafe_allow_html=True)
+                    st.markdown(f'<div class="table-container">{html}</div>', unsafe_allow_html=True)
         else:
             sufijo = MAPEO_ARCHIVOS.get(liga)
             configs = {"clas": (f"CLASIFICACION_LIGA_{sufijo}.xlsx", "clasificacion"), "stats": (f"RESUMEN_STATS_{sufijo}.xlsx", "stats"), "fix": (f"CARTELERA_PROXIMOS_{sufijo}.xlsx", "fixture")}
@@ -240,4 +262,4 @@ if st.session_state.liga_sel:
                 styler = df.style.hide(axis="index")
                 if 'PTS' in df.columns:
                     styler = styler.set_properties(subset=['PTS'], **{'background-color': '#262730', 'font-weight': 'bold'})
-                st.markdown(f'<div class="table-scroll">{styler.to_html(escape=False)}</div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="table-container">{styler.to_html(escape=False)}</div>', unsafe_allow_html=True)
