@@ -33,85 +33,22 @@ TRADUCCIONES = {
 }
 
 # ────────────────────────────────────────────────
-# ESTILO CSS
-# ────────────────────────────────────────────────
-st.markdown("""
-<style>
-    .stApp { background-color: #0e1117; color: #e5e7eb; }
-    
-    .table-scroll {
-        width: 100%;
-        max-height: 450px; 
-        overflow-x: auto !important;
-        overflow-y: auto !important;
-        display: block;
-        border: 1px solid #374151;
-        border-radius: 8px;
-        margin-bottom: 20px;
-    }
-
-    .table-scroll::-webkit-scrollbar { width: 8px; height: 8px; }
-    .table-scroll::-webkit-scrollbar-thumb { background: #ff1800; border-radius: 10px; }
-    .table-scroll::-webkit-scrollbar-track { background: #1f2937; }
-
-    .table-scroll table { min-width: 850px; width: 100%; border-collapse: collapse; }
-
-    .table-scroll th {
-        position: sticky; top: 0; z-index: 10;
-        background-color: #1f2937 !important;
-        color: #e5e7eb; padding: 12px; border: 1px solid #374151;
-        font-size: 13px; text-align: center !important;
-    }
-
-    div[data-testid="stNotification"], div[role="alert"] {
-        background-color: #ff1800 !important;
-        border: none !important; border-radius: 8px !important;
-    }
-    
-    div[data-testid="stNotificationContent"] p, div[role="alert"] div {
-        color: white !important; font-weight: 600 !important;
-    }
-
-    td { padding: 10px; border: 1px solid #374151; font-size: 14px; text-align: center !important; white-space: nowrap !important; }
-    tr:hover { background-color: #21262d; }
-
-    /* ESTILO BARRA POSESIÓN */
-    .bar-container { display: flex; align-items: center; justify-content: flex-start; gap: 8px; width: 150px; margin: 0 auto; }
-    .bar-bg { background-color: #2d3139; border-radius: 10px; flex-grow: 1; height: 7px; overflow: hidden; }
-    .bar-fill { background-color: #ff4b4b; height: 100%; border-radius: 10px; }
-    .bar-text { font-size: 12px; font-weight: bold; min-width: 32px; text-align: right; }
-
-    .forma-container { display: flex; justify-content: center; gap: 4px; min-width: 120px; }
-    .forma-box { flex: 0 0 22px; height: 22px; line-height: 22px; text-align: center; border-radius: 4px; font-weight: bold; font-size: 11px; color: white; }
-    .win { background-color: #137031; }
-    .loss { background-color: #821f1f; }
-    .draw { background-color: #82711f; }
-
-    div.stButton > button {
-        background-color: #ff1800 !important; color: white !important;
-        border: none !important; border-radius: 8px !important;
-        padding: 10px 20px !important; width: 100% !important; font-weight: bold !important;
-    }
-</style>
-""", unsafe_allow_html=True)
-
-# ────────────────────────────────────────────────
 # FUNCIONES DE PROCESAMIENTO
 # ────────────────────────────────────────────────
-def color_xg_celda(val, min_val, max_val):
+
+def color_xg_fijo(val):
+    """Aplica verde si es >= 1.50, rojo si es menor."""
     try:
-        val = float(val)
-        tercio = (max_val - min_val) / 3
-        if val >= min_val + 2 * tercio: color = "#137031" # Verde
-        elif val >= min_val + tercio: color = "#82711f" # Amarillo
-        else: color = "#821f1f" # Rojo
+        num = float(val)
+        color = "#137031" if num >= 1.50 else "#821f1f"
         return f'background-color: {color}; color: white; font-weight: bold;'
     except: return ''
 
 def html_barra_posesion(valor):
+    """Genera el HTML de la barra roja de progreso para la posesión."""
     try:
-        # Extraer el numero de valores como 57.70000 o 0.57
-        num = float(valor)
+        num = float(str(valor).replace('%', ''))
+        # Ajuste por si el valor viene como 0.57 en lugar de 57
         percent = int(round(num if num > 1 else num * 100))
         return f'''
         <div class="bar-container">
@@ -122,6 +59,7 @@ def html_barra_posesion(valor):
     except: return valor
 
 def formatear_last_5(valor):
+    """Convierte WLD en cajitas de colores GEP."""
     if pd.isna(valor): return ""
     trad = {'W': 'G', 'L': 'P', 'D': 'E'}
     letras = list(str(valor).upper().replace(" ", ""))[:5]
@@ -137,38 +75,68 @@ def cargar_excel(ruta_archivo, tipo="general"):
     url = f"{BASE_URL}/{ruta_archivo}"
     try:
         df = pd.read_excel(url)
-        # Limpieza de nombres de columnas (espacios ocultos)
         df.columns = [str(c).strip() for c in df.columns]
         
-        if tipo == "clasificacion":
-            drop_cols = ['Notes', 'Goalkeeper', 'Top Team Scorer', 'Attendance', 'Pts/MP', 'Pts/PJ']
-            df = df.drop(columns=[c for c in drop_cols if c in df.columns])
-        elif tipo == "fixture":
-            drop_cols = ['Day', 'Score', 'Referee', 'Match Report', 'Notes', 'Attendance', 'Wk', 'JORNADA']
-            df = df.drop(columns=[c for c in drop_cols if c in df.columns])
-        elif tipo == "stats":
-            # Asegurar que xG se encuentra incluso si tiene espacios o mayúsculas raras
-            columnas_interes = ['Squad', 'MP', 'Poss', 'Gls', 'Ast', 'CrdY', 'CrdR', 'xG']
-            df = df[[c for c in columnas_interes if c in df.columns]]
+        if tipo == "stats":
+            # Detectar si Gls es en realidad xG (decimales)
+            if 'Gls' in df.columns and df['Gls'].dtype == 'float64':
+                df = df.rename(columns={'Gls': 'xG'})
             
-            # Aplicar la barra visual a Posesión ANTES de renombrar
+            # Seleccionar solo lo pactado
+            columnas_ok = ['Squad', 'MP', 'Poss', 'Gls', 'Ast', 'CrdY', 'CrdR', 'xG']
+            df = df[[c for c in columnas_ok if c in df.columns]]
+            
+            # Aplicar barra a Posesión
             if 'Poss' in df.columns:
                 df['Poss'] = df['Poss'].apply(html_barra_posesion)
 
+        elif tipo == "clasificacion":
+            drop_c = ['Notes', 'Goalkeeper', 'Top Team Scorer', 'Attendance', 'Pts/MP', 'Pts/PJ']
+            df = df.drop(columns=[c for c in drop_c if c in df.columns])
+            
+        elif tipo == "fixture":
+            drop_f = ['Day', 'Score', 'Referee', 'Match Report', 'Notes', 'Attendance', 'Wk']
+            df = df.drop(columns=[c for c in drop_f if c in df.columns])
+
         df = df.rename(columns=TRADUCCIONES)
         
+        # Reordenar PTS en clasificación
         if tipo == "clasificacion" and 'PTS' in df.columns and 'EQUIPO' in df.columns:
             cols = list(df.columns)
             cols.insert(cols.index('EQUIPO') + 1, cols.pop(cols.index('PTS')))
             df = df[cols]
             
         return df.dropna(how='all')
-    except:
-        return None
+    except: return None
 
 # ────────────────────────────────────────────────
-# INTERFAZ
+# INTERFAZ Y ESTILOS
 # ────────────────────────────────────────────────
+st.markdown("""
+<style>
+    .stApp { background-color: #0e1117; color: #e5e7eb; }
+    .table-scroll { width: 100%; max-height: 450px; overflow: auto; border: 1px solid #374151; border-radius: 8px; margin-bottom: 20px; }
+    .table-scroll::-webkit-scrollbar { width: 8px; height: 8px; }
+    .table-scroll::-webkit-scrollbar-thumb { background: #ff1800; border-radius: 10px; }
+    .table-scroll table { min-width: 850px; width: 100%; border-collapse: collapse; }
+    th { position: sticky; top: 0; background-color: #1f2937 !important; color: white; padding: 12px; border: 1px solid #374151; font-size: 13px; text-align: center !important; }
+    td { padding: 10px; border: 1px solid #374151; font-size: 14px; text-align: center !important; white-space: nowrap; }
+    
+    /* ESTILO BARRA POSESIÓN */
+    .bar-container { display: flex; align-items: center; justify-content: flex-start; gap: 8px; width: 140px; margin: 0 auto; }
+    .bar-bg { background-color: #2d3139; border-radius: 10px; flex-grow: 1; height: 7px; overflow: hidden; }
+    .bar-fill { background-color: #ff4b4b; height: 100%; border-radius: 10px; }
+    .bar-text { font-size: 12px; font-weight: bold; min-width: 32px; text-align: right; }
+
+    /* ESTILO FORMA (Últimos 5) */
+    .forma-container { display: flex; justify-content: center; gap: 4px; }
+    .forma-box { width: 22px; height: 22px; line-height: 22px; text-align: center; border-radius: 4px; font-weight: bold; font-size: 11px; color: white; }
+    .win { background-color: #137031; } .loss { background-color: #821f1f; } .draw { background-color: #82711f; }
+
+    div.stButton > button { background-color: #ff1800 !important; color: white !important; font-weight: bold !important; width: 100%; border-radius: 8px; }
+</style>
+""", unsafe_allow_html=True)
+
 st.markdown('<div style="text-align:center; margin-bottom:20px;"><img src="https://i.postimg.cc/C516P7F5/33.png" width="300"></div>', unsafe_allow_html=True)
 
 tab_objects = st.tabs(list(LIGAS.values()))
@@ -176,49 +144,32 @@ tab_objects = st.tabs(list(LIGAS.values()))
 for i, (code, nombre_pantalla) in enumerate(LIGAS.items()):
     with tab_objects[i]:
         archivo_sufijo = MAPEO_ARCHIVOS.get(nombre_pantalla)
-        if f"show_{code}" not in st.session_state:
-            st.session_state[f"show_{code}"] = None
+        if f"show_{code}" not in st.session_state: st.session_state[f"show_{code}"] = None
 
-        col1, col2, col3 = st.columns(3)
-        if col1.button(f"🏆 Clasificación", key=f"btn_clas_{code}"):
-            st.session_state[f"show_{code}"] = "clas"
-        if col2.button(f"📊 Stats Generales", key=f"btn_stats_{code}"):
-            st.session_state[f"show_{code}"] = "stats"
-        if col3.button(f"📅 Ver Fixture", key=f"btn_fix_{code}"):
-            st.session_state[f"show_{code}"] = "fix"
+        c1, c2, c3 = st.columns(3)
+        if c1.button(f"🏆 Clasificación", key=f"c_{code}"): st.session_state[f"show_{code}"] = "clas"
+        if c2.button(f"📊 Stats Generales", key=f"s_{code}"): st.session_state[f"show_{code}"] = "stats"
+        if c3.button(f"📅 Ver Fixture", key=f"f_{code}"): st.session_state[f"show_{code}"] = "fix"
 
         st.divider()
-        current_view = st.session_state[f"show_{code}"]
+        view = st.session_state[f"show_{code}"]
 
-        if current_view == "clas":
-            df_c = cargar_excel(f"CLASIFICACION_LIGA_{archivo_sufijo}.xlsx", tipo="clasificacion")
-            if df_c is not None:
-                col_forma = 'ÚLTIMOS 5' if 'ÚLTIMOS 5' in df_c.columns else 'Last 5'
-                if col_forma in df_c.columns:
-                    df_c[col_forma] = df_c[col_forma].apply(formatear_last_5)
-                styler = df_c.style.hide(axis='index')
-                if 'PTS' in df_c.columns:
-                    styler = styler.set_properties(subset=['PTS'], **{'background-color': '#262c35', 'font-weight': 'bold'})
+        if view == "stats":
+            df = cargar_excel(f"RESUMEN_STATS_{archivo_sufijo}.xlsx", tipo="stats")
+            if df is not None:
+                styler = df.style.hide(axis='index')
+                if 'xG' in df.columns:
+                    styler = styler.applymap(color_xg_fijo, subset=['xG'])
                 st.markdown(f'<div class="table-scroll">{styler.to_html(escape=False)}</div>', unsafe_allow_html=True)
-            else: st.error("Archivo no encontrado.")
+            else: st.error("Error al cargar Stats.")
 
-        elif current_view == "stats":
-            df_s = cargar_excel(f"RESUMEN_STATS_{archivo_sufijo}.xlsx", tipo="stats")
-            if df_s is not None:
-                # El styler se crea aquí para aplicar los colores al xG
-                styler_s = df_s.style.hide(axis='index')
-                if 'xG' in df_s.columns:
-                    df_s['xG'] = pd.to_numeric(df_s['xG'], errors='coerce')
-                    min_x = df_s['xG'].min()
-                    max_x = df_s['xG'].max()
-                    styler_s = styler_s.applymap(lambda x: color_xg_celda(x, min_x, max_x), subset=['xG'])
-                
-                # Renderizar con escape=False para que las barras HTML funcionen
-                st.markdown(f'<div class="table-scroll">{styler_s.to_html(escape=False)}</div>', unsafe_allow_html=True)
-            else: st.error("Archivo no encontrado.")
+        elif view == "clas":
+            df = cargar_excel(f"CLASIFICACION_LIGA_{archivo_sufijo}.xlsx", tipo="clasificacion")
+            if df is not None:
+                if 'ÚLTIMOS 5' in df.columns: df['ÚLTIMOS 5'] = df['ÚLTIMOS 5'].apply(formatear_last_5)
+                st.markdown(f'<div class="table-scroll">{df.style.hide(axis="index").to_html(escape=False)}</div>', unsafe_allow_html=True)
 
-        elif current_view == "fix":
-            df_f = cargar_excel(f"CARTELERA_PROXIMOS_{archivo_sufijo}.xlsx", tipo="fixture")
-            if df_f is not None:
-                st.markdown(f'<div class="table-scroll">{df_f.style.hide(axis="index").to_html(escape=False)}</div>', unsafe_allow_html=True)
-            else: st.error("Archivo no encontrado.")
+        elif view == "fix":
+            df = cargar_excel(f"CARTELERA_PROXIMOS_{archivo_sufijo}.xlsx", tipo="fixture")
+            if df is not None:
+                st.markdown(f'<div class="table-scroll">{df.style.hide(axis="index").to_html(escape=False)}</div>', unsafe_allow_html=True)
