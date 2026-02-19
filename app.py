@@ -85,6 +85,8 @@ def cargar_excel(ruta_archivo, tipo="general"):
             if 'Poss' in df.columns: df['Poss'] = df['Poss'].apply(html_barra_posesion)
             cols_ok = ['Squad', 'MP', 'Poss', 'Gls', 'Ast', 'CrdY', 'CrdR', 'xG']
             df = df[[c for c in cols_ok if c in df.columns]]
+            df = df.rename(columns=TRADUCCIONES)
+            return df
 
         elif tipo == "clasificacion":
             drop_c = ['Notes', 'Goalkeeper', 'Top Team Scorer', 'Attendance', 'Pts/MP', 'Pts/PJ']
@@ -94,31 +96,39 @@ def cargar_excel(ruta_archivo, tipo="general"):
             if 'EQUIPO' in cols and 'PTS' in cols:
                 cols.remove('EQUIPO'); cols.remove('PTS')
                 df = df[['EQUIPO', 'PTS'] + cols]
-            # IMPORTANTE: Aseguramos que retorne el DF procesado
             return df
 
+        # Para Fixture y otros
         df = df.rename(columns=TRADUCCIONES)
         return df.dropna(how='all')
-    except: return None
+    except Exception as e:
+        return None
 
 # ────────────────────────────────────────────────
-# ESTILOS CSS (SOLUCIÓN SCROLL Y TABLAS)
+# ESTILOS CSS (SOLUCIÓN SCROLL PC Y DISEÑO)
 # ────────────────────────────────────────────────
 st.markdown("""
 <style>
-    /* Forzar scroll en el contenedor principal */
-    .main { overflow: auto !important; }
+    /* FUERZA SCROLL EN PC */
+    html, body, [data-testid="stAppearanceLayer"], .main {
+        overflow: visible !important;
+        height: auto !important;
+    }
     .stApp { background-color: #0e1117; color: #e5e7eb; }
     
-    /* Padding inferior masivo para que el Fixture respire */
-    .block-container { padding-bottom: 20rem !important; }
+    /* Espaciado al final */
+    .block-container { padding-bottom: 150px !important; }
     
-    /* Contenedor de tablas */
-    .table-scroll { width: 100%; max-height: 480px; overflow: auto; border: 1px solid #374151; border-radius: 8px; margin-bottom: 40px; }
-    th { position: sticky; top: 0; background-color: #1f2937 !important; color: white; padding: 12px; border: 1px solid #374151; font-size: 13px; text-align: center !important; z-index: 99; }
+    /* Tablas */
+    .table-scroll { width: 100%; max-height: 450px; overflow: auto; border: 1px solid #374151; border-radius: 8px; margin-bottom: 20px; }
+    th { position: sticky; top: 0; background-color: #1f2937 !important; color: white; padding: 12px; border: 1px solid #374151; font-size: 13px; text-align: center !important; z-index: 10; }
     td { padding: 10px; border: 1px solid #374151; font-size: 14px; text-align: center !important; white-space: nowrap; }
     
-    /* Formas y Barras */
+    /* Botonera */
+    div.stButton > button { background-color: #ff1800 !important; color: white !important; font-weight: bold !important; width: 100%; border-radius: 8px; height: 3em; border: none !important; }
+    .stSelectbox label { color: #ff1800 !important; font-weight: bold !important; font-size: 16px !important; }
+    
+    /* Elementos visuales */
     .bar-container { display: flex; align-items: center; justify-content: flex-start; gap: 8px; width: 140px; margin: 0 auto; }
     .bar-bg { background-color: #2d3139; border-radius: 10px; flex-grow: 1; height: 7px; overflow: hidden; }
     .bar-fill { background-color: #ff1800; height: 100%; border-radius: 10px; }
@@ -126,13 +136,6 @@ st.markdown("""
     .forma-container { display: flex; justify-content: center; gap: 4px; }
     .forma-box { width: 22px; height: 22px; line-height: 22px; text-align: center; border-radius: 4px; font-weight: bold; font-size: 11px; color: white; }
     .win { background-color: #137031; } .loss { background-color: #821f1f; } .draw { background-color: #82711f; }
-    
-    /* Botón y Selectbox */
-    div.stButton > button { background-color: #ff1800 !important; color: white !important; font-weight: bold !important; width: 100%; border-radius: 8px; height: 3.5em; border: none; }
-    .stSelectbox label { color: #ff1800 !important; font-weight: bold !important; }
-    
-    /* Titulos de sección */
-    .section-title { background: #1f2937; padding: 12px; border-radius: 8px 8px 0 0; border-left: 6px solid #ff1800; font-weight: bold; margin-top: 10px; color: white; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -141,40 +144,50 @@ st.markdown("""
 # ────────────────────────────────────────────────
 st.markdown('<div style="text-align:center; margin-bottom:20px;"><img src="https://i.postimg.cc/C516P7F5/33.png" width="300"></div>', unsafe_allow_html=True)
 
-if "active_menu" not in st.session_state:
-    st.session_state.active_menu = False
+# 1) ESTADO MAESTRO
+if "menu_open" not in st.session_state: st.session_state.menu_open = False
+if "view_mode" not in st.session_state: st.session_state.view_mode = None
 
-# Botón Toggle
-if st.button("COMPETENCIAS"):
-    st.session_state.active_menu = not st.session_state.active_menu
+# Botón Principal
+if st.button("📂 COMPETENCIAS"):
+    st.session_state.menu_open = not st.session_state.menu_open
 
-if st.session_state.active_menu:
-    col_sel, _ = st.columns([2, 1])
-    with col_sel:
-        # Usamos index=0 y un placeholder
-        liga = st.selectbox("¿Qué liga quieres buscar?", ["Selecciona..."] + LIGAS_ORDENADAS)
-
-    if liga != "Selecciona...":
-        sufijo = MAPEO_ARCHIVOS.get(liga)
+if st.session_state.menu_open:
+    liga = st.selectbox("SELECCIONA UNA COMPETENCIA", ["---"] + LIGAS_ORDENADAS)
+    
+    if liga != "---":
+        archivo_sufijo = MAPEO_ARCHIVOS.get(liga)
         
-        # --- CLASIFICACIÓN ---
-        st.markdown('<div class="section-title">🏆 CLASIFICACIÓN</div>', unsafe_allow_html=True)
-        df_c = cargar_excel(f"CLASIFICACION_LIGA_{sufijo}.xlsx", tipo="clasificacion")
-        if df_c is not None:
-            if 'ÚLTIMOS 5' in df_c.columns: 
-                df_c['ÚLTIMOS 5'] = df_c['ÚLTIMOS 5'].apply(formatear_last_5)
-            st.markdown(f'<div class="table-scroll">{df_c.style.hide(axis="index").to_html(escape=False)}</div>', unsafe_allow_html=True)
-        else:
-            st.error(f"Error al cargar clasificación de {liga}")
+        # 2) BOTONES DE ACCIÓN (Con toggle)
+        c1, c2, c3 = st.columns(3)
+        
+        if c1.button("🏆 Clasificación"):
+            st.session_state.view_mode = "clas" if st.session_state.view_mode != "clas" else None
+        if c2.button("📊 Stats"):
+            st.session_state.view_mode = "stats" if st.session_state.view_mode != "stats" else None
+        if c3.button("📅 Fixture"):
+            st.session_state.view_mode = "fix" if st.session_state.view_mode != "fix" else None
+            
+        st.divider()
+        view = st.session_state.view_mode
 
-        # --- STATS ---
-        st.markdown('<div class="section-title">📊 STATS GENERALES</div>', unsafe_allow_html=True)
-        df_s = cargar_excel(f"RESUMEN_STATS_{sufijo}.xlsx", tipo="stats")
-        if df_s is not None:
-            st.markdown(f'<div class="table-scroll">{df_s.style.hide(axis="index").to_html(escape=False)}</div>', unsafe_allow_html=True)
+        # Lógica de renderizado según el botón apretado
+        if view == "clas":
+            df = cargar_excel(f"CLASIFICACION_LIGA_{archivo_sufijo}.xlsx", tipo="clasificacion")
+            if df is not None:
+                if 'ÚLTIMOS 5' in df.columns: 
+                    df['ÚLTIMOS 5'] = df['ÚLTIMOS 5'].apply(formatear_last_5)
+                st.markdown(f'<div class="table-scroll">{df.style.hide(axis="index").to_html(escape=False)}</div>', unsafe_allow_html=True)
+            else: st.error("No se pudo cargar la clasificación.")
 
-        # --- FIXTURE ---
-        st.markdown('<div class="section-title">📅 FIXTURE / PRÓXIMOS</div>', unsafe_allow_html=True)
-        df_f = cargar_excel(f"CARTELERA_PROXIMOS_{sufijo}.xlsx", tipo="fixture")
-        if df_f is not None:
-            st.markdown(f'<div class="table-scroll">{df_f.style.hide(axis="index").to_html(escape=False)}</div>', unsafe_allow_html=True)
+        elif view == "stats":
+            df = cargar_excel(f"RESUMEN_STATS_{archivo_sufijo}.xlsx", tipo="stats")
+            if df is not None:
+                st.markdown(f'<div class="table-scroll">{df.style.hide(axis="index").to_html(escape=False)}</div>', unsafe_allow_html=True)
+            else: st.error("No se pudieron cargar las estadísticas.")
+
+        elif view == "fix":
+            df = cargar_excel(f"CARTELERA_PROXIMOS_{archivo_sufijo}.xlsx", tipo="fixture")
+            if df is not None:
+                st.markdown(f'<div class="table-scroll">{df.style.hide(axis="index").to_html(escape=False)}</div>', unsafe_allow_html=True)
+            else: st.error("No se pudo cargar el fixture.")
