@@ -158,7 +158,7 @@ if st.session_state.show_menu:
 
         # 3. BLOQUE FIXTURE
         with st.expander("📅 FIXTURE / PRÓXIMOS", expanded=True):
-            df_fix = cargar_excel(f"CARTELERA_PROXIMOS_{archivo_sufijo}.xlsx", tipo="general")
+            df_fix = cargar_excel(f"CARTELERA_PROXIMOS_Premier_League{archivo_sufijo}.xlsx", tipo="general")
             if df_fix is not None:
                 st.markdown(f'<div class="table-scroll">{df_fix.style.hide(axis="index").to_html(escape=False)}</div>', unsafe_allow_html=True)
 
