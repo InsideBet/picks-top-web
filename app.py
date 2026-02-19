@@ -41,6 +41,13 @@ st.markdown("""
         color: #e5e7eb; 
     }
     
+    /* Contenedor con Scroll para Tablas (Solución PC/Móvil) */
+    .table-container {
+        width: 100%;
+        overflow-x: auto;
+        white-space: nowrap; /* Evita que el texto baje de renglón */
+    }
+
     /* Box de información (st.info) - Color de marca INSIDEBET */
     div[data-testid="stNotification"], div[role="alert"] {
         background-color: #ff1800 !important;
@@ -98,29 +105,28 @@ st.markdown("""
         border: 1px solid #374151; 
         font-size: 14px; 
         text-align: center !important; 
+        white-space: nowrap; /* Mantiene nombres en una sola línea */
     }
     tr:hover { background-color: #21262d; }
 
     /* Estilo para los botones (Clasificación, Stats, Fixture) */
     div.stButton > button {
-        background-color: #ff1800 !important; /* Tu rojo exacto */
+        background-color: #ff1800 !important;
         color: white !important;
         border: none !important;
         border-radius: 8px !important;
         padding: 10px 20px !important;
         transition: all 0.3s ease;
-        width: 100% !important; /* Hace que ocupen todo el ancho de su columna */
+        width: 100% !important;
         font-weight: bold !important;
     }
 
-    /* Efecto al pasar el mouse por encima */
     div.stButton > button:hover {
-        background-color: #cc1300 !important; /* Un rojo un poco más oscuro */
+        background-color: #cc1300 !important;
         border: 1px solid white !important;
-        transform: scale(1.02); /* Se agranda un poquito */
+        transform: scale(1.02);
     }
 
-    /* Efecto cuando el botón está presionado */
     div.stButton > button:active {
         background-color: #990e00 !important;
         transform: scale(0.98);
@@ -147,14 +153,23 @@ def cargar_excel(ruta_archivo, tipo="general"):
     url = f"{BASE_URL}/{ruta_archivo}"
     try:
         df = pd.read_excel(url)
+        # Filtros específicos por tipo
         if tipo == "clasificacion":
             drop_cols = ['Notes', 'Goalkeeper', 'Top Team Scorer', 'Attendance', 'Pts/MP', 'Pts/PJ']
         elif tipo == "fixture":
-            drop_cols = ['Day', 'Score', 'Referee', 'Match Report', 'Notes', 'Attendance']
+            drop_cols = ['Day', 'Score', 'Referee', 'Match Report', 'Notes', 'Attendance', 'Wk', 'JORNADA']
         else:
             drop_cols = []
+            
         df = df.drop(columns=[c for c in drop_cols if c in df.columns])
         df = df.rename(columns=TRADUCCIONES)
+        
+        # Petición 1: Mover PTS después de EQUIPO
+        if tipo == "clasificacion" and 'PTS' in df.columns and 'EQUIPO' in df.columns:
+            cols = list(df.columns)
+            cols.insert(cols.index('EQUIPO') + 1, cols.pop(cols.index('PTS')))
+            df = df[cols]
+            
         return df.dropna(how='all')
     except:
         return None
@@ -170,13 +185,11 @@ for i, (code, nombre_pantalla) in enumerate(LIGAS.items()):
     with tab_objects[i]:
         archivo_sufijo = MAPEO_ARCHIVOS.get(nombre_pantalla)
         
-        # Inicializar estados para esta liga si no existen
         if f"show_{code}" not in st.session_state:
             st.session_state[f"show_{code}"] = None
 
         col1, col2, col3 = st.columns(3)
         
-        # Lógica de Botones con Toggle
         if col1.button(f"🏆 Clasificación", key=f"btn_clas_{code}"):
             st.session_state[f"show_{code}"] = "clas" if st.session_state[f"show_{code}"] != "clas" else None
         
@@ -188,9 +201,9 @@ for i, (code, nombre_pantalla) in enumerate(LIGAS.items()):
 
         st.divider()
 
-        # Renderizado basado en el estado
         current_view = st.session_state[f"show_{code}"]
 
+        # Envoltorio de tabla con clase "table-container" para scroll horizontal (Petición 3 y 4)
         if current_view == "clas":
             df_c = cargar_excel(f"CLASIFICACION_LIGA_{archivo_sufijo}.xlsx", tipo="clasificacion")
             if df_c is not None:
@@ -200,20 +213,23 @@ for i, (code, nombre_pantalla) in enumerate(LIGAS.items()):
                 styler = df_c.style.hide(axis='index')
                 if 'PTS' in df_c.columns:
                     styler = styler.set_properties(subset=['PTS'], **{'background-color': '#262c35', 'font-weight': 'bold'})
-                st.write(styler.to_html(escape=False), unsafe_allow_html=True)
+                
+                st.markdown(f'<div class="table-container">{styler.to_html(escape=False)}</div>', unsafe_allow_html=True)
             else:
                 st.error("Archivo no encontrado.")
 
         elif current_view == "stats":
             df_s = cargar_excel(f"RESUMEN_STATS_{archivo_sufijo}.xlsx")
             if df_s is not None:
+                st.markdown('<div class="table-container">', unsafe_allow_html=True)
                 st.dataframe(df_s, use_container_width=True, hide_index=True)
+                st.markdown('</div>', unsafe_allow_html=True)
 
         elif current_view == "fix":
             df_f = cargar_excel(f"CARTELERA_PROXIMOS_{archivo_sufijo}.xlsx", tipo="fixture")
             if df_f is not None:
                 styler_f = df_f.style.hide(axis='index')
-                st.write(styler_f.to_html(escape=False), unsafe_allow_html=True)
+                st.markdown(f'<div class="table-container">{styler_f.to_html(escape=False)}</div>', unsafe_allow_html=True)
             else:
                 st.error("Archivo no encontrado.")
 
