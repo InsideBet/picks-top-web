@@ -33,22 +33,22 @@ TRADUCCIONES = {
     'Rk': 'Pos', 'Squad': 'Equipo', 'MP': 'PJ', 'W': 'G', 'D': 'E', 'L': 'P',
     'GF': 'GF', 'GA': 'GC', 'GD': 'DG', 'Pts': 'Pts', 'PTS': 'Pts',
     'Pts/MP': 'Pts/PJ', 'Last 5': 'Últimos 5', 'Attendance': 'Asistencia',
-    'Top Team Scorer': 'Goleador', 'Goalkeeper': 'Portero', 'Notes': 'Notas',
-    'xG': 'xG', 'xGA': 'xG Contra', 'xGD': 'Dif xG'
+    'Top Team Scorer': 'Goleador', 'Goalkeeper': 'Portero', 'Notes': 'Notas'
 }
 
 # ────────────────────────────────────────────────
-# ESTILO CSS (Oculta índice y fija cuadraditos)
+# ESTILO CSS (Corregido para eliminar espacios extra)
 # ────────────────────────────────────────────────
 st.markdown("""
 <style>
     .stApp { background-color: #0e1117; color: #e5e7eb; }
     
+    /* Contenedor de forma reciente */
     .forma-container {
         display: flex;
         justify-content: center;
         gap: 4px;
-        min-width: 130px;
+        min-width: 120px;
         white-space: nowrap;
     }
 
@@ -67,14 +67,15 @@ st.markdown("""
     .loss { background-color: #821f1f; }
     .draw { background-color: #82711f; }
 
-    /* Estilo Tabla: Ocultar primera columna (Índice 0, 1, 2...) */
-    table { width: 100%; border-collapse: collapse; color: #e5e7eb; }
+    /* Tabla: Ajuste de alineación total */
+    table { 
+        width: 100%; 
+        border-collapse: collapse; 
+        color: #e5e7eb; 
+        margin-left: 0px; /* Asegura que empiece al borde */
+    }
     th { background-color: #1f2937; padding: 12px; border: 1px solid #374151; font-size: 13px; }
     td { padding: 10px; border: 1px solid #374151; font-size: 14px; text-align: center; }
-    
-    /* MAGIA PARA OCULTAR EL ÍNDICE */
-    thead tr th:first-child { display:none; }
-    tbody tr td:first-child { display:none; }
     
     tr:hover { background-color: #21262d; }
 </style>
@@ -85,7 +86,6 @@ st.markdown("""
 # ────────────────────────────────────────────────
 def formatear_last_5(valor):
     if pd.isna(valor): return ""
-    # Mapeo: W -> G (Ganado), L -> P (Perdido), D -> E (Empatado)
     trad = {'W': 'G', 'L': 'P', 'D': 'E'}
     letras = list(str(valor).upper().replace(" ", ""))[:5]
     html_str = '<div class="forma-container">'
@@ -102,9 +102,9 @@ def cargar_excel(ruta_archivo):
     try:
         df = pd.read_excel(url)
         df = df.rename(columns=TRADUCCIONES)
-        # Redondear decimales en Pts/PJ si existe
+        # Limpieza de decimales
         if 'Pts/PJ' in df.columns:
-            df['Pts/PJ'] = df['Pts/PJ'].astype(float).round(2)
+            df['Pts/PJ'] = pd.to_numeric(df['Pts/PJ'], errors='coerce').round(2)
         return df.dropna(how='all')
     except:
         return None
@@ -142,15 +142,20 @@ for i, (code, nombre_pantalla) in enumerate(LIGAS.items()):
         elif btn_clasif:
             df_c = cargar_excel(f"CLASIFICACION_LIGA_{archivo_sufijo}.xlsx")
             if df_c is not None:
-                # Aplicar cuadraditos G, P, E
+                # 1. ELIMINAR FÍSICAMENTE LA COLUMNA DE ÍNDICE
+                # Esto corrige el desplazamiento a la derecha
+                df_c = df_c.reset_index(drop=True)
+                
+                # 2. Aplicar cuadraditos G, P, E
                 col_forma = 'Últimos 5' if 'Últimos 5' in df_c.columns else 'Last 5'
                 if col_forma in df_c.columns:
                     df_c[col_forma] = df_c[col_forma].apply(formatear_last_5)
                 
-                # Degradado suave para Puntos
-                styler = df_c.style.background_gradient(subset=['Pts'], cmap='Blues', low=0, high=0.4)
+                # 3. Estilo con Degradado Gris Suave (Cambiado de Azul a Gris Acero)
+                # 'Greys' crea un degrade suave que combina con el modo oscuro
+                styler = df_c.style.background_gradient(subset=['Pts'], cmap='Greys', low=0, high=0.3)
                 
-                # Mostrar Tabla HTML (sin índice gracias al CSS)
+                # 4. Renderizar sin índice (index=False)
                 st.markdown(styler.to_html(escape=False, index=False), unsafe_allow_html=True)
             else:
                 st.error("Archivo no encontrado.")
