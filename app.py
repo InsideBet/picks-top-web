@@ -71,7 +71,6 @@ st.markdown("""
     div[data-testid="stNotificationContent"] p, div[role="alert"] div {
         color: white !important; font-weight: 600 !important;
     }
-    div[role="alert"] svg { fill: white !important; }
 
     td { padding: 10px; border: 1px solid #374151; font-size: 14px; text-align: center !important; white-space: nowrap !important; }
     tr:hover { background-color: #21262d; }
@@ -87,28 +86,21 @@ st.markdown("""
         border: none !important; border-radius: 8px !important;
         padding: 10px 20px !important; width: 100% !important; font-weight: bold !important;
     }
-    div.stButton > button:hover { background-color: #cc1300 !important; border: 1px solid white !important; }
 </style>
 """, unsafe_allow_html=True)
 
 # ────────────────────────────────────────────────
 # FUNCIONES DE PROCESAMIENTO
 # ────────────────────────────────────────────────
-def color_xg(val, min_val, max_val):
-    """ Función para asignar color según el valor de xG """
+def color_xg_celda(val, min_val, max_val):
     try:
         val = float(val)
-        # Dividimos en tercios para semáforo
         tercio = (max_val - min_val) / 3
-        if val >= min_val + 2 * tercio:
-            color = "#137031" # Verde (Peligro alto)
-        elif val >= min_val + tercio:
-            color = "#82711f" # Amarillo (Promedio)
-        else:
-            color = "#821f1f" # Rojo (Bajo peligro)
+        if val >= min_val + 2 * tercio: color = "#137031" # Verde
+        elif val >= min_val + tercio: color = "#82711f" # Amarillo
+        else: color = "#821f1f" # Rojo
         return f'background-color: {color}; color: white; font-weight: bold;'
-    except:
-        return ''
+    except: return ''
 
 def formatear_last_5(valor):
     if pd.isna(valor): return ""
@@ -126,6 +118,7 @@ def cargar_excel(ruta_archivo, tipo="general"):
     url = f"{BASE_URL}/{ruta_archivo}"
     try:
         df = pd.read_excel(url)
+        
         if tipo == "clasificacion":
             drop_cols = ['Notes', 'Goalkeeper', 'Top Team Scorer', 'Attendance', 'Pts/MP', 'Pts/PJ']
             df = df.drop(columns=[c for c in drop_cols if c in df.columns])
@@ -133,8 +126,14 @@ def cargar_excel(ruta_archivo, tipo="general"):
             drop_cols = ['Day', 'Score', 'Referee', 'Match Report', 'Notes', 'Attendance', 'Wk', 'JORNADA']
             df = df.drop(columns=[c for c in drop_cols if c in df.columns])
         elif tipo == "stats":
+            # Asegurar que xG se encuentra incluso si tiene espacios o mayúsculas raras
+            df.columns = [c.strip() for c in df.columns]
             columnas_interes = ['Squad', 'MP', 'Poss', 'Gls', 'Ast', 'CrdY', 'CrdR', 'xG']
             df = df[[c for c in columnas_interes if c in df.columns]]
+            
+            # Formatear Posesión a % (Sin decimales)
+            if 'Poss' in df.columns:
+                df['Poss'] = df['Poss'].apply(lambda x: f"{int(round(x))}%" if pd.notnull(x) else "")
 
         df = df.rename(columns=TRADUCCIONES)
         
@@ -186,14 +185,14 @@ for i, (code, nombre_pantalla) in enumerate(LIGAS.items()):
         elif current_view == "stats":
             df_s = cargar_excel(f"RESUMEN_STATS_{archivo_sufijo}.xlsx", tipo="stats")
             if df_s is not None:
-                # Lógica de Semáforo para xG
                 if 'xG' in df_s.columns:
-                    min_val = df_s['xG'].min()
-                    max_val = df_s['xG'].max()
-                    styler_s = df_s.style.hide(axis='index').applymap(lambda x: color_xg(x, min_val, max_val), subset=['xG'])
+                    # Limpiar xG por si acaso hay valores no numéricos
+                    df_s['xG'] = pd.to_numeric(df_s['xG'], errors='coerce')
+                    min_x = df_s['xG'].min()
+                    max_x = df_s['xG'].max()
+                    styler_s = df_s.style.hide(axis='index').applymap(lambda x: color_xg_celda(x, min_x, max_x), subset=['xG'])
                 else:
                     styler_s = df_s.style.hide(axis='index')
-                
                 st.markdown(f'<div class="table-scroll">{styler_s.to_html(escape=False)}</div>', unsafe_allow_html=True)
             else: st.error("Archivo no encontrado.")
 
