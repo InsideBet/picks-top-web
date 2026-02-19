@@ -9,11 +9,11 @@ import requests
 # ────────────────────────────────────────────────
 st.set_page_config(page_title="InsideBet", layout="wide")
 
-# Acceso seguro a la API Key vía Secrets
+# Acceso a API Key desde Secrets
 try:
     API_KEY = st.secrets["odds_api_key"]
 except:
-    API_KEY = "FALTA_KEY"
+    API_KEY = None
 
 USER = "InsideBet" 
 REPO = "picks-top-web"
@@ -62,72 +62,7 @@ TRADUCCIONES = {
 }
 
 # ────────────────────────────────────────────────
-# FUNCIONES DE CUOTAS (ODDS)
-# ────────────────────────────────────────────────
-
-def procesar_cuotas(data):
-    if not data or not isinstance(data, list): return None
-    rows = []
-    for match in data:
-        home_team = match.get('home_team')
-        away_team = match.get('away_team')
-        date_obj = pd.to_datetime(match.get('commence_time'))
-        commence_time = date_obj.strftime('%d/%m %H:%M')
-        
-        odds_h, odds_d, odds_a = "-", "-", "-"
-        
-        # LÓGICA MEJORADA:
-        if match.get('bookmakers'):
-            # 1. Intentamos buscar Bet365 primero
-            selected_bookie = next((b for b in match['bookmakers'] if b['key'].lower() == 'bet365'), None)
-            
-            # 2. Si Bet365 no está, tomamos la primera casa que tenga cuotas (ej. William Hill, Pinnacle, etc.)
-            if not selected_bookie:
-                selected_bookie = match['bookmakers'][0]
-            
-            # Extraemos los precios
-            markets = selected_bookie.get('markets', [])
-            if markets:
-                outcomes = markets[0].get('outcomes', [])
-                for out in outcomes:
-                    if out['name'] == home_team: odds_h = out['price']
-                    elif out['name'] == away_team: odds_a = out['price']
-                    else: odds_d = out['price']
-        
-        rows.append({
-            "FECHA": commence_time,
-            "LOCAL": home_team,
-            "VISITANTE": away_team,
-            "1": odds_h,
-            "X": odds_d,
-            "2": odds_a
-        })
-    return pd.DataFrame(rows)
-
-def procesar_cuotas(data):
-    if not data or not isinstance(data, list): return None
-    rows = []
-    for match in data:
-        home_team = match.get('home_team', 'N/A')
-        away_team = match.get('away_team', 'N/A')
-        # Ajuste de zona horaria básico (puedes ajustarlo según tu país)
-        commence_time = pd.to_datetime(match.get('commence_time')).strftime('%d/%m %H:%M')
-        
-        odds_h, odds_d, odds_a = "-", "-", "-"
-        if match.get('bookmakers'):
-            markets = match['bookmakers'][0].get('markets', [])
-            if markets:
-                outcomes = markets[0].get('outcomes', [])
-                for out in outcomes:
-                    if out['name'] == home_team: odds_h = out['price']
-                    elif out['name'] == away_team: odds_a = out['price']
-                    else: odds_d = out['price']
-        
-        rows.append({"FECHA": commence_time, "LOCAL": home_team, "VISITANTE": away_team, "1": odds_h, "X": odds_d, "2": odds_a})
-    return pd.DataFrame(rows)
-
-# ────────────────────────────────────────────────
-# FUNCIONES DE PROCESAMIENTO VISUAL
+# FUNCIONES DE PROCESAMIENTO (DEFINIDAS ANTES DEL USO)
 # ────────────────────────────────────────────────
 
 def limpiar_nombre_equipo(nombre):
@@ -198,37 +133,67 @@ def cargar_excel(ruta_archivo, tipo="general"):
     except: return None
 
 # ────────────────────────────────────────────────
+# FUNCIONES DE CUOTAS
+# ────────────────────────────────────────────────
+
+def obtener_cuotas_api(liga_nombre):
+    sport_key = MAPEO_ODDS_API.get(liga_nombre)
+    if not sport_key or not API_KEY: return None
+    
+    url = f"https://api.the-odds-api.com/v4/sports/{sport_key}/odds/"
+    params = {'apiKey': API_KEY, 'regions': 'eu', 'markets': 'h2h', 'oddsFormat': 'decimal'}
+    try:
+        response = requests.get(url, params=params)
+        return response.json()
+    except: return None
+
+def procesar_cuotas(data):
+    if not data or not isinstance(data, list): return None
+    rows = []
+    for match in data:
+        home_team = match.get('home_team')
+        away_team = match.get('away_team')
+        commence_time = pd.to_datetime(match.get('commence_time')).strftime('%d/%m %H:%M')
+        
+        odds_h, odds_d, odds_a = "-", "-", "-"
+        if match.get('bookmakers'):
+            # Buscar Bet365, si no existe, usar la primera disponible
+            bookie = next((b for b in match['bookmakers'] if b['key'].lower() == 'bet365'), match['bookmakers'][0])
+            markets = bookie.get('markets', [])
+            if markets:
+                outcomes = markets[0].get('outcomes', [])
+                for out in outcomes:
+                    if out['name'] == home_team: odds_h = out['price']
+                    elif out['name'] == away_team: odds_a = out['price']
+                    else: odds_d = out['price']
+        
+        rows.append({"FECHA": commence_time, "LOCAL": home_team, "VISITANTE": away_team, "1": odds_h, "X": odds_d, "2": odds_a})
+    return pd.DataFrame(rows)
+
+# ────────────────────────────────────────────────
 # ESTILOS CSS
 # ────────────────────────────────────────────────
 st.markdown("""
 <style>
     .stApp { background-color: #0e1117; color: #e5e7eb; }
     .table-scroll { width: 100%; max-height: 550px; overflow: auto; border: 1px solid #374151; border-radius: 8px; margin-bottom: 20px; }
-    .table-scroll::-webkit-scrollbar { width: 8px; height: 8px; }
-    .table-scroll::-webkit-scrollbar-thumb { background: #ff1800; border-radius: 10px; }
-    th { position: sticky; top: 0; background-color: #1f2937 !important; color: white; padding: 12px; border: 1px solid #374151; font-size: 13px; text-align: center !important; }
-    td { padding: 10px; border: 1px solid #374151; font-size: 14px; text-align: center !important; white-space: nowrap; }
+    th { position: sticky; top: 0; background-color: #1f2937 !important; color: white !important; padding: 12px; border: 1px solid #374151; text-align: center !important; }
+    td { padding: 10px; border: 1px solid #374151; text-align: center !important; white-space: nowrap; }
+    
+    .header-container { display: flex; align-items: center; justify-content: flex-start; gap: 15px; margin: 20px 0; padding-left: 10px; }
+    .header-title { color: white !important; font-size: 2rem; font-weight: bold; margin: 0; }
+    .flag-img { width: 45px; height: auto; border-radius: 4px; }
     
     .bar-container { display: flex; align-items: center; justify-content: flex-start; gap: 8px; width: 140px; margin: 0 auto; }
     .bar-bg { background-color: #2d3139; border-radius: 10px; flex-grow: 1; height: 7px; overflow: hidden; }
     .bar-fill { background-color: #ff4b4b; height: 100%; border-radius: 10px; }
     .bar-text { font-size: 12px; font-weight: bold; min-width: 32px; text-align: right; }
+    
     .forma-container { display: flex; justify-content: center; gap: 4px; }
     .forma-box { width: 22px; height: 22px; line-height: 22px; text-align: center; border-radius: 4px; font-weight: bold; font-size: 11px; color: white; }
     .win { background-color: #137031; } .loss { background-color: #821f1f; } .draw { background-color: #82711f; }
     
-    div.stButton > button { background-color: #ff1800 !important; color: white !important; font-weight: bold !important; width: 100%; border-radius: 8px; border: none !important; margin-bottom: 5px; height: 45px; }
-
-    .header-container {
-        display: flex;
-        align-items: center;
-        justify-content: flex-start;
-        gap: 15px;
-        margin: 20px 0;
-        padding-left: 10px; 
-    }
-    .header-title { color: white; font-size: 2rem; font-weight: bold; margin: 0; }
-    .flag-img { width: 45px; height: auto; border-radius: 4px; }
+    div.stButton > button { background-color: #ff1800 !important; color: white !important; font-weight: bold !important; border-radius: 8px; height: 45px; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -244,11 +209,11 @@ if st.button("COMPETENCIAS"):
     st.session_state.menu_abierto = not st.session_state.menu_abierto
 
 if st.session_state.menu_abierto:
-    seleccion = st.selectbox("Selecciona una Liga/Competencia", ["Selecciona una Liga/Competencia"] + LIGAS_LISTA, label_visibility="collapsed")
-    if seleccion != "Selecciona una Liga/Competencia":
+    seleccion = st.selectbox("Selecciona una competencia", ["Selecciona una competencia"] + LIGAS_LISTA, label_visibility="collapsed")
+    if seleccion != "Selecciona una competencia":
         st.session_state.liga_actual = seleccion
         st.session_state.menu_abierto = False
-        st.session_state.vista_activa = None 
+        st.session_state.vista_activa = None
         st.rerun()
 
 # 2. CONTENIDO PRINCIPAL
@@ -260,9 +225,7 @@ if st.session_state.liga_actual:
     st.markdown(f'<div class="header-container"><img src="{link_bandera}" class="flag-img"><h1 class="header-title">{liga}</h1></div>', unsafe_allow_html=True)
     
     c1, c2, c3, c4 = st.columns(4)
-    def manejar_click(v):
-        if st.session_state.vista_activa == v: st.session_state.vista_activa = None
-        else: st.session_state.vista_activa = v
+    def manejar_click(v): st.session_state.vista_activa = v
 
     if c1.button("Clasificación"): manejar_click("clas")
     if c2.button("Stats Generales"): manejar_click("stats")
@@ -271,18 +234,18 @@ if st.session_state.liga_actual:
 
     st.divider()
 
-    # 3. RENDERIZADO DE TABLAS
+    # 3. RENDERIZADO
     view = st.session_state.vista_activa
     if view:
         if view == "odds":
-            with st.spinner('Actualizando cuotas de Bet365...'):
-                raw_data = obtener_cuotas_api(liga)
-                df_odds = procesar_cuotas(raw_data)
+            with st.spinner('Actualizando picks y cuotas...'):
+                datos_raw = obtener_cuotas_api(liga)
+                df_odds = procesar_cuotas(datos_raw)
                 if df_odds is not None and not df_odds.empty:
                     styler = df_odds.style.hide(axis="index").set_properties(**{'color': '#ff1800', 'font-weight': 'bold'}, subset=['1', 'X', '2'])
                     st.markdown(f'<div class="table-scroll">{styler.to_html(escape=False)}</div>', unsafe_allow_html=True)
                 else:
-                    st.warning("No hay cuotas disponibles en este momento.")
+                    st.warning("No hay cuotas disponibles para esta liga en este momento.")
         else:
             tipo_carga = "stats" if view == "stats" else "clasificacion" if view == "clas" else "fixture"
             nombre_archivo = f"RESUMEN_STATS_{archivo_sufijo}.xlsx" if view == "stats" else \
