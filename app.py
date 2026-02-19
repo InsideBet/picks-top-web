@@ -44,49 +44,29 @@ st.markdown("""
 <style>
     .stApp { background-color: #0e1117; color: #e5e7eb; }
     
-    /* Box de información personalizado (st.info) */
-    [data-testid="stNotification"] {
+    /* Box de información FORZADO a ROJO */
+    div[data-testid="stNotification"], div[role="alert"] {
         background-color: #ff1800 !important;
-        border-radius: 8px !important;
-        border: none !important;
     }
     
-    [data-testid="stNotification"] div {
+    div[data-testid="stNotificationContent"] p {
         color: white !important;
-        font-weight: 500;
+        font-weight: bold !important;
     }
 
-    [data-testid="stNotification"] svg {
+    div[role="alert"] svg {
         fill: white !important;
     }
 
-    /* Contenedor Cuadraditos Forma */
-    .forma-container {
-        display: flex;
-        justify-content: center;
-        gap: 4px;
-        min-width: 120px;
-        white-space: nowrap;
-    }
-    .forma-box {
-        flex: 0 0 22px;
-        height: 22px;
-        line-height: 22px;
-        text-align: center;
-        border-radius: 4px;
-        font-weight: bold;
-        font-size: 11px;
-        color: white;
-    }
+    /* --- Resto de tu estilo --- */
+    .forma-container { display: flex; justify-content: center; gap: 4px; min-width: 120px; }
+    .forma-box { flex: 0 0 22px; height: 22px; line-height: 22px; text-align: center; border-radius: 4px; font-weight: bold; font-size: 11px; color: white; }
     .win { background-color: #137031; }
     .loss { background-color: #821f1f; }
     .draw { background-color: #82711f; }
-
-    /* Estilo de Tablas HTML */
     table { width: 100%; border-collapse: collapse; color: #e5e7eb; }
     th { background-color: #1f2937; padding: 12px; border: 1px solid #374151; font-size: 13px; text-align: center !important; }
     td { padding: 10px; border: 1px solid #374151; font-size: 14px; text-align: center !important; }
-    tr:hover { background-color: #21262d; }
 </style>
 """, unsafe_allow_html=True)
 
