@@ -36,7 +36,7 @@ TRADUCCIONES = {
 }
 
 # ────────────────────────────────────────────────
-# ESTILO CSS (Cuadraditos y Tabla Limpia)
+# ESTILO CSS
 # ────────────────────────────────────────────────
 st.markdown("""
 <style>
@@ -64,20 +64,15 @@ st.markdown("""
     .loss { background-color: #821f1f; }
     .draw { background-color: #82711f; }
 
-    /* Tabla sin espacios extra a la izquierda */
-    table { 
-        width: 100%; 
-        border-collapse: collapse; 
-        color: #e5e7eb;
-    }
-    th { background-color: #1f2937; padding: 12px; border: 1px solid #374151; font-size: 13px; }
-    td { padding: 10px; border: 1px solid #374151; font-size: 14px; text-align: center; }
+    table { width: 100%; border-collapse: collapse; color: #e5e7eb; }
+    th { background-color: #1f2937; padding: 12px; border: 1px solid #374151; font-size: 13px; text-align: center !important; }
+    td { padding: 10px; border: 1px solid #374151; font-size: 14px; text-align: center !important; }
     
     tr:hover { background-color: #21262d; }
 
-    /* Estilo para la columna PTS (Color sólido más claro que el fondo) */
-    .col-pts {
-        background-color: #2d333b !important; /* Un gris azulado suave y sólido */
+    /* Forzamos que la columna PTS tenga un color sólido más claro */
+    .pts-solido {
+        background-color: #262c35 !important;
         font-weight: bold;
     }
 </style>
@@ -103,10 +98,8 @@ def cargar_excel(ruta_archivo):
     url = f"{BASE_URL}/{ruta_archivo}"
     try:
         df = pd.read_excel(url)
-        # Limpieza de columnas innecesarias
         cols_drop = ['Notes', 'Goalkeeper', 'Top Team Scorer', 'Attendance', 'Pts/MP', 'Pts/PJ']
         df = df.drop(columns=[c for c in cols_drop if c in df.columns])
-        # Traducción de cabeceras
         df = df.rename(columns=TRADUCCIONES)
         return df.dropna(how='all')
     except:
@@ -123,43 +116,40 @@ for i, (code, nombre_pantalla) in enumerate(LIGAS.items()):
     with tab_objects[i]:
         archivo_sufijo = MAPEO_ARCHIVOS.get(nombre_pantalla)
         
-        # Botones de acción
         col1, col2, col3 = st.columns(3)
         with col1: btn_clasif = st.button(f"🏆 Clasificación", key=f"btn_clas_{code}")
         with col2: btn_stats = st.button(f"📊 Stats Generales", key=f"btn_stats_{code}")
         with col3: btn_fix = st.button(f"📅 Ver Fixture", key=f"btn_fix_{code}")
 
-        df_para_lista = cargar_excel(f"RESUMEN_STATS_{archivo_sufijo}.xlsx")
-        equipo_sel = st.selectbox("🔍 Analizar Equipo:", ["Seleccionar..."] + sorted([str(x) for x in df_para_lista['EQUIPO'].unique()]) if df_para_lista is not None else ["Seleccionar..."], key=f"sel_{code}")
-
         st.divider()
 
-        if equipo_sel != "Seleccionar...":
-            df_ind = cargar_excel(f"Ligas_Equipos/{equipo_sel.replace(' ', '_')}.xlsx")
-            if df_ind is not None: st.dataframe(df_ind, use_container_width=True, hide_index=True)
-
-        elif btn_clasif:
+        if btn_clasif:
             df_c = cargar_excel(f"CLASIFICACION_LIGA_{archivo_sufijo}.xlsx")
             if df_c is not None:
-                # 1. ELIMINAR EL ÍNDICE COMPLETAMENTE
-                df_c = df_c.reset_index(drop=True)
-                
-                # 2. Formatear la columna de forma
+                # Proceso de la columna de forma
                 col_forma = 'ÚLTIMOS 5' if 'ÚLTIMOS 5' in df_c.columns else 'Last 5'
                 if col_forma in df_c.columns:
                     df_c[col_forma] = df_c[col_forma].apply(formatear_last_5)
                 
-                # 3. Aplicar clase CSS a la columna PTS para el color sólido
-                styler = df_c.style.set_table_styles({
-                    'PTS': [{'selector': 'td', 'props': [('background-color', '#2d333b'), ('font-weight', 'bold')]}]
-                }, overwrite=False)
+                # CREACIÓN DEL STYLER
+                # hide(axis='index') es la forma más potente de quitar el 0 1 2 3
+                styler = df_c.style.hide(axis='index')
                 
-                # 4. Renderizado HTML SIN ÍNDICE (index=False es vital aquí)
-                html_tabla = df_c.style.set_td_classes(
-                    pd.DataFrame([['col-pts' if col == 'PTS' else '' for col in df_c.columns] for _ in range(len(df_c))], 
-                                 index=df_c.index, columns=df_c.columns)
-                ).to_html(escape=False, index=False)
-                
-                st.markdown(html_tabla, unsafe_allow_html=True)
+                # Aplicamos el color sólido a la columna PTS
+                if 'PTS' in df_c.columns:
+                    styler = styler.set_properties(subset=['PTS'], **{'background-color': '#262c35', 'font-weight': 'bold'})
+
+                # Renderizado final
+                st.write(styler.to_html(escape=False), unsafe_allow_html=True)
             else:
                 st.error("Archivo no encontrado.")
+
+        elif btn_stats:
+            df_s = cargar_excel(f"RESUMEN_STATS_{archivo_sufijo}.xlsx")
+            if df_s is not None:
+                st.dataframe(df_s, use_container_width=True, hide_index=True)
+
+        elif btn_fix:
+            df_f = cargar_excel(f"CARTELERA_PROXIMOS_{archivo_sufijo}.xlsx")
+            if df_f is not None:
+                st.dataframe(df_f, use_container_width=True, hide_index=True)
