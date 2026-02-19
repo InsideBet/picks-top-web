@@ -29,68 +29,80 @@ BANDERAS = {
     "DED": "https://i.postimg.cc/tnkbwpqv/6.png", "CL": "https://i.postimg.cc/zb1V1DNy/7.png"
 }
 
+# Diccionario de traducción de cabeceras
+TRADUCCIONES = {
+    'Rk': 'Pos', 'Squad': 'Equipo', 'MP': 'PJ', 'W': 'G', 'D': 'E', 'L': 'P',
+    'GF': 'GF', 'GA': 'GC', 'GD': 'DG', 'Pts': 'Pts', 'PTS': 'Pts',
+    'Pts/MP': 'Pts/PJ', 'Last 5': 'Últimos 5', 'Attendance': 'Asistencia',
+    'Top Team Scorer': 'Goleador', 'Goalkeeper': 'Portero', 'Notes': 'Notas'
+}
+
 # ────────────────────────────────────────────────
 # ESTILO CSS
 # ────────────────────────────────────────────────
 st.markdown("""
 <style>
     .stApp { background-color: #0e1117; color: #e5e7eb; }
-    .stButton > button {
-        width: 100%; border-radius: 5px; height: 3em;
-        background-color: #1f2937; color: white; border: 1px solid #374151;
+    
+    /* Contenedor para que los 5 cuadraditos no bajen de renglón */
+    .forma-container {
+        display: flex;
+        justify-content: center;
+        min-width: 130px; /* Evita que el contenedor se achique demasiado */
+        gap: 4px;
     }
-    /* Estilo para los cuadraditos de Last 5 */
+
     .forma-box {
-        display: inline-block;
-        width: 22px;
+        flex: 0 0 22px; /* Tamaño fijo para que no se deformen */
         height: 22px;
         line-height: 22px;
         text-align: center;
-        border-radius: 3px;
-        margin-right: 3px;
+        border-radius: 4px;
         font-weight: bold;
-        font-size: 12px;
+        font-size: 11px;
         color: white;
     }
+    
     .win { background-color: #137031; }
     .loss { background-color: #821f1f; }
     .draw { background-color: #82711f; }
+
+    /* Estilo de la tabla HTML */
+    table { width: 100%; border-collapse: collapse; color: #e5e7eb; font-family: sans-serif; }
+    th { background-color: #1f2937; padding: 10px; text-align: center; border: 1px solid #374151; }
+    td { padding: 8px; text-align: center; border: 1px solid #374151; }
+    tr:nth-child(even) { background-color: #161b22; }
 </style>
 """, unsafe_allow_html=True)
 
 # ────────────────────────────────────────────────
-# FUNCIONES DE FORMATEO
+# FUNCIONES DE FORMATEO Y CARGA
 # ────────────────────────────────────────────────
 def formatear_last_5(valor):
-    """Convierte 'WLDWW' en HTML con cuadraditos de colores"""
     if pd.isna(valor): return ""
     letras = list(str(valor).upper().replace(" ", ""))
-    html_str = ""
+    html_str = '<div class="forma-container">'
     for l in letras:
         clase = "win" if l == 'W' else "loss" if l == 'L' else "draw" if l == 'D' else ""
         html_str += f'<span class="forma-box {clase}">{l}</span>'
+    html_str += '</div>'
     return html_str
 
 @st.cache_data(ttl=300)
 def cargar_excel(ruta_archivo):
     url = f"{BASE_URL}/{ruta_archivo}"
     try:
-        return pd.read_excel(url).dropna(how='all')
+        df = pd.read_excel(url)
+        df = df.rename(columns=TRADUCCIONES)
+        return df.dropna(how='all')
     except:
         return None
 
 # ────────────────────────────────────────────────
-# ENCABEZADO
-# ────────────────────────────────────────────────
-st.markdown("""
-<div style="text-align:center; margin-top:15px; margin-bottom:20px;">
-    <img src="https://i.postimg.cc/hPkSPNcT/Sin-titulo-2.png" width="280"><br>
-</div>
-""", unsafe_allow_html=True)
-
-# ────────────────────────────────────────────────
 # INTERFAZ
 # ────────────────────────────────────────────────
+st.markdown('<div style="text-align:center;"><img src="https://i.postimg.cc/hPkSPNcT/Sin-titulo-2.png" width="280"></div>', unsafe_allow_html=True)
+
 tab_objects = st.tabs(list(LIGAS.values()))
 
 for i, (code, nombre_pantalla) in enumerate(LIGAS.items()):
@@ -118,12 +130,16 @@ for i, (code, nombre_pantalla) in enumerate(LIGAS.items()):
         elif btn_clasif:
             df_c = cargar_excel(f"CLASIFICACION_LIGA_{archivo_sufijo}.xlsx")
             if df_c is not None:
-                # PASO CLAVE: Convertimos la columna Last 5 a HTML antes de mostrarla
-                if 'Last 5' in df_c.columns:
-                    df_c['Last 5'] = df_c['Last 5'].apply(formatear_last_5)
+                # 1. Cuadraditos Last 5
+                col_forma = 'Últimos 5' if 'Últimos 5' in df_c.columns else 'Last 5'
+                if col_forma in df_c.columns:
+                    df_c[col_forma] = df_c[col_forma].apply(formatear_last_5)
                 
-                # Usamos st.write + to_html para que Streamlit interprete el HTML de los cuadraditos
-                st.write(df_c.to_html(escape=False, index=False, justify='center'), unsafe_allow_html=True)
+                # 2. Estilo de Puntos (Degradado azul suave)
+                styler = df_c.style.background_gradient(subset=['Pts'], cmap='Blues', low=0, high=0.5)
+                
+                # Renderizar tabla
+                st.write(styler.to_html(escape=False, index=False), unsafe_allow_html=True)
             else:
                 st.error("Archivo no encontrado.")
 
