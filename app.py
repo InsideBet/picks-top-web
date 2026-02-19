@@ -23,6 +23,18 @@ MAPEO_ARCHIVOS = {
     "Eredivisie": "Eredivisie", "Champions League": "Champions_League"
 }
 
+# Diccionario para los links de las banderas
+BANDERAS = {
+    "Champions League": "https://i.postimg.cc/XYHkj56d/7.png", # Pegar link .png
+    "Premier League": "https://i.postimg.cc/v1L6Fk5T/1.png",   # Pegar link .png
+    "La Liga": "https://i.postimg.cc/sByvcmbd/8.png",          # Pegar link .png
+    "Serie A": "https://i.postimg.cc/vDmxkPTQ/4.png",          # Pegar link .png
+    "Bundesliga": "https://i.postimg.cc/vg0gDnqQ/3.png",       # Pegar link .png
+    "Ligue 1": "https://i.postimg.cc/7GHJx9NR/2.png",          # Pegar link .png
+    "Primeira Liga": "https://i.postimg.cc/QH99xHcb/5.png",    # Pegar link .png
+    "Eredivisie": "https://i.postimg.cc/dLb77wB8/6.png"        # Pegar link .png
+}
+
 TRADUCCIONES = {
     'Rk': 'POS', 'Squad': 'EQUIPO', 'MP': 'PJ', 'W': 'G', 'D': 'E', 'L': 'P',
     'GF': 'GF', 'GA': 'GC', 'GD': 'DG', 'Pts': 'PTS', 'PTS': 'PTS',
@@ -37,7 +49,6 @@ TRADUCCIONES = {
 # ────────────────────────────────────────────────
 
 def limpiar_nombre_equipo(nombre):
-    """Elimina prefijos de país (ej: 'eng Arsenal' -> 'Arsenal')"""
     if pd.isna(nombre): return nombre
     return re.sub(r'^[a-z]+\s+', '', str(nombre))
 
@@ -75,7 +86,6 @@ def cargar_excel(ruta_archivo, tipo="general"):
     url = f"{BASE_URL}/{ruta_archivo}"
     try:
         df = pd.read_excel(url)
-        # Limpieza de nombres de equipo para todas las tablas
         col_equipo = 'Squad' if 'Squad' in df.columns else 'EQUIPO'
         if col_equipo in df.columns:
             df[col_equipo] = df[col_equipo].apply(limpiar_nombre_equipo)
@@ -131,6 +141,26 @@ st.markdown("""
     .win { background-color: #137031; } .loss { background-color: #821f1f; } .draw { background-color: #82711f; }
     
     div.stButton > button { background-color: #ff1800 !important; color: white !important; font-weight: bold !important; width: 100%; border-radius: 8px; border: none !important; margin-bottom: 5px; height: 45px; }
+
+    /* Estilo para el encabezado centrado con bandera */
+    .header-container {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 15px;
+        margin: 20px 0;
+    }
+    .header-title {
+        color: white;
+        font-size: 2rem;
+        font-weight: bold;
+        margin: 0;
+    }
+    .flag-img {
+        width: 45px;
+        height: auto;
+        border-radius: 4px;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -153,12 +183,19 @@ if st.session_state.menu_abierto:
         st.session_state.vista_activa = None 
         st.rerun()
 
-# 2. CONTENIDO PRINCIPAL (Solo aparece si hay una liga seleccionada)
+# 2. CONTENIDO PRINCIPAL
 if st.session_state.liga_actual:
     liga = st.session_state.liga_actual
     archivo_sufijo = MAPEO_ARCHIVOS.get(liga)
+    link_bandera = BANDERAS.get(liga, "")
     
-    st.markdown(f"<h3 style='text-align: center; color: #ff1800;'>{liga}</h3>", unsafe_allow_html=True)
+    # Encabezado centrado: Bandera (izq) + Nombre (Blanco)
+    st.markdown(f"""
+        <div class="header-container">
+            <img src="{link_bandera}" class="flag-img">
+            <h1 class="header-title">{liga}</h1>
+        </div>
+    """, unsafe_allow_html=True)
     
     c1, c2, c3 = st.columns(3)
     
@@ -186,7 +223,6 @@ if st.session_state.liga_actual:
             if view == "clas" and 'ÚLTIMOS 5' in df.columns:
                 df['ÚLTIMOS 5'] = df['ÚLTIMOS 5'].apply(formatear_last_5)
 
-            # Estilo dinámico: Sombrear solo la columna PTS si existe
             styler = df.style.hide(axis="index")
             if 'PTS' in df.columns:
                 styler = styler.set_properties(subset=['PTS'], **{'background-color': '#262730', 'font-weight': 'bold'})
