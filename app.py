@@ -111,7 +111,7 @@ def cargar_excel(ruta_archivo, tipo="general"):
 # ────────────────────────────────────────────────
 # INTERFAZ
 # ────────────────────────────────────────────────
-st.markdown('<div style="text-align:center; margin-bottom:20px;"><img src="https://i.postimg.cc/SNkwbQjM/33.png" width="300"></div>', unsafe_allow_html=True)
+st.markdown('<div style="text-align:center; margin-bottom:20px;"><img src="https://i.postimg.cc/C516P7F5/33.png" width="300"></div>', unsafe_allow_html=True)
 
 tab_objects = st.tabs(list(LIGAS.values()))
 
