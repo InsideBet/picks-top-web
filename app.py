@@ -30,13 +30,13 @@ BANDERAS = {
 }
 
 TRADUCCIONES = {
-    'Rk': 'Pos', 'Squad': 'Equipo', 'MP': 'PJ', 'W': 'G', 'D': 'E', 'L': 'P',
-    'GF': 'GF', 'GA': 'GC', 'GD': 'DG', 'Pts': 'Pts', 'PTS': 'Pts',
-    'Last 5': 'Últimos 5'
+    'Rk': 'POS', 'Squad': 'EQUIPO', 'MP': 'PJ', 'W': 'G', 'D': 'E', 'L': 'P',
+    'GF': 'GF', 'GA': 'GC', 'GD': 'DG', 'Pts': 'PTS', 'PTS': 'PTS',
+    'Last 5': 'ÚLTIMOS 5'
 }
 
 # ────────────────────────────────────────────────
-# ESTILO CSS (Limpieza de bordes y alineación)
+# ESTILO CSS (Cuadraditos y Tabla Limpia)
 # ────────────────────────────────────────────────
 st.markdown("""
 <style>
@@ -64,15 +64,22 @@ st.markdown("""
     .loss { background-color: #821f1f; }
     .draw { background-color: #82711f; }
 
+    /* Tabla sin espacios extra a la izquierda */
     table { 
         width: 100%; 
         border-collapse: collapse; 
         color: #e5e7eb;
     }
-    th { background-color: #1f2937; padding: 12px; border: 1px solid #374151; font-size: 13px; text-transform: uppercase; }
+    th { background-color: #1f2937; padding: 12px; border: 1px solid #374151; font-size: 13px; }
     td { padding: 10px; border: 1px solid #374151; font-size: 14px; text-align: center; }
     
     tr:hover { background-color: #21262d; }
+
+    /* Estilo para la columna PTS (Color sólido más claro que el fondo) */
+    .col-pts {
+        background-color: #2d333b !important; /* Un gris azulado suave y sólido */
+        font-weight: bold;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -86,7 +93,8 @@ def formatear_last_5(valor):
     html_str = '<div class="forma-container">'
     for l in letras:
         clase = "win" if l == 'W' else "loss" if l == 'L' else "draw" if l == 'D' else ""
-        html_str += f'<span class="forma-box {clase}">{trad.get(l, l)}</span>'
+        letra_visual = trad.get(l, l)
+        html_str += f'<span class="forma-box {clase}">{letra_visual}</span>'
     html_str += '</div>'
     return html_str
 
@@ -95,12 +103,10 @@ def cargar_excel(ruta_archivo):
     url = f"{BASE_URL}/{ruta_archivo}"
     try:
         df = pd.read_excel(url)
-        # 1. ELIMINAR COLUMNAS NO DESEADAS (Antes de traducir)
-        cols_a_quitar = ['Notes', 'Goalkeeper', 'Top Team Scorer', 'Attendance', 'Pts/MP', 'Pts/PJ']
-        # Filtramos solo las que existan para evitar errores
-        df = df.drop(columns=[c for c in cols_a_quitar if c in df.columns])
-        
-        # 2. TRADUCIR
+        # Limpieza de columnas innecesarias
+        cols_drop = ['Notes', 'Goalkeeper', 'Top Team Scorer', 'Attendance', 'Pts/MP', 'Pts/PJ']
+        df = df.drop(columns=[c for c in cols_drop if c in df.columns])
+        # Traducción de cabeceras
         df = df.rename(columns=TRADUCCIONES)
         return df.dropna(how='all')
     except:
@@ -117,17 +123,14 @@ for i, (code, nombre_pantalla) in enumerate(LIGAS.items()):
     with tab_objects[i]:
         archivo_sufijo = MAPEO_ARCHIVOS.get(nombre_pantalla)
         
+        # Botones de acción
         col1, col2, col3 = st.columns(3)
         with col1: btn_clasif = st.button(f"🏆 Clasificación", key=f"btn_clas_{code}")
         with col2: btn_stats = st.button(f"📊 Stats Generales", key=f"btn_stats_{code}")
         with col3: btn_fix = st.button(f"📅 Ver Fixture", key=f"btn_fix_{code}")
 
         df_para_lista = cargar_excel(f"RESUMEN_STATS_{archivo_sufijo}.xlsx")
-        equipo_sel = "Seleccionar..."
-        if df_para_lista is not None:
-            col_eq = next((c for c in df_para_lista.columns if c in ['Equipo', 'Squad']), df_para_lista.columns[0])
-            lista_equipos = sorted([str(x) for x in df_para_lista[col_eq].unique() if str(x) != 'nan'])
-            equipo_sel = st.selectbox("🔍 Analizar Equipo:", ["Seleccionar..."] + lista_equipos, key=f"sel_{code}")
+        equipo_sel = st.selectbox("🔍 Analizar Equipo:", ["Seleccionar..."] + sorted([str(x) for x in df_para_lista['EQUIPO'].unique()]) if df_para_lista is not None else ["Seleccionar..."], key=f"sel_{code}")
 
         st.divider()
 
@@ -138,24 +141,25 @@ for i, (code, nombre_pantalla) in enumerate(LIGAS.items()):
         elif btn_clasif:
             df_c = cargar_excel(f"CLASIFICACION_LIGA_{archivo_sufijo}.xlsx")
             if df_c is not None:
-                # 3. PROCESAR FORMA RECIENTE
-                col_forma = 'Últimos 5' if 'Últimos 5' in df_c.columns else 'Last 5'
+                # 1. ELIMINAR EL ÍNDICE COMPLETAMENTE
+                df_c = df_c.reset_index(drop=True)
+                
+                # 2. Formatear la columna de forma
+                col_forma = 'ÚLTIMOS 5' if 'ÚLTIMOS 5' in df_c.columns else 'Last 5'
                 if col_forma in df_c.columns:
                     df_c[col_forma] = df_c[col_forma].apply(formatear_last_5)
                 
-                # 4. APLICAR ESTILO Y RENDERIZAR SIN ÍNDICE
-                # El degradado gris suave en Puntos
-                styler = df_c.style.background_gradient(subset=['Pts'], cmap='Greys', low=0, high=0.3)
+                # 3. Aplicar clase CSS a la columna PTS para el color sólido
+                styler = df_c.style.set_table_styles({
+                    'PTS': [{'selector': 'td', 'props': [('background-color', '#2d333b'), ('font-weight', 'bold')]}]
+                }, overwrite=False)
                 
-                # 'index=False' en to_html es lo que elimina los números 0, 1, 2 de la izquierda
-                html_tabla = styler.to_html(escape=False, index=False)
+                # 4. Renderizado HTML SIN ÍNDICE (index=False es vital aquí)
+                html_tabla = df_c.style.set_td_classes(
+                    pd.DataFrame([['col-pts' if col == 'PTS' else '' for col in df_c.columns] for _ in range(len(df_c))], 
+                                 index=df_c.index, columns=df_c.columns)
+                ).to_html(escape=False, index=False)
+                
                 st.markdown(html_tabla, unsafe_allow_html=True)
             else:
                 st.error("Archivo no encontrado.")
-
-        elif btn_stats:
-            if df_para_lista is not None: st.dataframe(df_para_lista, use_container_width=True, hide_index=True)
-
-        elif btn_fix:
-            df_f = cargar_excel(f"CARTELERA_PROXIMOS_{archivo_sufijo}.xlsx")
-            if df_f is not None: st.dataframe(df_f, use_container_width=True, hide_index=True)
