@@ -5,7 +5,7 @@ import numpy as np
 # ────────────────────────────────────────────────
 # CONFIGURACIÓN DE PÁGINA
 # ────────────────────────────────────────────────
-st.set_page_config(page_title="InsideBet - Pro Suite", layout="wide")
+st.set_page_config(page_title="InsideBet", layout="wide")
 
 USER = "InsideBet" 
 REPO = "picks-top-web"
@@ -23,52 +23,110 @@ MAPEO_ARCHIVOS = {
     "Eredivisie": "Eredivisie", "Champions League": "Champions_League"
 }
 
+TRADUCCIONES = {
+    'Rk': 'POS', 'Squad': 'EQUIPO', 'MP': 'PJ', 'W': 'G', 'D': 'E', 'L': 'P',
+    'GF': 'GF', 'GA': 'GC', 'GD': 'DG', 'Pts': 'PTS', 'PTS': 'PTS',
+    'Last 5': 'ÚLTIMOS 5', 'Wk': 'JORNADA', 'Date': 'FECHA', 'Time': 'HORA',
+    'Home': 'LOCAL', 'Away': 'VISITANTE', 'Venue': 'ESTADIO',
+    'Poss': 'POSESIÓN', 'Gls': 'GOLES', 'Ast': 'ASISTENCIAS', 
+    'CrdY': 'AMARILLAS', 'CrdR': 'ROJAS', 'xG': 'xG'
+}
+
 # ────────────────────────────────────────────────
-# FUNCIONES VISUALES (BADGES Y BARRAS)
+# ALGORITMO HOT PICKS (Lógica de Scrapeo Interna)
 # ────────────────────────────────────────────────
 
-def formatear_xg_badge(val, label_only=False):
+def obtener_hot_picks():
+    """Analiza todas las ligas y devuelve los mejores picks basados en xG y Posesión."""
+    picks = []
+    for cod, nombre in LIGAS.items():
+        archivo = MAPEO_ARCHIVOS.get(nombre)
+        url = f"{BASE_URL}/RESUMEN_STATS_{archivo}.xlsx"
+        try:
+            df = pd.read_excel(url)
+            # Extraer xG de columna Q (índice 16)
+            if len(df.columns) >= 17:
+                col_xg = df.columns[16]
+                df['xG_val'] = pd.to_numeric(df[col_xg], errors='coerce')
+                df['Poss_val'] = pd.to_numeric(df['Poss'].str.replace('%',''), errors='coerce')
+                
+                # Regla 1: Over 2.5 (xG alto)
+                best_xg = df.nlargest(1, 'xG_val').iloc[0]
+                if best_xg['xG_val'] > 2.0:
+                    picks.append({
+                        'tipo': '🔥 OVER 2.5',
+                        'equipo': best_xg['Squad'],
+                        'liga': nombre,
+                        'dato': f"xG: {best_xg['xG_val']:.2f}"
+                    })
+                
+                # Regla 2: Posesión dominante (Control)
+                best_poss = df.nlargest(1, 'Poss_val').iloc[0]
+                if best_poss['Poss_val'] > 60:
+                    picks.append({
+                        'tipo': '🎮 DOMINIO',
+                        'equipo': best_poss['Squad'],
+                        'liga': nombre,
+                        'dato': f"Posesión: {best_poss['Poss_val']}%"
+                    })
+        except:
+            continue
+    return picks[:3] # Retornamos los 3 mejores
+
+# ────────────────────────────────────────────────
+# FUNCIONES DE PROCESAMIENTO VISUAL
+# ────────────────────────────────────────────────
+
+def formatear_xg_badge(val):
     try:
         num = float(val)
         if num > 2.50: label, color = "+2.5", "#137031"
         elif num > 1.50: label, color = "+1.5", "#137031"
         else: label, color = "+0.5", "#821f1f"
-        
-        if label_only: return label
         return f'<div style="display:flex;justify-content:center;"><span style="background-color:{color};color:white;padding:4px 10px;border-radius:6px;font-weight:bold;font-size:12px;min-width:45px;text-align:center;">{label}</span></div>'
     except: return val
 
 def html_barra_posesion(valor):
     try:
-        num = float(str(valor).replace('%',''))
-        p = min(max(int(round(num if num > 1 else num*100)), 0), 100)
-        return f'<div class="bar-container"><div class="bar-bg"><div class="bar-fill" style="width:{p}%;"></div></div><div class="bar-text">{p}%</div></div>'
+        clean_val = str(valor).replace('%', '').strip()
+        num = float(clean_val)
+        percent = int(round(num if num > 1 else num * 100))
+        percent = min(max(percent, 0), 100)
+        return f'<div class="bar-container"><div class="bar-bg"><div class="bar-fill" style="width: {percent}%;"></div></div><div class="bar-text">{percent}%</div></div>'
     except: return valor
 
 def formatear_last_5(valor):
     if pd.isna(valor): return ""
+    trad = {'W': 'G', 'L': 'P', 'D': 'E'}
     letras = list(str(valor).upper().replace(" ", ""))[:5]
-    html = '<div class="forma-container">'
+    html_str = '<div class="forma-container">'
     for l in letras:
         clase = "win" if l == 'W' else "loss" if l == 'L' else "draw" if l == 'D' else ""
-        html += f'<span class="forma-box {clase}">{l.replace("W","G").replace("L","P").replace("D","E")}</span>'
-    return html + '</div>'
-
-# ────────────────────────────────────────────────
-# LÓGICA DE CARGA Y FILTROS
-# ────────────────────────────────────────────────
+        html_str += f'<span class="forma-box {clase}">{trad.get(l, l)}</span>'
+    return html_str + '</div>'
 
 @st.cache_data(ttl=300)
-def cargar_datos(liga_nombre, tipo):
-    archivo = MAPEO_ARCHIVOS.get(liga_nombre)
-    url = f"{BASE_URL}/RESUMEN_STATS_{archivo}.xlsx" if tipo == "stats" else f"{BASE_URL}/CLASIFICACION_LIGA_{archivo}.xlsx"
+def cargar_excel(ruta_archivo, tipo="general"):
+    url = f"{BASE_URL}/{ruta_archivo}"
     try:
         df = pd.read_excel(url)
-        # Limpieza de xG en columna Q
-        if tipo == "stats" and len(df.columns) >= 17:
-            df = df.rename(columns={df.columns[16]: 'xG'})
-        df.columns = [str(c).strip() for c in df.columns]
-        return df
+        if tipo == "stats":
+            if len(df.columns) >= 17:
+                col_q = df.columns[16]
+                df = df.rename(columns={col_q: 'xG'})
+            df.columns = [str(c).strip() for c in df.columns]
+            if 'xG' in df.columns: df['xG'] = df['xG'].apply(formatear_xg_badge)
+            if 'Poss' in df.columns: df['Poss'] = df['Poss'].apply(html_barra_posesion)
+            cols_ok = ['Squad', 'MP', 'Poss', 'Gls', 'Ast', 'CrdY', 'CrdR', 'xG']
+            df = df[[c for c in cols_ok if c in df.columns]]
+        elif tipo == "clasificacion":
+            drop_c = ['Notes', 'Goalkeeper', 'Top Team Scorer', 'Attendance', 'Pts/MP', 'Pts/PJ']
+            df = df.drop(columns=[c for c in drop_c if c in df.columns])
+        elif tipo == "fixture":
+            drop_f = ['Day', 'Score', 'Referee', 'Match Report', 'Notes', 'Attendance', 'Wk']
+            df = df.drop(columns=[c for c in drop_f if c in df.columns])
+        df = df.rename(columns=TRADUCCIONES)
+        return df.dropna(how='all')
     except: return None
 
 # ────────────────────────────────────────────────
@@ -77,106 +135,84 @@ def cargar_datos(liga_nombre, tipo):
 st.markdown("""
 <style>
     .stApp { background-color: #0e1117; color: #e5e7eb; }
-    .table-scroll { width: 100%; max-height: 500px; overflow: auto; border: 1px solid #374151; border-radius: 8px; }
+    .table-scroll { width: 100%; max-height: 450px; overflow: auto; border: 1px solid #374151; border-radius: 8px; margin-bottom: 20px; }
     th { position: sticky; top: 0; background-color: #1f2937 !important; color: white; padding: 12px; border: 1px solid #374151; text-align: center !important; }
     td { padding: 10px; border: 1px solid #374151; text-align: center !important; white-space: nowrap; }
+    .bar-container { display: flex; align-items: center; justify-content: flex-start; gap: 8px; width: 140px; margin: 0 auto; }
+    .bar-bg { background-color: #2d3139; border-radius: 10px; flex-grow: 1; height: 7px; overflow: hidden; }
+    .bar-fill { background-color: #ff4b4b; height: 100%; border-radius: 10px; }
+    .bar-text { font-size: 12px; font-weight: bold; min-width: 32px; text-align: right; }
+    .forma-container { display: flex; justify-content: center; gap: 4px; }
+    .forma-box { width: 22px; height: 22px; line-height: 22px; text-align: center; border-radius: 4px; font-weight: bold; font-size: 11px; color: white; }
+    .win { background-color: #137031; } .loss { background-color: #821f1f; } .draw { background-color: #82711f; }
     
-    /* Hot Picks Card */
-    .hot-card { background: linear-gradient(135deg, #821f1f 0%, #1f2937 100%); border-radius: 12px; padding: 15px; border-left: 5px solid #ff1800; margin-bottom: 10px; }
-    
-    /* Bar & Shapes */
-    .bar-container { display: flex; align-items: center; gap: 8px; width: 120px; margin: 0 auto; }
-    .bar-bg { background: #2d3139; border-radius: 10px; flex-grow: 1; height: 6px; overflow: hidden; }
-    .bar-fill { background: #ff4b4b; height: 100%; }
-    .bar-text { font-size: 11px; font-weight: bold; }
-    .forma-container { display: flex; justify-content: center; gap: 3px; }
-    .forma-box { width: 20px; height: 20px; line-height: 20px; text-align: center; border-radius: 3px; font-size: 10px; font-weight: bold; color: white; }
-    .win { background: #137031; } .loss { background: #821f1f; } .draw { background: #82711f; }
+    /* Hot Pick Card Style */
+    .hot-pick-card {
+        background: linear-gradient(135deg, #1f2937 0%, #111827 100%);
+        border: 1px solid #374151;
+        border-left: 5px solid #ff1800;
+        border-radius: 10px;
+        padding: 15px;
+        text-align: center;
+        margin-bottom: 10px;
+    }
 </style>
 """, unsafe_allow_html=True)
 
 # ────────────────────────────────────────────────
-# INTERFAZ PRINCIPAL
+# LOGO Y ALGORITMO HOT PICKS
 # ────────────────────────────────────────────────
-st.markdown('<div style="text-align:center;"><img src="https://i.postimg.cc/C516P7F5/33.png" width="250"></div>', unsafe_allow_html=True)
+st.markdown('<div style="text-align:center; margin-bottom:20px;"><img src="https://i.postimg.cc/C516P7F5/33.png" width="300"></div>', unsafe_allow_html=True)
 
-# 1. SECCIÓN HOT PICKS (Punto 1)
-st.subheader("🔥 Algoritmo Hot Picks (Basado en xG)")
-col_hp1, col_hp2, col_hp3 = st.columns(3)
-
-# Simulación de detección automática (Se puede automatizar recorriendo todos los Excel)
-with col_hp1:
-    st.markdown('<div class="hot-card"><b>OVER 2.5</b><br>Manchester City<br><small>xG: 2.85 | Rachas GGG</small></div>', unsafe_allow_html=True)
-with col_hp2:
-    st.markdown('<div class="hot-card"><b>BTTS (Ambos Marcan)</b><br>Real Madrid vs Barça<br><small>xG Combinado: 4.10</small></div>', unsafe_allow_html=True)
-with col_hp3:
-    st.markdown('<div class="hot-card" style="border-left-color:#137031"><b>VALOR SEGURO</b><br>Bayern Munich<br><small>Posesión: 68%</small></div>', unsafe_allow_html=True)
+st.subheader("🔥 Algoritmo Hot Picks")
+picks = obtener_hot_picks()
+if picks:
+    cols = st.columns(len(picks))
+    for i, p in enumerate(picks):
+        with cols[i]:
+            st.markdown(f"""
+            <div class="hot-pick-card">
+                <span style="color:#ff1800; font-weight:bold; font-size:14px;">{p['tipo']}</span><br>
+                <span style="font-size:18px; font-weight:bold;">{p['equipo']}</span><br>
+                <span style="color:#9ca3af; font-size:12px;">{p['liga']} • {p['dato']}</span>
+            </div>
+            """, unsafe_allow_html=True)
+else:
+    st.info("Buscando las mejores oportunidades en los datos...")
 
 st.divider()
 
-# TABS DE LIGAS
-tab_objs = st.tabs(list(LIGAS.values()))
+# ────────────────────────────────────────────────
+# TABS Y TABLAS
+# ────────────────────────────────────────────────
+tab_objects = st.tabs(list(LIGAS.values()))
 
-for idx, (cod, nom) in enumerate(LIGAS.items()):
-    with tab_objs[idx]:
-        df_stats = cargar_datos(nom, "stats")
-        df_clas = cargar_datos(nom, "clas")
-        
-        # 2. COMPARADOR H2H (Punto 2)
-        if df_stats is not None:
-            with st.expander("⚔️ Comparador H2H (Cara a Cara)"):
-                c_h2h1, c_h2h2 = st.columns(2)
-                eq1 = c_h2h1.selectbox("Equipo A (Local)", df_stats['Squad'].unique(), key=f"e1_{cod}")
-                eq2 = c_h2h2.selectbox("Equipo B (Visitante)", df_stats['Squad'].unique(), key=f"e2_{cod}")
-                
-                if eq1 and eq2:
-                    d1 = df_stats[df_stats['Squad'] == eq1].iloc[0]
-                    d2 = df_stats[df_stats['Squad'] == eq2].iloc[0]
-                    
-                    st.markdown(f"""
-                    <table style="width:100%; color:white; text-align:center; background:#1f2937; border-radius:10px;">
-                        <tr><th>{eq1}</th><th>Métrica</th><th>{eq2}</th></tr>
-                        <tr><td>{d1.get('Poss','-')}</td><td>Posesión</td><td>{d2.get('Poss','-')}</td></tr>
-                        <tr><td>{d1.get('xG','-')}</td><td>xG</td><td>{d2.get('xG','-')}</td></tr>
-                        <tr><td>{d1.get('CrdY','-')}</td><td>Amarillas</td><td>{d2.get('CrdY','-')}</td></tr>
-                    </table>
-                    """, unsafe_allow_html=True)
+for i, (code, nombre_pantalla) in enumerate(LIGAS.items()):
+    with tab_objects[i]:
+        archivo_sufijo = MAPEO_ARCHIVOS.get(nombre_pantalla)
+        if f"show_{code}" not in st.session_state: st.session_state[f"show_{code}"] = None
 
-        # 3. FILTROS DE MERCADO (Punto 3)
-        st.write("### 📊 Panel de Análisis")
-        m1, m2, m3, m4 = st.columns(4)
-        mercado = "General"
-        if m1.button("🏆 Tabla Real", key=f"btn_t_{cod}"): mercado = "Clasificacion"
-        if m2.button("⚽ Mercado Goles (xG)", key=f"btn_g_{cod}"): mercado = "Goles"
-        if m3.button("🟨 Tarjetas / Faltas", key=f"btn_c_{cod}"): mercado = "Cards"
-        if m4.button("🎮 Posesión / Control", key=f"btn_p_{cod}"): mercado = "Control"
+        c1, c2, c3 = st.columns(3)
+        if c1.button(f"🏆 Clasificación", key=f"c_{code}"): st.session_state[f"show_{code}"] = "clas"
+        if c2.button(f"📊 Stats Generales", key=f"s_{code}"): st.session_state[f"show_{code}"] = "stats"
+        if c3.button(f"📅 Ver Fixture", key=f"f_{code}"): st.session_state[f"show_{code}"] = "fix"
 
-        # Mostrar tablas según mercado
-        if mercado == "Clasificacion" and df_clas is not None:
-            df_view = df_clas.copy()
-            if 'Last 5' in df_view.columns: df_view['Last 5'] = df_view['Last 5'].apply(formatear_last_5)
-            st.markdown(f'<div class="table-scroll">{df_view.to_html(escape=False, index=False)}</div>', unsafe_allow_html=True)
-            
-        elif df_stats is not None:
-            df_view = df_stats.copy()
-            
-            # Tendencia (Punto 4: Sparkline visual simple con flechas/iconos)
-            if 'xG' in df_view.columns:
-                df_view['Tendencia'] = df_view['xG'].apply(lambda x: "📈" if float(x) > 1.8 else "📉" if float(x) < 1.2 else "📊")
-                df_view['xG'] = df_view['xG'].apply(formatear_xg_badge)
-            
-            if 'Poss' in df_view.columns:
-                df_view['Poss'] = df_view['Poss'].apply(html_barra_posesion)
-            
-            # Selección de columnas por mercado
-            if mercado == "Goles":
-                cols = ['Squad', 'MP', 'Gls', 'xG', 'Tendencia']
-            elif mercado == "Cards":
-                cols = ['Squad', 'MP', 'CrdY', 'CrdR']
-            elif mercado == "Control":
-                cols = ['Squad', 'Poss', 'Ast']
-            else:
-                cols = ['Squad', 'MP', 'Poss', 'Gls', 'xG']
-                
-            df_view = df_view[[c for c in cols if c in df_view.columns]]
-            st.markdown(f'<div class="table-scroll">{df_view.to_html(escape=False, index=False)}</div>', unsafe_allow_html=True)
+        st.divider()
+        view = st.session_state[f"show_{code}"]
+
+        if view == "stats":
+            df = cargar_excel(f"RESUMEN_STATS_{archivo_sufijo}.xlsx", tipo="stats")
+            if df is not None:
+                html_table = df.style.hide(axis='index').to_html(escape=False)
+                st.markdown(f'<div class="table-scroll">{html_table}</div>', unsafe_allow_html=True)
+
+        elif view == "clas":
+            df = cargar_excel(f"CLASIFICACION_LIGA_{archivo_sufijo}.xlsx", tipo="clasificacion")
+            if df is not None:
+                if 'ÚLTIMOS 5' in df.columns: df['ÚLTIMOS 5'] = df['ÚLTIMOS 5'].apply(formatear_last_5)
+                st.markdown(f'<div class="table-scroll">{df.style.hide(axis="index").to_html(escape=False)}</div>', unsafe_allow_html=True)
+
+        elif view == "fix":
+            df = cargar_excel(f"CARTELERA_PROXIMOS_{archivo_sufijo}.xlsx", tipo="fixture")
+            if df is not None:
+                st.markdown(f'<div class="table-scroll">{df.style.hide(axis="index").to_html(escape=False)}</div>', unsafe_allow_html=True)
