@@ -44,11 +44,20 @@ st.markdown("""
 <style>
     .stApp { background-color: #0e1117; color: #e5e7eb; }
     
-    /* Box de información personalizado (Selecciona una opción...) */
-    .stAlert {
-        background-color: rgba(186, 35, 30, 0.15); 
-        border: 1px solid #ff1800;
-        color: #e5e7eb;
+    /* Box de información personalizado (st.info) */
+    [data-testid="stNotification"] {
+        background-color: #ff1800 !important;
+        border-radius: 8px !important;
+        border: none !important;
+    }
+    
+    [data-testid="stNotification"] div {
+        color: white !important;
+        font-weight: 500;
+    }
+
+    [data-testid="stNotification"] svg {
+        fill: white !important;
     }
 
     /* Contenedor Cuadraditos Forma */
