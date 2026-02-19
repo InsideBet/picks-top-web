@@ -44,6 +44,13 @@ st.markdown("""
 <style>
     .stApp { background-color: #0e1117; color: #e5e7eb; }
     
+    /* Box de información personalizado (Selecciona una opción...) */
+    .stAlert {
+        background-color: rgba(186, 35, 30, 0.15); 
+        border: 1px solid #ff1800;
+        color: #e5e7eb;
+    }
+
     /* Contenedor Cuadraditos Forma */
     .forma-container {
         display: flex;
