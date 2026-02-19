@@ -37,7 +37,6 @@ TRADUCCIONES = {
 # ────────────────────────────────────────────────
 
 def color_xg_fijo(val):
-    """Aplica verde si es >= 1.50, rojo si es menor."""
     try:
         num = float(val)
         color = "#137031" if num >= 1.50 else "#821f1f"
@@ -45,10 +44,8 @@ def color_xg_fijo(val):
     except: return ''
 
 def html_barra_posesion(valor):
-    """Genera el HTML de la barra roja de progreso para la posesión."""
     try:
         num = float(str(valor).replace('%', ''))
-        # Ajuste por si el valor viene como 0.57 en lugar de 57
         percent = int(round(num if num > 1 else num * 100))
         return f'''
         <div class="bar-container">
@@ -59,7 +56,6 @@ def html_barra_posesion(valor):
     except: return valor
 
 def formatear_last_5(valor):
-    """Convierte WLD en cajitas de colores GEP."""
     if pd.isna(valor): return ""
     trad = {'W': 'G', 'L': 'P', 'D': 'E'}
     letras = list(str(valor).upper().replace(" ", ""))[:5]
@@ -78,15 +74,17 @@ def cargar_excel(ruta_archivo, tipo="general"):
         df.columns = [str(c).strip() for c in df.columns]
         
         if tipo == "stats":
-            # Detectar si Gls es en realidad xG (decimales)
-            if 'Gls' in df.columns and df['Gls'].dtype == 'float64':
-                df = df.rename(columns={'Gls': 'xG'})
+            # REGLA CRÍTICA: Detectar si Gls es decimal (xG) ANTES de filtrar columnas
+            if 'Gls' in df.columns:
+                # Verificamos si hay decimales en la columna Gls
+                es_decimal = df['Gls'].apply(lambda x: float(x) % 1 != 0 if pd.notnull(x) else False).any()
+                if es_decimal:
+                    df = df.rename(columns={'Gls': 'xG'})
             
-            # Seleccionar solo lo pactado
-            columnas_ok = ['Squad', 'MP', 'Poss', 'Gls', 'Ast', 'CrdY', 'CrdR', 'xG']
-            df = df[[c for c in columnas_ok if c in df.columns]]
+            # Ahora que ya sabemos si hay xG, filtramos las que queremos mostrar
+            columnas_finales = ['Squad', 'MP', 'Poss', 'Gls', 'Ast', 'CrdY', 'CrdR', 'xG']
+            df = df[[c for c in columnas_finales if c in df.columns]]
             
-            # Aplicar barra a Posesión
             if 'Poss' in df.columns:
                 df['Poss'] = df['Poss'].apply(html_barra_posesion)
 
@@ -99,13 +97,6 @@ def cargar_excel(ruta_archivo, tipo="general"):
             df = df.drop(columns=[c for c in drop_f if c in df.columns])
 
         df = df.rename(columns=TRADUCCIONES)
-        
-        # Reordenar PTS en clasificación
-        if tipo == "clasificacion" and 'PTS' in df.columns and 'EQUIPO' in df.columns:
-            cols = list(df.columns)
-            cols.insert(cols.index('EQUIPO') + 1, cols.pop(cols.index('PTS')))
-            df = df[cols]
-            
         return df.dropna(how='all')
     except: return None
 
@@ -122,13 +113,11 @@ st.markdown("""
     th { position: sticky; top: 0; background-color: #1f2937 !important; color: white; padding: 12px; border: 1px solid #374151; font-size: 13px; text-align: center !important; }
     td { padding: 10px; border: 1px solid #374151; font-size: 14px; text-align: center !important; white-space: nowrap; }
     
-    /* ESTILO BARRA POSESIÓN */
     .bar-container { display: flex; align-items: center; justify-content: flex-start; gap: 8px; width: 140px; margin: 0 auto; }
     .bar-bg { background-color: #2d3139; border-radius: 10px; flex-grow: 1; height: 7px; overflow: hidden; }
     .bar-fill { background-color: #ff4b4b; height: 100%; border-radius: 10px; }
     .bar-text { font-size: 12px; font-weight: bold; min-width: 32px; text-align: right; }
 
-    /* ESTILO FORMA (Últimos 5) */
     .forma-container { display: flex; justify-content: center; gap: 4px; }
     .forma-box { width: 22px; height: 22px; line-height: 22px; text-align: center; border-radius: 4px; font-weight: bold; font-size: 11px; color: white; }
     .win { background-color: #137031; } .loss { background-color: #821f1f; } .draw { background-color: #82711f; }
@@ -158,10 +147,11 @@ for i, (code, nombre_pantalla) in enumerate(LIGAS.items()):
             df = cargar_excel(f"RESUMEN_STATS_{archivo_sufijo}.xlsx", tipo="stats")
             if df is not None:
                 styler = df.style.hide(axis='index')
+                # Pintar la columna xG (que ahora sí debería existir si venía como Gls decimal)
                 if 'xG' in df.columns:
                     styler = styler.applymap(color_xg_fijo, subset=['xG'])
                 st.markdown(f'<div class="table-scroll">{styler.to_html(escape=False)}</div>', unsafe_allow_html=True)
-            else: st.error("Error al cargar Stats.")
+            else: st.error("No se pudo cargar la data de Stats.")
 
         elif view == "clas":
             df = cargar_excel(f"CLASIFICACION_LIGA_{archivo_sufijo}.xlsx", tipo="clasificacion")
