@@ -115,11 +115,11 @@ st.markdown("""
     .forma-box { width: 22px; height: 22px; line-height: 22px; text-align: center; border-radius: 4px; font-weight: bold; font-size: 11px; color: white; }
     .win { background-color: #137031; } .loss { background-color: #821f1f; } .draw { background-color: #82711f; }
     
-    /* Botones Estilo InsideBet */
-    div.stButton > button { background-color: #ff1800 !important; color: white !important; font-weight: bold !important; width: 100%; border-radius: 8px; border: none !important; margin-bottom: 5px; height: 45px; font-size: 16px; }
+    /* Botones Rojos InsideBet */
+    div.stButton > button { background-color: #ff1800 !important; color: white !important; font-weight: bold !important; width: 100%; border-radius: 8px; border: none !important; margin-bottom: 5px; height: 45px; }
     
-    /* Banner Informativo Estilo Botón */
-    .custom-info-banner { background-color: #ff1800; color: white; padding: 12px; border-radius: 8px; text-align: center; font-weight: bold; margin: 10px 0 20px 0; font-size: 15px; }
+    /* Banner Rojo Informativo */
+    .banner-info { background-color: #ff1800; color: white; padding: 15px; border-radius: 8px; text-align: center; font-weight: bold; margin-bottom: 20px; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -127,47 +127,46 @@ st.markdown("""
 st.markdown('<div style="text-align:center; margin-bottom:20px;"><img src="https://i.postimg.cc/C516P7F5/33.png" width="300"></div>', unsafe_allow_html=True)
 
 # 1. LÓGICA DE COMPETENCIAS
-if "menu_open" not in st.session_state: st.session_state.menu_open = False
-if "liga_sel" not in st.session_state: st.session_state.liga_sel = None
+if "menu_abierto" not in st.session_state: st.session_state.menu_abierto = False
+if "liga_actual" not in st.session_state: st.session_state.liga_actual = None
 if "vista_activa" not in st.session_state: st.session_state.vista_activa = None
 
-# Botón Central "COMPETENCIAS"
+# Botón principal con estilo idéntico a los demás
 if st.button("COMPETENCIAS"):
-    st.session_state.menu_open = not st.session_state.menu_open
+    st.session_state.menu_abierto = not st.session_state.menu_abierto
 
-# Desplegable de ligas (solo aparece si menu_open es True)
-if st.session_state.menu_open:
-    sel = st.selectbox("Selecciona una competencia", ["-- Elige una liga --"] + LIGAS_LISTA, label_visibility="collapsed")
-    if sel != "-- Elige una liga --":
-        st.session_state.liga_sel = sel
-        st.session_state.menu_open = False
-        st.session_state.vista_activa = None # Reset vista al cambiar liga
+# Cuadro de diálogo que aparece al pulsar COMPETENCIAS
+if st.session_state.menu_abierto:
+    seleccion = st.selectbox("Selecciona una competencia", ["-- Elige una liga --"] + LIGAS_LISTA, label_visibility="collapsed")
+    if seleccion != "-- Elige una liga --":
+        st.session_state.liga_actual = seleccion
+        st.session_state.menu_abierto = False
+        st.session_state.vista_activa = None # Reset al cambiar de liga
         st.rerun()
 
-# 2. BANNER O CONTENIDO
-if st.session_state.liga_sel is None:
-    st.markdown('<div class="custom-info-banner">Selecciona una Liga/Competencia</div>', unsafe_allow_html=True)
-    st.stop()
+# 2. BANNER O BOTONES DE ACCIÓN
+if st.session_state.liga_actual is None:
+    st.markdown('<div class="banner-info">Selecciona una Liga/Competencia</div>', unsafe_allow_html=True)
 else:
-    # Mostramos la liga elegida y los botones de acción
-    liga = st.session_state.liga_sel
+    liga = st.session_state.liga_actual
     archivo_sufijo = MAPEO_ARCHIVOS.get(liga)
     
-    st.markdown(f"<h3 style='text-align: center; color: #ff1800;'>{liga}</h3>", unsafe_allow_html=True)
-    
+    st.write(f"### {liga}")
     c1, c2, c3 = st.columns(3)
     
-    def set_view(v):
-        if st.session_state.vista_activa == v: st.session_state.vista_activa = None
-        else: st.session_state.vista_activa = v
+    def manejar_click(v):
+        if st.session_state.vista_activa == v:
+            st.session_state.vista_activa = None
+        else:
+            st.session_state.vista_activa = v
 
-    if c1.button("Clasificación"): set_view("clas")
-    if c2.button("Stats Generales"): set_view("stats")
-    if c3.button("Ver Fixture"): set_view("fix")
+    if c1.button("Clasificación"): manejar_click("clas")
+    if c2.button("Stats Generales"): manejar_click("stats")
+    if c3.button("Ver Fixture"): manejar_click("fix")
 
     st.divider()
 
-    # 3. RENDERIZADO DE TABLAS
+    # 3. RENDERIZADO DE TABLAS (ACORDEÓN)
     view = st.session_state.vista_activa
     if view == "stats":
         df = cargar_excel(f"RESUMEN_STATS_{archivo_sufijo}.xlsx", tipo="stats")
