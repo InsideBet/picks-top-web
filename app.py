@@ -155,27 +155,33 @@ def procesar_cuotas(data):
     return pd.DataFrame(rows)
 
 # ────────────────────────────────────────────────
-# ESTILOS CSS (ELIMINACIÓN DE RESTRICCIONES DE SCROLL)
+# ESTILOS CSS (RE-ESTRUCTURACIÓN DE SCROLL)
 # ────────────────────────────────────────────────
 st.markdown("""
 <style>
-    /* 1. Forzar scroll global en el cuerpo de la app */
-    html, body, [data-testid="stAppViewContainer"] {
+    /* RESET DE CONTENEDORES DE STREAMLIT */
+    /* Forzamos al contenedor principal a permitir desbordamiento */
+    .main .block-container {
+        max-width: 95% !important;
+        padding-top: 2rem !important;
         overflow: visible !important;
-        height: auto !important;
+    }
+    
+    [data-testid="stAppViewContainer"] {
+        overflow: visible !important;
     }
 
-    /* 2. Quitar el scroll interno de los bloques de Streamlit */
     [data-testid="stMainViewContainer"] {
         overflow: visible !important;
     }
 
-    /* 3. Estilo de tabla mejorado */
+    /* ESTILO DE TABLAS */
     .stApp { background-color: #0e1117; color: #e5e7eb; }
     
     .table-container { 
         width: 100%; 
-        overflow-x: auto; 
+        overflow-x: auto; /* Scroll horizontal si la tabla es muy ancha */
+        overflow-y: visible; /* IMPORTANTE: Dejamos que el scroll vertical lo maneje la web */
         border: 1px solid #374151; 
         border-radius: 8px; 
         margin-bottom: 50px;
@@ -186,7 +192,7 @@ st.markdown("""
     th { 
         position: sticky; 
         top: 0;
-        z-index: 99;
+        z-index: 100;
         background-color: #1f2937 !important; 
         color: white !important; 
         padding: 12px; 
@@ -195,7 +201,7 @@ st.markdown("""
     
     td { padding: 12px; border: 1px solid #374151; text-align: center !important; }
     
-    /* Otros Estilos visuales */
+    /* OTROS ESTILOS */
     .header-container { display: flex; align-items: center; justify-content: flex-start; gap: 15px; margin: 20px 0; padding-left: 10px; }
     .header-title { color: white !important; font-size: 2rem; font-weight: bold; margin: 0; }
     .flag-img { width: 45px; height: auto; border-radius: 4px; }
