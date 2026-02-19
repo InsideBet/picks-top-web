@@ -1,4 +1,5 @@
 import streamlit as st
+import pd
 import pandas as pd
 import numpy as np
 import re
@@ -12,7 +13,6 @@ USER = "InsideBet"
 REPO = "picks-top-web"
 BASE_URL = f"https://raw.githubusercontent.com/{USER}/{REPO}/main/datos_fbref"
 
-# Lista ordenada: Champions League primero
 LIGAS_ORDENADAS = [
     "Champions League", "Premier League", "La Liga", "Serie A", 
     "Bundesliga", "Ligue 1", "Primeira Liga", "Eredivisie"
@@ -34,11 +34,10 @@ TRADUCCIONES = {
 }
 
 # ────────────────────────────────────────────────
-# FUNCIONES DE PROCESAMIENTO (TUS ORIGINALES)
+# FUNCIONES DE PROCESAMIENTO (TU LÓGICA)
 # ────────────────────────────────────────────────
 
 def limpiar_nombre_equipo(nombre):
-    """Elimina el prefijo de país minúsculo (ej: 'eng ', 'es ') de los nombres."""
     if pd.isna(nombre): return ""
     return re.sub(r'^[a-z]{2,3}\s+', '', str(nombre))
 
@@ -75,6 +74,7 @@ def cargar_excel(ruta_archivo, tipo="general"):
     url = f"{BASE_URL}/{ruta_archivo}"
     try:
         df = pd.read_excel(url)
+        # Limpieza inicial para Home, Away y Squad
         for col in ['Squad', 'Home', 'Away']:
             if col in df.columns:
                 df[col] = df[col].apply(limpiar_nombre_equipo)
@@ -87,29 +87,32 @@ def cargar_excel(ruta_archivo, tipo="general"):
             if 'Poss' in df.columns: df['Poss'] = df['Poss'].apply(html_barra_posesion)
             cols_ok = ['Squad', 'MP', 'Poss', 'Gls', 'Ast', 'CrdY', 'CrdR', 'xG']
             df = df[[c for c in cols_ok if c in df.columns]]
+            return df.rename(columns=TRADUCCIONES)
 
         elif tipo == "clasificacion":
             drop_c = ['Notes', 'Goalkeeper', 'Top Team Scorer', 'Attendance', 'Pts/MP', 'Pts/PJ']
             df = df.drop(columns=[c for c in drop_c if c in df.columns])
             df = df.rename(columns=TRADUCCIONES)
-            cols = list(df.columns)
-            if 'EQUIPO' in cols and 'PTS' in cols:
+            if 'EQUIPO' in df.columns and 'PTS' in df.columns:
+                cols = list(df.columns)
                 cols.remove('EQUIPO'); cols.remove('PTS')
                 df = df[['EQUIPO', 'PTS'] + cols]
             return df
 
+        # FIXTURE y otros: Traducir y limpiar filas vacías
         df = df.rename(columns=TRADUCCIONES)
-        return df.dropna(how='all')
-    except: return None
+        return df.dropna(how='all').reset_index(drop=True)
+    except:
+        return None
 
 # ────────────────────────────────────────────────
-# ESTILOS CSS (TUS ORIGINALES)
+# ESTILOS CSS
 # ────────────────────────────────────────────────
 st.markdown("""
 <style>
     .stApp { background-color: #0e1117; color: #e5e7eb; }
-    .table-scroll { width: 100%; max-height: 450px; overflow: auto; border: 1px solid #374151; border-radius: 8px; margin-bottom: 20px; }
-    th { position: sticky; top: 0; background-color: #1f2937 !important; color: white; padding: 12px; border: 1px solid #374151; font-size: 13px; text-align: center !important; }
+    .table-scroll { width: 100%; max-height: 480px; overflow: auto; border: 1px solid #374151; border-radius: 8px; margin-bottom: 25px; }
+    th { position: sticky; top: 0; background-color: #1f2937 !important; color: white; padding: 12px; border: 1px solid #374151; font-size: 13px; text-align: center !important; z-index: 10; }
     td { padding: 10px; border: 1px solid #374151; font-size: 14px; text-align: center !important; white-space: nowrap; }
     .bar-container { display: flex; align-items: center; justify-content: flex-start; gap: 8px; width: 140px; margin: 0 auto; }
     .bar-bg { background-color: #2d3139; border-radius: 10px; flex-grow: 1; height: 7px; overflow: hidden; }
@@ -118,65 +121,55 @@ st.markdown("""
     .forma-container { display: flex; justify-content: center; gap: 4px; }
     .forma-box { width: 22px; height: 22px; line-height: 22px; text-align: center; border-radius: 4px; font-weight: bold; font-size: 11px; color: white; }
     .win { background-color: #137031; } .loss { background-color: #821f1f; } .draw { background-color: #82711f; }
-    div.stButton > button { background-color: #ff1800 !important; color: white !important; font-weight: bold !important; width: 100%; border-radius: 8px; border: none !important; height: 3em; }
+    div.stButton > button { background-color: #ff1800 !important; color: white !important; font-weight: bold !important; width: 100%; border-radius: 8px; height: 3.2em; border: none; }
     .stSelectbox label { color: #ff1800 !important; font-weight: bold !important; font-size: 18px !important; }
 </style>
 """, unsafe_allow_html=True)
 
 # ────────────────────────────────────────────────
-# INTERFAZ DE USUARIO
+# INTERFAZ
 # ────────────────────────────────────────────────
 st.markdown('<div style="text-align:center; margin-bottom:20px;"><img src="https://i.postimg.cc/C516P7F5/33.png" width="300"></div>', unsafe_allow_html=True)
 
-# Inicializar estados para controlar visibilidad
-if "menu_visible" not in st.session_state:
-    st.session_state.menu_visible = False
+if "menu_open" not in st.session_state:
+    st.session_state.menu_open = False
+if "view_mode" not in st.session_state:
+    st.session_state.view_mode = None
 
-# Botón Principal
 if st.button("COMPETENCIAS"):
-    st.session_state.menu_visible = not st.session_state.menu_visible
+    st.session_state.menu_open = not st.session_state.menu_open
 
-# Solo si el menú está abierto se muestra el resto
-if st.session_state.menu_visible:
-    liga_seleccionada = st.selectbox("SELECCIONA UNA COMPETENCIA", LIGAS_ORDENADAS)
-
-    if liga_seleccionada:
-        archivo_sufijo = MAPEO_ARCHIVOS.get(liga_seleccionada)
-        
-        # Estado individual para los botones internos por cada liga
-        if f"view_{liga_seleccionada}" not in st.session_state:
-            st.session_state[f"fview_{liga_seleccionada}"] = None
-
+if st.session_state.menu_open:
+    liga = st.selectbox("BUSCAR LIGA", ["---"] + LIGAS_ORDENADAS)
+    
+    if liga != "---":
+        archivo_sufijo = MAPEO_ARCHIVOS.get(liga)
         c1, c2, c3 = st.columns(3)
         
-        # Lógica de Toggle: Si se pulsa el mismo, se cierra (None)
-        if c1.button(f"🏆 Clasificación"):
-            st.session_state[f"fview_{liga_seleccionada}"] = "clas" if st.session_state[f"fview_{liga_seleccionada}"] != "clas" else None
-        
-        if c2.button(f"📊 Stats Generales"):
-            st.session_state[f"fview_{liga_seleccionada}"] = "stats" if st.session_state[f"fview_{liga_seleccionada}"] != "stats" else None
+        if c1.button("🏆 Clasificación"):
+            st.session_state.view_mode = "clas" if st.session_state.view_mode != "clas" else None
+        if c2.button("📊 Stats"):
+            st.session_state.view_mode = "stats" if st.session_state.view_mode != "stats" else None
+        if c3.button("📅 Fixture"):
+            st.session_state.view_mode = "fix" if st.session_state.view_mode != "fix" else None
             
-        if c3.button(f"📅 Ver Fixture"):
-            st.session_state[f"fview_{liga_seleccionada}"] = "fix" if st.session_state[f"fview_{liga_seleccionada}"] != "fix" else None
-
+        view = st.session_state.view_mode
         st.divider()
-        view = st.session_state[f"fview_{liga_seleccionada}"]
 
-        # --- BLOQUES DE RENDERIZADO (IGUALES A TU CODE ORIGINAL) ---
-        if view == "stats":
-            df = cargar_excel(f"RESUMEN_STATS_{archivo_sufijo}.xlsx", tipo="stats")
-            if df is not None:
-                st.markdown(f'<div class="table-scroll">{df.style.hide(axis="index").to_html(escape=False)}</div>', unsafe_allow_html=True)
-
-        elif view == "clas":
+        if view == "clas":
             df = cargar_excel(f"CLASIFICACION_LIGA_{archivo_sufijo}.xlsx", tipo="clasificacion")
             if df is not None:
                 if 'ÚLTIMOS 5' in df.columns: 
                     df['ÚLTIMOS 5'] = df['ÚLTIMOS 5'].apply(formatear_last_5)
                 st.markdown(f'<div class="table-scroll">{df.style.hide(axis="index").to_html(escape=False)}</div>', unsafe_allow_html=True)
 
+        elif view == "stats":
+            df = cargar_excel(f"RESUMEN_STATS_{archivo_sufijo}.xlsx", tipo="stats")
+            if df is not None:
+                st.markdown(f'<div class="table-scroll">{df.style.hide(axis="index").to_html(escape=False)}</div>', unsafe_allow_html=True)
+
         elif view == "fix":
-            # Aquí restauré la carga exacta de tu código original
+            # CARGA EXACTA DEL FIXTURE
             df = cargar_excel(f"CARTELERA_PROXIMOS_{archivo_sufijo}.xlsx", tipo="fixture")
             if df is not None:
                 st.markdown(f'<div class="table-scroll">{df.style.hide(axis="index").to_html(escape=False)}</div>', unsafe_allow_html=True)
