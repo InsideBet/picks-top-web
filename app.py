@@ -36,18 +36,35 @@ TRADUCCIONES = {
 # FUNCIONES DE PROCESAMIENTO VISUAL
 # ────────────────────────────────────────────────
 
-def procesar_xg_etiquetas(val):
-    """Transforma el decimal en etiquetas +0.5, +1.5, +2.5 y asigna color."""
+def formatear_xg_badge(val):
+    """Convierte el xG en una cajita (badge) de color."""
     try:
         num = float(val)
         if num > 2.50:
-            return "+2.5", "background-color: #137031; color: white; font-weight: bold;" # Verde
+            label, color = "+2.5", "#137031" # Verde oscuro
         elif num > 1.50:
-            return "+1.5", "background-color: #137031; color: white; font-weight: bold;" # Verde
+            label, color = "+1.5", "#137031" # Verde oscuro
         else:
-            return "+0.5", "background-color: #821f1f; color: white; font-weight: bold;" # Rojo
+            label, color = "+0.5", "#821f1f" # Rojo oscuro
+            
+        return f'''
+        <div style="display: flex; justify-content: center;">
+            <span style="
+                background-color: {color}; 
+                color: white; 
+                padding: 4px 10px; 
+                border-radius: 6px; 
+                font-weight: bold; 
+                font-size: 12px;
+                min-width: 45px;
+                text-align: center;
+                display: inline-block;">
+                {label}
+            </span>
+        </div>
+        '''
     except:
-        return val, ""
+        return val
 
 def html_barra_posesion(valor):
     try:
@@ -79,16 +96,19 @@ def cargar_excel(ruta_archivo, tipo="general"):
     url = f"{BASE_URL}/{ruta_archivo}"
     try:
         df = pd.read_excel(url)
-        
         if tipo == "stats":
-            # RESCATE DE COLUMNA Q (xG)
+            # REGLA DE LA COLUMNA Q (Índice 16)
             if len(df.columns) >= 17:
                 col_q = df.columns[16]
                 df = df.rename(columns={col_q: 'xG'})
             
             df.columns = [str(c).strip() for c in df.columns]
             
-            # Formatear Posesión antes de filtrar
+            # Aplicar badges de xG
+            if 'xG' in df.columns:
+                df['xG'] = df['xG'].apply(formatear_xg_badge)
+
+            # Aplicar barras de Posesión
             if 'Poss' in df.columns:
                 df['Poss'] = df['Poss'].apply(html_barra_posesion)
 
@@ -153,20 +173,9 @@ for i, (code, nombre_pantalla) in enumerate(LIGAS.items()):
         if view == "stats":
             df = cargar_excel(f"RESUMEN_STATS_{archivo_sufijo}.xlsx", tipo="stats")
             if df is not None:
-                # Aplicamos la transformación de etiquetas y estilos
-                if 'xG' in df.columns:
-                    # Creamos una lista de estilos y una de valores nuevos
-                    res = df['xG'].apply(procesar_xg_etiquetas)
-                    df['xG'] = [x[0] for x in res]
-                    estilos_xg = [x[1] for x in res]
-                    
-                    styler = df.style.hide(axis='index')
-                    # Aplicamos el estilo fila por fila para la columna xG
-                    styler = styler.apply(lambda x: estilos_xg, subset=['xG'], axis=0)
-                else:
-                    styler = df.style.hide(axis='index')
-
-                st.markdown(f'<div class="table-scroll">{styler.to_html(escape=False)}</div>', unsafe_allow_html=True)
+                # Usamos to_html con escape=False para que el HTML de los badges y barras funcione
+                html_table = df.style.hide(axis='index').to_html(escape=False)
+                st.markdown(f'<div class="table-scroll">{html_table}</div>', unsafe_allow_html=True)
 
         elif view == "clas":
             df = cargar_excel(f"CLASIFICACION_LIGA_{archivo_sufijo}.xlsx", tipo="clasificacion")
