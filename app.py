@@ -11,7 +11,6 @@ USER = "InsideBet"
 REPO = "picks-top-web"
 BASE_URL = f"https://raw.githubusercontent.com/{USER}/{REPO}/main/datos_fbref"
 
-# Lista de ligas con Champions al principio
 LIGAS_LISTA = [
     "Champions League", "Premier League", "La Liga", "Serie A",
     "Bundesliga", "Ligue 1", "Primeira Liga", "Eredivisie"
@@ -80,7 +79,6 @@ def cargar_excel(ruta_archivo, tipo="general"):
             cols_ok = ['Squad', 'MP', 'Poss', 'Gls', 'Ast', 'CrdY', 'CrdR', 'xG']
             df = df[[c for c in cols_ok if c in df.columns]]
             df = df.rename(columns=TRADUCCIONES)
-
         elif tipo == "clasificacion":
             drop_c = ['Notes', 'Goalkeeper', 'Top Team Scorer', 'Attendance', 'Pts/MP', 'Pts/PJ']
             df = df.drop(columns=[c for c in drop_c if c in df.columns])
@@ -91,12 +89,10 @@ def cargar_excel(ruta_archivo, tipo="general"):
                 idx = cols.index('EQUIPO')
                 cols.insert(idx + 1, 'PTS')
                 df = df[cols]
-            
         elif tipo == "fixture":
             drop_f = ['Day', 'Score', 'Referee', 'Match Report', 'Notes', 'Attendance', 'Wk']
             df = df.drop(columns=[c for c in drop_f if c in df.columns])
             df = df.rename(columns=TRADUCCIONES)
-
         return df.dropna(how='all')
     except: return None
 
@@ -118,66 +114,73 @@ st.markdown("""
     .forma-container { display: flex; justify-content: center; gap: 4px; }
     .forma-box { width: 22px; height: 22px; line-height: 22px; text-align: center; border-radius: 4px; font-weight: bold; font-size: 11px; color: white; }
     .win { background-color: #137031; } .loss { background-color: #821f1f; } .draw { background-color: #82711f; }
-    div.stButton > button { background-color: #ff1800 !important; color: white !important; font-weight: bold !important; width: 100%; border-radius: 8px; border: none !important; margin-bottom: 5px; height: 45px; }
+    
+    /* Botones Estilo InsideBet */
+    div.stButton > button { background-color: #ff1800 !important; color: white !important; font-weight: bold !important; width: 100%; border-radius: 8px; border: none !important; margin-bottom: 5px; height: 45px; font-size: 16px; }
+    
+    /* Banner Informativo Estilo Botón */
+    .custom-info-banner { background-color: #ff1800; color: white; padding: 12px; border-radius: 8px; text-align: center; font-weight: bold; margin: 10px 0 20px 0; font-size: 15px; }
 </style>
 """, unsafe_allow_html=True)
 
 # Logo
 st.markdown('<div style="text-align:center; margin-bottom:20px;"><img src="https://i.postimg.cc/C516P7F5/33.png" width="300"></div>', unsafe_allow_html=True)
 
-# 1. SELECTOR DE COMPETENCIAS CON PLACEHOLDER
-opciones_con_placeholder = ["Selecciona una competencia"] + LIGAS_LISTA
-liga_seleccionada = st.selectbox("COMPETENCIAS", opciones_con_placeholder, index=0)
-
-# Inicializar estados
+# 1. LÓGICA DE COMPETENCIAS
+if "menu_open" not in st.session_state: st.session_state.menu_open = False
+if "liga_sel" not in st.session_state: st.session_state.liga_sel = None
 if "vista_activa" not in st.session_state: st.session_state.vista_activa = None
-if "liga_previa" not in st.session_state: st.session_state.liga_previa = liga_seleccionada
 
-# Si se elige el placeholder o cambia la liga, no mostrar tablas
-if liga_seleccionada == "Selecciona una competencia":
-    st.info("Selecciona una liga para comenzar el scrapeo de datos.")
+# Botón Central "COMPETENCIAS"
+if st.button("COMPETENCIAS"):
+    st.session_state.menu_open = not st.session_state.menu_open
+
+# Desplegable de ligas (solo aparece si menu_open es True)
+if st.session_state.menu_open:
+    sel = st.selectbox("Selecciona una competencia", ["-- Elige una liga --"] + LIGAS_LISTA, label_visibility="collapsed")
+    if sel != "-- Elige una liga --":
+        st.session_state.liga_sel = sel
+        st.session_state.menu_open = False
+        st.session_state.vista_activa = None # Reset vista al cambiar liga
+        st.rerun()
+
+# 2. BANNER O CONTENIDO
+if st.session_state.liga_sel is None:
+    st.markdown('<div class="custom-info-banner">Selecciona una Liga/Competencia</div>', unsafe_allow_html=True)
     st.stop()
+else:
+    # Mostramos la liga elegida y los botones de acción
+    liga = st.session_state.liga_sel
+    archivo_sufijo = MAPEO_ARCHIVOS.get(liga)
+    
+    st.markdown(f"<h3 style='text-align: center; color: #ff1800;'>{liga}</h3>", unsafe_allow_html=True)
+    
+    c1, c2, c3 = st.columns(3)
+    
+    def set_view(v):
+        if st.session_state.vista_activa == v: st.session_state.vista_activa = None
+        else: st.session_state.vista_activa = v
 
-if st.session_state.liga_previa != liga_seleccionada:
-    st.session_state.vista_activa = None
-    st.session_state.liga_previa = liga_seleccionada
+    if c1.button("Clasificación"): set_view("clas")
+    if c2.button("Stats Generales"): set_view("stats")
+    if c3.button("Ver Fixture"): set_view("fix")
 
-# 2. BOTONES DE ACCIÓN CON ICONOS DINÁMICOS
-archivo_sufijo = MAPEO_ARCHIVOS.get(liga_seleccionada)
-st.write(f"### {liga_seleccionada}")
-c1, c2, c3 = st.columns(3)
+    st.divider()
 
-def toggle_view(nueva_vista):
-    if st.session_state.vista_activa == nueva_vista:
-        st.session_state.vista_activa = None
-    else:
-        st.session_state.vista_activa = nueva_vista
+    # 3. RENDERIZADO DE TABLAS
+    view = st.session_state.vista_activa
+    if view == "stats":
+        df = cargar_excel(f"RESUMEN_STATS_{archivo_sufijo}.xlsx", tipo="stats")
+        if df is not None:
+            st.markdown(f'<div class="table-scroll">{df.style.hide(axis="index").to_html(escape=False)}</div>', unsafe_allow_html=True)
 
-# Iconos dinámicos (▼ si está abierto, ▲ o normal si está cerrado)
-icon_clas = "▼" if st.session_state.vista_activa == "clas" else "🏆"
-icon_stats = "▼" if st.session_state.vista_activa == "stats" else "📊"
-icon_fix = "▼" if st.session_state.vista_activa == "fix" else "📅"
+    elif view == "clas":
+        df = cargar_excel(f"CLASIFICACION_LIGA_{archivo_sufijo}.xlsx", tipo="clasificacion")
+        if df is not None:
+            if 'ÚLTIMOS 5' in df.columns: df['ÚLTIMOS 5'] = df['ÚLTIMOS 5'].apply(formatear_last_5)
+            st.markdown(f'<div class="table-scroll">{df.style.hide(axis="index").to_html(escape=False)}</div>', unsafe_allow_html=True)
 
-if c1.button(f"{icon_clas} Clasificación"): toggle_view("clas")
-if c2.button(f"{icon_stats} Stats Generales"): toggle_view("stats")
-if c3.button(f"{icon_fix} Ver Fixture"): toggle_view("fix")
-
-st.divider()
-
-# 3. RENDERIZADO
-view = st.session_state.vista_activa
-if view == "stats":
-    df = cargar_excel(f"RESUMEN_STATS_{archivo_sufijo}.xlsx", tipo="stats")
-    if df is not None:
-        st.markdown(f'<div class="table-scroll">{df.style.hide(axis="index").to_html(escape=False)}</div>', unsafe_allow_html=True)
-
-elif view == "clas":
-    df = cargar_excel(f"CLASIFICACION_LIGA_{archivo_sufijo}.xlsx", tipo="clasificacion")
-    if df is not None:
-        if 'ÚLTIMOS 5' in df.columns: df['ÚLTIMOS 5'] = df['ÚLTIMOS 5'].apply(formatear_last_5)
-        st.markdown(f'<div class="table-scroll">{df.style.hide(axis="index").to_html(escape=False)}</div>', unsafe_allow_html=True)
-
-elif view == "fix":
-    df = cargar_excel(f"CARTELERA_PROXIMOS_{archivo_sufijo}.xlsx", tipo="fixture")
-    if df is not None:
-        st.markdown(f'<div class="table-scroll">{df.style.hide(axis="index").to_html(escape=False)}</div>', unsafe_allow_html=True)
+    elif view == "fix":
+        df = cargar_excel(f"CARTELERA_PROXIMOS_{archivo_sufijo}.xlsx", tipo="fixture")
+        if df is not None:
+            st.markdown(f'<div class="table-scroll">{df.style.hide(axis="index").to_html(escape=False)}</div>', unsafe_allow_html=True)
