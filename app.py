@@ -100,6 +100,31 @@ st.markdown("""
         text-align: center !important; 
     }
     tr:hover { background-color: #21262d; }
+
+    /* Estilo para los botones (Clasificación, Stats, Fixture) */
+    div.stButton > button {
+        background-color: #ff1800 !important; /* Tu rojo exacto */
+        color: white !important;
+        border: none !important;
+        border-radius: 8px !important;
+        padding: 10px 20px !important;
+        transition: all 0.3s ease;
+        width: 100% !important; /* Hace que ocupen todo el ancho de su columna */
+        font-weight: bold !important;
+    }
+
+    /* Efecto al pasar el mouse por encima */
+    div.stButton > button:hover {
+        background-color: #cc1300 !important; /* Un rojo un poco más oscuro */
+        border: 1px solid white !important;
+        transform: scale(1.02); /* Se agranda un poquito */
+    }
+
+    /* Efecto cuando el botón está presionado */
+    div.stButton > button:active {
+        background-color: #990e00 !important;
+        transform: scale(0.98);
+    }
 </style>
 """, unsafe_allow_html=True)
 
