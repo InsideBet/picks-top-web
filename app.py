@@ -2,11 +2,18 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import re
+import requests
 
 # ────────────────────────────────────────────────
 # CONFIGURACIÓN DE PÁGINA
 # ────────────────────────────────────────────────
 st.set_page_config(page_title="InsideBet", layout="wide")
+
+# Acceso seguro a la API Key vía Secrets
+try:
+    API_KEY = st.secrets["odds_api_key"]
+except:
+    API_KEY = "FALTA_KEY"
 
 USER = "InsideBet" 
 REPO = "picks-top-web"
@@ -23,7 +30,17 @@ MAPEO_ARCHIVOS = {
     "Eredivisie": "Eredivisie", "Champions League": "Champions_League"
 }
 
-# Diccionario para los links de las banderas
+MAPEO_ODDS_API = {
+    "Premier League": "soccer_epl",
+    "La Liga": "soccer_spain_la_liga",
+    "Serie A": "soccer_italy_serie_a",
+    "Bundesliga": "soccer_germany_bundesliga",
+    "Ligue 1": "soccer_france_ligue_1",
+    "Primeira Liga": "soccer_portugal_primeira_liga",
+    "Eredivisie": "soccer_netherlands_eredivisie",
+    "Champions League": "soccer_uefa_champions_league"
+}
+
 BANDERAS = {
     "Champions League": "https://i.postimg.cc/XYHkj56d/7.png",
     "Premier League": "https://i.postimg.cc/v1L6Fk5T/1.png",
@@ -43,6 +60,49 @@ TRADUCCIONES = {
     'Poss': 'POSESIÓN', 'Gls': 'GOLES', 'Ast': 'ASISTENCIAS', 
     'CrdY': 'AMARILLAS', 'CrdR': 'ROJAS', 'xG': 'xG'
 }
+
+# ────────────────────────────────────────────────
+# FUNCIONES DE CUOTAS (ODDS)
+# ────────────────────────────────────────────────
+
+def obtener_cuotas_api(liga_nombre):
+    sport_key = MAPEO_ODDS_API.get(liga_nombre)
+    if not sport_key or API_KEY == "FALTA_KEY": return None
+    
+    url = f"https://api.the-odds-api.com/v4/sports/{sport_key}/odds/"
+    params = {
+        'apiKey': API_KEY,
+        'regions': 'eu',
+        'markets': 'h2h',
+        'bookmakers': 'bet365',
+        'oddsFormat': 'decimal'
+    }
+    try:
+        response = requests.get(url, params=params)
+        return response.json()
+    except: return None
+
+def procesar_cuotas(data):
+    if not data or not isinstance(data, list): return None
+    rows = []
+    for match in data:
+        home_team = match.get('home_team', 'N/A')
+        away_team = match.get('away_team', 'N/A')
+        # Ajuste de zona horaria básico (puedes ajustarlo según tu país)
+        commence_time = pd.to_datetime(match.get('commence_time')).strftime('%d/%m %H:%M')
+        
+        odds_h, odds_d, odds_a = "-", "-", "-"
+        if match.get('bookmakers'):
+            markets = match['bookmakers'][0].get('markets', [])
+            if markets:
+                outcomes = markets[0].get('outcomes', [])
+                for out in outcomes:
+                    if out['name'] == home_team: odds_h = out['price']
+                    elif out['name'] == away_team: odds_a = out['price']
+                    else: odds_d = out['price']
+        
+        rows.append({"FECHA": commence_time, "LOCAL": home_team, "VISITANTE": away_team, "1": odds_h, "X": odds_d, "2": odds_a})
+    return pd.DataFrame(rows)
 
 # ────────────────────────────────────────────────
 # FUNCIONES DE PROCESAMIENTO VISUAL
@@ -100,23 +160,18 @@ def cargar_excel(ruta_archivo, tipo="general"):
             cols_ok = ['Squad', 'MP', 'Poss', 'Gls', 'Ast', 'CrdY', 'CrdR', 'xG']
             df = df[[c for c in cols_ok if c in df.columns]]
             df = df.rename(columns=TRADUCCIONES)
-            
         elif tipo == "clasificacion":
             drop_c = ['Notes', 'Goalkeeper', 'Top Team Scorer', 'Attendance', 'Pts/MP', 'Pts/PJ']
             df = df.drop(columns=[c for c in drop_c if c in df.columns])
             df = df.rename(columns=TRADUCCIONES)
             cols = list(df.columns)
             if 'EQUIPO' in cols and 'PTS' in cols:
-                cols.remove('PTS')
-                idx = cols.index('EQUIPO')
-                cols.insert(idx + 1, 'PTS')
-                df = df[cols]
-                
+                cols.remove('PTS'); idx = cols.index('EQUIPO')
+                cols.insert(idx + 1, 'PTS'); df = df[cols]
         elif tipo == "fixture":
             drop_f = ['Day', 'Score', 'Referee', 'Match Report', 'Notes', 'Attendance', 'Wk']
             df = df.drop(columns=[c for c in drop_f if c in df.columns])
             df = df.rename(columns=TRADUCCIONES)
-            
         return df.dropna(how='all')
     except: return None
 
@@ -142,7 +197,6 @@ st.markdown("""
     
     div.stButton > button { background-color: #ff1800 !important; color: white !important; font-weight: bold !important; width: 100%; border-radius: 8px; border: none !important; margin-bottom: 5px; height: 45px; }
 
-    /* Alineación a la izquierda con padding de seguridad */
     .header-container {
         display: flex;
         align-items: center;
@@ -151,17 +205,8 @@ st.markdown("""
         margin: 20px 0;
         padding-left: 10px; 
     }
-    .header-title {
-        color: white;
-        font-size: 2rem;
-        font-weight: bold;
-        margin: 0;
-    }
-    .flag-img {
-        width: 45px;
-        height: auto;
-        border-radius: 4px;
-    }
+    .header-title { color: white; font-size: 2rem; font-weight: bold; margin: 0; }
+    .flag-img { width: 45px; height: auto; border-radius: 4px; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -190,16 +235,9 @@ if st.session_state.liga_actual:
     archivo_sufijo = MAPEO_ARCHIVOS.get(liga)
     link_bandera = BANDERAS.get(liga, "")
     
-    # Renderizado del encabezado alineado a la izquierda
-    st.markdown(f"""
-        <div class="header-container">
-            <img src="{link_bandera}" class="flag-img">
-            <h1 class="header-title">{liga}</h1>
-        </div>
-    """, unsafe_allow_html=True)
+    st.markdown(f'<div class="header-container"><img src="{link_bandera}" class="flag-img"><h1 class="header-title">{liga}</h1></div>', unsafe_allow_html=True)
     
-    c1, c2, c3 = st.columns(3)
-    
+    c1, c2, c3, c4 = st.columns(4)
     def manejar_click(v):
         if st.session_state.vista_activa == v: st.session_state.vista_activa = None
         else: st.session_state.vista_activa = v
@@ -207,3 +245,33 @@ if st.session_state.liga_actual:
     if c1.button("Clasificación"): manejar_click("clas")
     if c2.button("Stats Generales"): manejar_click("stats")
     if c3.button("Ver Fixture"): manejar_click("fix")
+    if c4.button("Picks & Cuotas"): manejar_click("odds")
+
+    st.divider()
+
+    # 3. RENDERIZADO DE TABLAS
+    view = st.session_state.vista_activa
+    if view:
+        if view == "odds":
+            with st.spinner('Actualizando cuotas de Bet365...'):
+                raw_data = obtener_cuotas_api(liga)
+                df_odds = procesar_cuotas(raw_data)
+                if df_odds is not None and not df_odds.empty:
+                    styler = df_odds.style.hide(axis="index").set_properties(**{'color': '#ff1800', 'font-weight': 'bold'}, subset=['1', 'X', '2'])
+                    st.markdown(f'<div class="table-scroll">{styler.to_html(escape=False)}</div>', unsafe_allow_html=True)
+                else:
+                    st.warning("No hay cuotas disponibles en este momento.")
+        else:
+            tipo_carga = "stats" if view == "stats" else "clasificacion" if view == "clas" else "fixture"
+            nombre_archivo = f"RESUMEN_STATS_{archivo_sufijo}.xlsx" if view == "stats" else \
+                             f"CLASIFICACION_LIGA_{archivo_sufijo}.xlsx" if view == "clas" else \
+                             f"CARTELERA_PROXIMOS_{archivo_sufijo}.xlsx"
+            
+            df = cargar_excel(nombre_archivo, tipo=tipo_carga)
+            if df is not None:
+                if view == "clas" and 'ÚLTIMOS 5' in df.columns:
+                    df['ÚLTIMOS 5'] = df['ÚLTIMOS 5'].apply(formatear_last_5)
+                styler = df.style.hide(axis="index")
+                if 'PTS' in df.columns:
+                    styler = styler.set_properties(subset=['PTS'], **{'background-color': '#262730', 'font-weight': 'bold'})
+                st.markdown(f'<div class="table-scroll">{styler.to_html(escape=False)}</div>', unsafe_allow_html=True)
