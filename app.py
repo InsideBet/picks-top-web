@@ -33,7 +33,7 @@ TRADUCCIONES = {
 }
 
 # ────────────────────────────────────────────────
-# FUNCIONES DE PROCESAMIENTO
+# FUNCIONES DE PROCESAMIENTO (TU LÓGICA ORIGINAL)
 # ────────────────────────────────────────────────
 
 def limpiar_nombre_equipo(nombre):
@@ -85,26 +85,28 @@ def cargar_excel(ruta_archivo, tipo="general"):
             if 'Poss' in df.columns: df['Poss'] = df['Poss'].apply(html_barra_posesion)
             cols_ok = ['Squad', 'MP', 'Poss', 'Gls', 'Ast', 'CrdY', 'CrdR', 'xG']
             df = df[[c for c in cols_ok if c in df.columns]]
+
         elif tipo == "clasificacion":
             drop_c = ['Notes', 'Goalkeeper', 'Top Team Scorer', 'Attendance', 'Pts/MP', 'Pts/PJ']
             df = df.drop(columns=[c for c in drop_c if c in df.columns])
-            df = df.rename(columns=TRADUCIIONES)
+            df = df.rename(columns=TRADUCCIONES)
             cols = list(df.columns)
             if 'EQUIPO' in cols and 'PTS' in cols:
                 cols.remove('EQUIPO'); cols.remove('PTS')
                 df = df[['EQUIPO', 'PTS'] + cols]
-        
+            return df
+
         df = df.rename(columns=TRADUCCIONES)
         return df.dropna(how='all')
     except: return None
 
 # ────────────────────────────────────────────────
-# ESTILOS CSS
+# ESTILOS CSS (MANTENIENDO TU DISEÑO)
 # ────────────────────────────────────────────────
 st.markdown("""
 <style>
     .stApp { background-color: #0e1117; color: #e5e7eb; }
-    .table-scroll { width: 100%; max-height: 500px; overflow: auto; border: 1px solid #374151; border-radius: 8px; margin-top: 10px; }
+    .table-scroll { width: 100%; max-height: 450px; overflow: auto; border: 1px solid #374151; border-radius: 8px; margin-bottom: 25px; }
     th { position: sticky; top: 0; background-color: #1f2937 !important; color: white; padding: 12px; border: 1px solid #374151; font-size: 13px; text-align: center !important; }
     td { padding: 10px; border: 1px solid #374151; font-size: 14px; text-align: center !important; white-space: nowrap; }
     .bar-container { display: flex; align-items: center; justify-content: flex-start; gap: 8px; width: 140px; margin: 0 auto; }
@@ -115,69 +117,53 @@ st.markdown("""
     .forma-box { width: 22px; height: 22px; line-height: 22px; text-align: center; border-radius: 4px; font-weight: bold; font-size: 11px; color: white; }
     .win { background-color: #137031; } .loss { background-color: #821f1f; } .draw { background-color: #82711f; }
     
-    /* Botón Competencias Estilo */
-    div.stButton > button { 
-        background-color: #ff1800 !important; 
-        color: white !important; 
-        font-weight: bold !important; 
-        width: 100%; 
-        border-radius: 8px; 
-        border: none !important; 
-        height: 3.5em;
-        letter-spacing: 1px;
-    }
+    /* Botón COMPETENCIAS */
+    div.stButton > button { background-color: #ff1800 !important; color: white !important; font-weight: bold !important; width: 100%; border-radius: 8px; border: none !important; height: 3.5em; font-size: 16px; }
+    .stSelectbox label { color: #ff1800 !important; font-weight: bold !important; font-size: 16px !important; }
+    
+    .section-title { background: #1f2937; padding: 10px; border-radius: 8px 8px 0 0; border-left: 5px solid #ff1800; font-weight: bold; margin-top: 20px; }
 </style>
 """, unsafe_allow_html=True)
 
 # ────────────────────────────────────────────────
-# INTERFAZ DE USUARIO (LOGICA SCRAPEO)
+# INTERFAZ DE USUARIO
 # ────────────────────────────────────────────────
 st.markdown('<div style="text-align:center; margin-bottom:20px;"><img src="https://i.postimg.cc/C516P7F5/33.png" width="300"></div>', unsafe_allow_html=True)
 
-# Inicializar estados si no existen
-if "menu_abierto" not in st.session_state:
-    st.session_state.menu_abierto = False
+# Gestión de estado para el botón "COMPETENCIAS"
+if "mostrar_todo" not in st.session_state:
+    st.session_state.mostrar_todo = False
 
-# Botón Principal "COMPETENCIAS"
-if st.button("📂 COMPETENCIAS"):
-    st.session_state.menu_abierto = not st.session_state.menu_abierto
+# El botón que abre/cierra todo
+if st.button("COMPETENCIAS"):
+    st.session_state.mostrar_todo = not st.session_state.mostrar_todo
 
-# Si el menú está abierto, mostramos la lógica de selección y datos
-if st.session_state.menu_abierto:
-    col_sel, _ = st.columns([2, 1])
-    with col_sel:
-        liga_seleccionada = st.selectbox("Busca tu liga:", ["Seleccionar..."] + LIGAS_ORDENADAS)
+# Si está activado, desplegamos la búsqueda y los resultados
+if st.session_state.mostrar_todo:
+    # Selector de competencia
+    liga_seleccionada = st.selectbox("¿Qué liga quieres buscar?", ["Selecciona una opción..."] + LIGAS_ORDENADAS)
 
-    if liga_seleccionada != "Seleccionar...":
+    if liga_seleccionada != "Selecciona una opción...":
         archivo_sufijo = MAPEO_ARCHIVOS.get(liga_seleccionada)
         
-        # Separador visual
-        st.write(f"### Mostrando: {liga_seleccionada}")
+        st.divider()
         
-        # Cargar los 3 bloques uno debajo del otro
-        
-        # 1. CLASIFICACIÓN
-        with st.expander("🏆 CLASIFICACIÓN", expanded=True):
-            df_clas = cargar_excel(f"CLASIFICACION_LIGA_{archivo_sufijo}.xlsx", tipo="clasificacion")
-            if df_clas is not None:
-                if 'ÚLTIMOS 5' in df_clas.columns: 
-                    df_clas['ÚLTIMOS 5'] = df_clas['ÚLTIMOS 5'].apply(formatear_last_5)
-                st.markdown(f'<div class="table-scroll">{df_clas.style.hide(axis="index").to_html(escape=False)}</div>', unsafe_allow_html=True)
-            else:
-                st.warning("No se encontró la clasificación.")
+        # 1. BLOQUE CLASIFICACIÓN
+        st.markdown('<div class="section-title">🏆 CLASIFICACIÓN</div>', unsafe_allow_html=True)
+        df_clas = cargar_excel(f"CLASIFICACION_LIGA_{archivo_sufijo}.xlsx", tipo="clasificacion")
+        if df_clas is not None:
+            if 'ÚLTIMOS 5' in df_clas.columns: 
+                df_clas['ÚLTIMOS 5'] = df_clas['ÚLTIMOS 5'].apply(formatear_last_5)
+            st.markdown(f'<div class="table-scroll">{df_clas.style.hide(axis="index").to_html(escape=False)}</div>', unsafe_allow_html=True)
 
-        # 2. STATS
-        with st.expander("📊 STATS GENERALES", expanded=True):
-            df_stats = cargar_excel(f"RESUMEN_STATS_{archivo_sufijo}.xlsx", tipo="stats")
-            if df_stats is not None:
-                st.markdown(f'<div class="table-scroll">{df_stats.style.hide(axis="index").to_html(escape=False)}</div>', unsafe_allow_html=True)
-            else:
-                st.warning("No se encontraron estadísticas.")
+        # 2. BLOQUE STATS
+        st.markdown('<div class="section-title">📊 STATS GENERALES</div>', unsafe_allow_html=True)
+        df_stats = cargar_excel(f"RESUMEN_STATS_{archivo_sufijo}.xlsx", tipo="stats")
+        if df_stats is not None:
+            st.markdown(f'<div class="table-scroll">{df_stats.style.hide(axis="index").to_html(escape=False)}</div>', unsafe_allow_html=True)
 
-        # 3. FIXTURE
-        with st.expander("📅 FIXTURE / PRÓXIMOS", expanded=True):
-            df_fix = cargar_excel(f"CARTELERA_PROXIMOS_{archivo_sufijo}.xlsx", tipo="fixture")
-            if df_fix is not None:
-                st.markdown(f'<div class="table-scroll">{df_fix.style.hide(axis="index").to_html(escape=False)}</div>', unsafe_allow_html=True)
-            else:
-                st.warning("No se encontró el fixture.")
+        # 3. BLOQUE FIXTURE
+        st.markdown('<div class="section-title">📅 FIXTURE / PRÓXIMOS</div>', unsafe_allow_html=True)
+        df_fix = cargar_excel(f"CARTELERA_PROXIMOS_{archivo_sufijo}.xlsx", tipo="fixture")
+        if df_fix is not None:
+            st.markdown(f'<div class="table-scroll">{df_fix.style.hide(axis="index").to_html(escape=False)}</div>', unsafe_allow_html=True)
