@@ -2,3 +2,5 @@ streamlit
 pandas
 requests
 openpyxl
+jinja2
+matplotlib
