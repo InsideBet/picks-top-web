@@ -155,37 +155,47 @@ def procesar_cuotas(data):
     return pd.DataFrame(rows)
 
 # ────────────────────────────────────────────────
-# ESTILOS CSS (CORREGIDO PARA SCROLL GENERAL)
+# ESTILOS CSS (ELIMINACIÓN DE RESTRICCIONES DE SCROLL)
 # ────────────────────────────────────────────────
 st.markdown("""
 <style>
-    /* Estilo General */
+    /* 1. Forzar scroll global en el cuerpo de la app */
+    html, body, [data-testid="stAppViewContainer"] {
+        overflow: visible !important;
+        height: auto !important;
+    }
+
+    /* 2. Quitar el scroll interno de los bloques de Streamlit */
+    [data-testid="stMainViewContainer"] {
+        overflow: visible !important;
+    }
+
+    /* 3. Estilo de tabla mejorado */
     .stApp { background-color: #0e1117; color: #e5e7eb; }
     
-    /* Contenedor de tabla: QUITAMOS el max-height para permitir scroll de página */
     .table-container { 
         width: 100%; 
-        overflow-x: auto; /* Solo scroll horizontal si es necesario */
+        overflow-x: auto; 
         border: 1px solid #374151; 
         border-radius: 8px; 
-        margin-bottom: 40px; 
+        margin-bottom: 50px;
     }
     
-    /* Forzamos que los headers se queden arriba al scrollear la PÁGINA */
+    table { width: 100%; border-collapse: collapse; }
+
     th { 
         position: sticky; 
-        top: -1px; /* Se pega al borde superior de la pantalla */
-        z-index: 10;
+        top: 0;
+        z-index: 99;
         background-color: #1f2937 !important; 
         color: white !important; 
         padding: 12px; 
         border: 1px solid #374151; 
-        text-align: center !important; 
     }
     
     td { padding: 12px; border: 1px solid #374151; text-align: center !important; }
     
-    /* Otros Estilos */
+    /* Otros Estilos visuales */
     .header-container { display: flex; align-items: center; justify-content: flex-start; gap: 15px; margin: 20px 0; padding-left: 10px; }
     .header-title { color: white !important; font-size: 2rem; font-weight: bold; margin: 0; }
     .flag-img { width: 45px; height: auto; border-radius: 4px; }
@@ -240,7 +250,7 @@ if st.session_state.liga_sel:
     view = st.session_state.vista_activa
     if view:
         if view == "odds":
-            with st.spinner('Cargando picks...'):
+            with st.spinner('Cargando mercado...'):
                 raw = obtener_cuotas_api(liga)
                 df_odds = procesar_cuotas(raw)
                 if df_odds is not None and not df_odds.empty:
