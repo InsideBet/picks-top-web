@@ -37,6 +37,7 @@ TRADUCCIONES = {
 # ────────────────────────────────────────────────
 
 def limpiar_nombre_equipo(nombre):
+    """Elimina prefijos de país (ej: 'eng Arsenal' -> 'Arsenal')"""
     if pd.isna(nombre): return nombre
     return re.sub(r'^[a-z]+\s+', '', str(nombre))
 
@@ -74,6 +75,7 @@ def cargar_excel(ruta_archivo, tipo="general"):
     url = f"{BASE_URL}/{ruta_archivo}"
     try:
         df = pd.read_excel(url)
+        # Limpieza de nombres de equipo para todas las tablas
         col_equipo = 'Squad' if 'Squad' in df.columns else 'EQUIPO'
         if col_equipo in df.columns:
             df[col_equipo] = df[col_equipo].apply(limpiar_nombre_equipo)
@@ -129,7 +131,6 @@ st.markdown("""
     .win { background-color: #137031; } .loss { background-color: #821f1f; } .draw { background-color: #82711f; }
     
     div.stButton > button { background-color: #ff1800 !important; color: white !important; font-weight: bold !important; width: 100%; border-radius: 8px; border: none !important; margin-bottom: 5px; height: 45px; }
-    .banner-info { background-color: #ff1800; color: white; padding: 15px; border-radius: 8px; text-align: center; font-weight: bold; margin-bottom: 20px; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -149,16 +150,16 @@ if st.session_state.menu_abierto:
     if seleccion != "Selecciona una Liga/Competencia":
         st.session_state.liga_actual = seleccion
         st.session_state.menu_abierto = False
-        st.session_state.vista_activa = None
+        st.session_state.vista_activa = None 
         st.rerun()
 
-# 2. BOTONES DE ACCIÓN
-if st.session_state.liga_actual is None:
-    st.markdown('<div class="banner-info">Selecciona una Liga/Competencia</div>', unsafe_allow_html=True)
-else:
+# 2. CONTENIDO PRINCIPAL (Solo aparece si hay una liga seleccionada)
+if st.session_state.liga_actual:
     liga = st.session_state.liga_actual
     archivo_sufijo = MAPEO_ARCHIVOS.get(liga)
-    st.write(f"### {liga}")
+    
+    st.markdown(f"<h3 style='text-align: center; color: #ff1800;'>{liga}</h3>", unsafe_allow_html=True)
+    
     c1, c2, c3 = st.columns(3)
     
     def manejar_click(v):
@@ -171,9 +172,8 @@ else:
 
     st.divider()
 
-    # 3. RENDERIZADO (Con lógica de sombreado inteligente para PTS)
+    # 3. RENDERIZADO DE TABLAS
     view = st.session_state.vista_activa
-    
     if view:
         tipo_carga = "stats" if view == "stats" else "clasificacion" if view == "clas" else "fixture"
         nombre_archivo = f"RESUMEN_STATS_{archivo_sufijo}.xlsx" if view == "stats" else \
@@ -186,10 +186,8 @@ else:
             if view == "clas" and 'ÚLTIMOS 5' in df.columns:
                 df['ÚLTIMOS 5'] = df['ÚLTIMOS 5'].apply(formatear_last_5)
 
-            # --- ESTILO DINÁMICO ---
+            # Estilo dinámico: Sombrear solo la columna PTS si existe
             styler = df.style.hide(axis="index")
-            
-            # Solo aplicamos el fondo claro si la columna 'PTS' existe en el DataFrame actual
             if 'PTS' in df.columns:
                 styler = styler.set_properties(subset=['PTS'], **{'background-color': '#262730', 'font-weight': 'bold'})
             
