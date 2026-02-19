@@ -42,31 +42,72 @@ TRADUCCIONES = {
 # ────────────────────────────────────────────────
 st.markdown("""
 <style>
-    .stApp { background-color: #0e1117; color: #e5e7eb; }
+    /* Fondo general de la app */
+    .stApp { 
+        background-color: #0e1117; 
+        color: #e5e7eb; 
+    }
     
-    /* Box de información FORZADO a ROJO */
+    /* Box de información (st.info) - Color de marca INSIDEBET */
     div[data-testid="stNotification"], div[role="alert"] {
         background-color: #ff1800 !important;
+        border: none !important;
+        border-radius: 8px !important;
     }
     
-    div[data-testid="stNotificationContent"] p {
+    /* Forzar texto blanco y legible dentro del box */
+    div[data-testid="stNotificationContent"] p, 
+    div[data-testid="stNotificationContent"],
+    div[role="alert"] div,
+    div[role="alert"] {
         color: white !important;
-        font-weight: bold !important;
+        font-weight: 600 !important;
+        text-shadow: 1px 1px 2px rgba(0,0,0,0.2); /* Sutil sombra para mejorar contraste */
     }
 
+    /* Color del icono de la alerta en blanco */
     div[role="alert"] svg {
         fill: white !important;
     }
 
-    /* --- Resto de tu estilo --- */
-    .forma-container { display: flex; justify-content: center; gap: 4px; min-width: 120px; }
-    .forma-box { flex: 0 0 22px; height: 22px; line-height: 22px; text-align: center; border-radius: 4px; font-weight: bold; font-size: 11px; color: white; }
+    /* Contenedor Cuadraditos Forma */
+    .forma-container {
+        display: flex;
+        justify-content: center;
+        gap: 4px;
+        min-width: 120px;
+        white-space: nowrap;
+    }
+    .forma-box {
+        flex: 0 0 22px;
+        height: 22px;
+        line-height: 22px;
+        text-align: center;
+        border-radius: 4px;
+        font-weight: bold;
+        font-size: 11px;
+        color: white;
+    }
     .win { background-color: #137031; }
     .loss { background-color: #821f1f; }
     .draw { background-color: #82711f; }
+
+    /* Estilo de Tablas HTML */
     table { width: 100%; border-collapse: collapse; color: #e5e7eb; }
-    th { background-color: #1f2937; padding: 12px; border: 1px solid #374151; font-size: 13px; text-align: center !important; }
-    td { padding: 10px; border: 1px solid #374151; font-size: 14px; text-align: center !important; }
+    th { 
+        background-color: #1f2937; 
+        padding: 12px; 
+        border: 1px solid #374151; 
+        font-size: 13px; 
+        text-align: center !important; 
+    }
+    td { 
+        padding: 10px; 
+        border: 1px solid #374151; 
+        font-size: 14px; 
+        text-align: center !important; 
+    }
+    tr:hover { background-color: #21262d; }
 </style>
 """, unsafe_allow_html=True)
 
