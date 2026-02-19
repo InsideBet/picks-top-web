@@ -94,6 +94,10 @@ def cargar_excel(ruta_archivo, tipo="general"):
             if 'EQUIPO' in cols and 'PTS' in cols:
                 cols.remove('EQUIPO'); cols.remove('PTS')
                 df = df[['EQUIPO', 'PTS'] + cols]
+
+       elif tipo == "fixture":
+            drop_f = ['Day', 'Score', 'Referee', 'Match Report', 'Notes', 'Attendance', 'Wk']
+            df = df.drop(columns=[c for c in drop_f if c in df.columns])     
             return df
 
         df = df.rename(columns=TRADUCCIONES)
