@@ -37,9 +37,7 @@ TRADUCCIONES = {
 # ────────────────────────────────────────────────
 
 def limpiar_nombre_equipo(nombre):
-    """Elimina el prefijo de país (ej: 'eng Arsenal' -> 'Arsenal')."""
     if pd.isna(nombre): return nombre
-    # Busca letras minúsculas seguidas de un espacio al inicio
     return re.sub(r'^[a-z]+\s+', '', str(nombre))
 
 def formatear_xg_badge(val):
@@ -76,11 +74,9 @@ def cargar_excel(ruta_archivo, tipo="general"):
     url = f"{BASE_URL}/{ruta_archivo}"
     try:
         df = pd.read_excel(url)
-        
-        # Limpieza universal de nombres de equipo (para Champions y otros)
-        col_equipo_original = 'Squad' if 'Squad' in df.columns else 'EQUIPO'
-        if col_equipo_original in df.columns:
-            df[col_equipo_original] = df[col_equipo_original].apply(limpiar_nombre_equipo)
+        col_equipo = 'Squad' if 'Squad' in df.columns else 'EQUIPO'
+        if col_equipo in df.columns:
+            df[col_equipo] = df[col_equipo].apply(limpiar_nombre_equipo)
 
         if tipo == "stats":
             if len(df.columns) >= 17:
@@ -124,13 +120,6 @@ st.markdown("""
     th { position: sticky; top: 0; background-color: #1f2937 !important; color: white; padding: 12px; border: 1px solid #374151; font-size: 13px; text-align: center !important; }
     td { padding: 10px; border: 1px solid #374151; font-size: 14px; text-align: center !important; white-space: nowrap; }
     
-    /* Resaltado de la columna PTS (Segunda columna después de EQUIPO) */
-    /* Usamos nth-child(3) porque Rk es la 1, EQUIPO la 2 y PTS la 3 */
-    td:nth-child(3), th:nth-child(3) {
-        background-color: #262730 !important; /* Gris un poco más claro que el fondo #0e1117 */
-        font-weight: bold;
-    }
-
     .bar-container { display: flex; align-items: center; justify-content: flex-start; gap: 8px; width: 140px; margin: 0 auto; }
     .bar-bg { background-color: #2d3139; border-radius: 10px; flex-grow: 1; height: 7px; overflow: hidden; }
     .bar-fill { background-color: #ff4b4b; height: 100%; border-radius: 10px; }
@@ -156,28 +145,25 @@ if st.button("COMPETENCIAS"):
     st.session_state.menu_abierto = not st.session_state.menu_abierto
 
 if st.session_state.menu_abierto:
-    seleccion = st.selectbox("Selecciona una competencia/liga", ["Selecciona una competencia/liga"] + LIGAS_LISTA, label_visibility="collapsed")
-    if seleccion != "Selecciona una competencia/liga":
+    seleccion = st.selectbox("Selecciona una Liga/Competencia", ["Selecciona una Liga/Competencia"] + LIGAS_LISTA, label_visibility="collapsed")
+    if seleccion != "Selecciona una Liga/Competencia":
         st.session_state.liga_actual = seleccion
         st.session_state.menu_abierto = False
         st.session_state.vista_activa = None
         st.rerun()
 
-# 2. BANNER O BOTONES DE ACCIÓN
+# 2. BOTONES DE ACCIÓN
 if st.session_state.liga_actual is None:
     st.markdown('<div class="banner-info">Selecciona una Liga/Competencia</div>', unsafe_allow_html=True)
 else:
     liga = st.session_state.liga_actual
     archivo_sufijo = MAPEO_ARCHIVOS.get(liga)
-    
     st.write(f"### {liga}")
     c1, c2, c3 = st.columns(3)
     
     def manejar_click(v):
-        if st.session_state.vista_activa == v:
-            st.session_state.vista_activa = None
-        else:
-            st.session_state.vista_activa = v
+        if st.session_state.vista_activa == v: st.session_state.vista_activa = None
+        else: st.session_state.vista_activa = v
 
     if c1.button("Clasificación"): manejar_click("clas")
     if c2.button("Stats Generales"): manejar_click("stats")
@@ -185,20 +171,27 @@ else:
 
     st.divider()
 
-    # 3. RENDERIZADO DE TABLAS
+    # 3. RENDERIZADO (Con lógica de sombreado inteligente para PTS)
     view = st.session_state.vista_activa
-    if view == "stats":
-        df = cargar_excel(f"RESUMEN_STATS_{archivo_sufijo}.xlsx", tipo="stats")
+    
+    if view:
+        tipo_carga = "stats" if view == "stats" else "clasificacion" if view == "clas" else "fixture"
+        nombre_archivo = f"RESUMEN_STATS_{archivo_sufijo}.xlsx" if view == "stats" else \
+                         f"CLASIFICACION_LIGA_{archivo_sufijo}.xlsx" if view == "clas" else \
+                         f"CARTELERA_PROXIMOS_{archivo_sufijo}.xlsx"
+        
+        df = cargar_excel(nombre_archivo, tipo=tipo_carga)
+        
         if df is not None:
-            st.markdown(f'<div class="table-scroll">{df.style.hide(axis="index").to_html(escape=False)}</div>', unsafe_allow_html=True)
+            if view == "clas" and 'ÚLTIMOS 5' in df.columns:
+                df['ÚLTIMOS 5'] = df['ÚLTIMOS 5'].apply(formatear_last_5)
 
-    elif view == "clas":
-        df = cargar_excel(f"CLASIFICACION_LIGA_{archivo_sufijo}.xlsx", tipo="clasificacion")
-        if df is not None:
-            if 'ÚLTIMOS 5' in df.columns: df['ÚLTIMOS 5'] = df['ÚLTIMOS 5'].apply(formatear_last_5)
-            st.markdown(f'<div class="table-scroll">{df.style.hide(axis="index").to_html(escape=False)}</div>', unsafe_allow_html=True)
-
-    elif view == "fix":
-        df = cargar_excel(f"CARTELERA_PROXIMOS_{archivo_sufijo}.xlsx", tipo="fixture")
-        if df is not None:
-            st.markdown(f'<div class="table-scroll">{df.style.hide(axis="index").to_html(escape=False)}</div>', unsafe_allow_html=True)
+            # --- ESTILO DINÁMICO ---
+            styler = df.style.hide(axis="index")
+            
+            # Solo aplicamos el fondo claro si la columna 'PTS' existe en el DataFrame actual
+            if 'PTS' in df.columns:
+                styler = styler.set_properties(subset=['PTS'], **{'background-color': '#262730', 'font-weight': 'bold'})
+            
+            html_final = styler.to_html(escape=False)
+            st.markdown(f'<div class="table-scroll">{html_final}</div>', unsafe_allow_html=True)
