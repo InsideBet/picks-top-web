@@ -39,14 +39,19 @@ TRADUCCIONES = {
 def color_xg_fijo(val):
     try:
         num = float(val)
+        # Verde si genera mucho peligro, rojo si no.
         color = "#137031" if num >= 1.50 else "#821f1f"
         return f'background-color: {color}; color: white; font-weight: bold;'
     except: return ''
 
 def html_barra_posesion(valor):
     try:
-        num = float(str(valor).replace('%', ''))
+        # Limpieza de strings
+        clean_val = str(valor).replace('%', '').strip()
+        num = float(clean_val)
         percent = int(round(num if num > 1 else num * 100))
+        # Limitar a 100% por seguridad visual
+        percent = min(max(percent, 0), 100)
         return f'''
         <div class="bar-container">
             <div class="bar-bg"><div class="bar-fill" style="width: {percent}%;"></div></div>
@@ -74,17 +79,23 @@ def cargar_excel(ruta_archivo, tipo="general"):
         df.columns = [str(c).strip() for c in df.columns]
         
         if tipo == "stats":
-            # REGLA CRÍTICA: Detectar si Gls es decimal (xG) ANTES de filtrar columnas
-            if 'Gls' in df.columns:
-                # Verificamos si hay decimales en la columna Gls
-                es_decimal = df['Gls'].apply(lambda x: float(x) % 1 != 0 if pd.notnull(x) else False).any()
-                if es_decimal:
-                    df = df.rename(columns={'Gls': 'xG'})
+            # DETECTOR DINÁMICO DE xG:
+            # Si no existe la columna 'xG', buscamos cualquier columna que tenga decimales
+            if 'xG' not in df.columns:
+                for col in df.columns:
+                    if col in ['Squad', 'MP', 'Last 5']: continue # Ignorar columnas de texto
+                    try:
+                        # Si encontramos una columna numérica con decimales, esa es nuestro xG
+                        if df[col].dtype == 'float64' and (df[col] % 1 != 0).any():
+                            df = df.rename(columns={col: 'xG'})
+                            break
+                    except: continue
+
+            # Columnas que queremos mantener (si existen)
+            columnas_deseadas = ['Squad', 'MP', 'Poss', 'Gls', 'Ast', 'CrdY', 'CrdR', 'xG']
+            df = df[[c for c in columnas_deseadas if c in df.columns]]
             
-            # Ahora que ya sabemos si hay xG, filtramos las que queremos mostrar
-            columnas_finales = ['Squad', 'MP', 'Poss', 'Gls', 'Ast', 'CrdY', 'CrdR', 'xG']
-            df = df[[c for c in columnas_finales if c in df.columns]]
-            
+            # Aplicar barra a Posesión
             if 'Poss' in df.columns:
                 df['Poss'] = df['Poss'].apply(html_barra_posesion)
 
@@ -147,11 +158,13 @@ for i, (code, nombre_pantalla) in enumerate(LIGAS.items()):
             df = cargar_excel(f"RESUMEN_STATS_{archivo_sufijo}.xlsx", tipo="stats")
             if df is not None:
                 styler = df.style.hide(axis='index')
-                # Pintar la columna xG (que ahora sí debería existir si venía como Gls decimal)
+                # Pintar xG si existe
                 if 'xG' in df.columns:
+                    # Nos aseguramos de que sea numérico para el styler
+                    df['xG'] = pd.to_numeric(df['xG'], errors='coerce')
                     styler = styler.applymap(color_xg_fijo, subset=['xG'])
                 st.markdown(f'<div class="table-scroll">{styler.to_html(escape=False)}</div>', unsafe_allow_html=True)
-            else: st.error("No se pudo cargar la data de Stats.")
+            else: st.error("Archivo de Stats no encontrado.")
 
         elif view == "clas":
             df = cargar_excel(f"CLASIFICACION_LIGA_{archivo_sufijo}.xlsx", tipo="clasificacion")
