@@ -65,22 +65,44 @@ TRADUCCIONES = {
 # FUNCIONES DE CUOTAS (ODDS)
 # ────────────────────────────────────────────────
 
-def obtener_cuotas_api(liga_nombre):
-    sport_key = MAPEO_ODDS_API.get(liga_nombre)
-    if not sport_key or API_KEY == "FALTA_KEY": return None
-    
-    url = f"https://api.the-odds-api.com/v4/sports/{sport_key}/odds/"
-    params = {
-        'apiKey': API_KEY,
-        'regions': 'eu',
-        'markets': 'h2h',
-        'bookmakers': 'bet365',
-        'oddsFormat': 'decimal'
-    }
-    try:
-        response = requests.get(url, params=params)
-        return response.json()
-    except: return None
+def procesar_cuotas(data):
+    if not data or not isinstance(data, list): return None
+    rows = []
+    for match in data:
+        home_team = match.get('home_team')
+        away_team = match.get('away_team')
+        date_obj = pd.to_datetime(match.get('commence_time'))
+        commence_time = date_obj.strftime('%d/%m %H:%M')
+        
+        odds_h, odds_d, odds_a = "-", "-", "-"
+        
+        # LÓGICA MEJORADA:
+        if match.get('bookmakers'):
+            # 1. Intentamos buscar Bet365 primero
+            selected_bookie = next((b for b in match['bookmakers'] if b['key'].lower() == 'bet365'), None)
+            
+            # 2. Si Bet365 no está, tomamos la primera casa que tenga cuotas (ej. William Hill, Pinnacle, etc.)
+            if not selected_bookie:
+                selected_bookie = match['bookmakers'][0]
+            
+            # Extraemos los precios
+            markets = selected_bookie.get('markets', [])
+            if markets:
+                outcomes = markets[0].get('outcomes', [])
+                for out in outcomes:
+                    if out['name'] == home_team: odds_h = out['price']
+                    elif out['name'] == away_team: odds_a = out['price']
+                    else: odds_d = out['price']
+        
+        rows.append({
+            "FECHA": commence_time,
+            "LOCAL": home_team,
+            "VISITANTE": away_team,
+            "1": odds_h,
+            "X": odds_d,
+            "2": odds_a
+        })
+    return pd.DataFrame(rows)
 
 def procesar_cuotas(data):
     if not data or not isinstance(data, list): return None
