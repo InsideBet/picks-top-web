@@ -25,14 +25,14 @@ MAPEO_ARCHIVOS = {
 
 # Diccionario para los links de las banderas
 BANDERAS = {
-    "Champions League": "https://i.postimg.cc/XYHkj56d/7.png", # Pegar link .png
-    "Premier League": "https://i.postimg.cc/v1L6Fk5T/1.png",   # Pegar link .png
-    "La Liga": "https://i.postimg.cc/sByvcmbd/8.png",          # Pegar link .png
-    "Serie A": "https://i.postimg.cc/vDmxkPTQ/4.png",          # Pegar link .png
-    "Bundesliga": "https://i.postimg.cc/vg0gDnqQ/3.png",       # Pegar link .png
-    "Ligue 1": "https://i.postimg.cc/7GHJx9NR/2.png",          # Pegar link .png
-    "Primeira Liga": "https://i.postimg.cc/QH99xHcb/5.png",    # Pegar link .png
-    "Eredivisie": "https://i.postimg.cc/dLb77wB8/6.png"        # Pegar link .png
+    "Champions League": "https://i.postimg.cc/XYHkj56d/7.png",
+    "Premier League": "https://i.postimg.cc/v1L6Fk5T/1.png",
+    "La Liga": "https://i.postimg.cc/sByvcmbd/8.png",
+    "Serie A": "https://i.postimg.cc/vDmxkPTQ/4.png",
+    "Bundesliga": "https://i.postimg.cc/vg0gDnqQ/3.png",
+    "Ligue 1": "https://i.postimg.cc/7GHJx9NR/2.png",
+    "Primeira Liga": "https://i.postimg.cc/QH99xHcb/5.png",
+    "Eredivisie": "https://i.postimg.cc/dLb77wB8/6.png"
 }
 
 TRADUCCIONES = {
@@ -142,13 +142,14 @@ st.markdown("""
     
     div.stButton > button { background-color: #ff1800 !important; color: white !important; font-weight: bold !important; width: 100%; border-radius: 8px; border: none !important; margin-bottom: 5px; height: 45px; }
 
-    /* Estilo para el encabezado centrado con bandera */
+    /* Alineación a la izquierda con padding de seguridad */
     .header-container {
         display: flex;
         align-items: center;
-        justify-content: center;
+        justify-content: flex-start;
         gap: 15px;
         margin: 20px 0;
+        padding-left: 10px; 
     }
     .header-title {
         color: white;
@@ -189,7 +190,7 @@ if st.session_state.liga_actual:
     archivo_sufijo = MAPEO_ARCHIVOS.get(liga)
     link_bandera = BANDERAS.get(liga, "")
     
-    # Encabezado centrado: Bandera (izq) + Nombre (Blanco)
+    # Renderizado del encabezado alineado a la izquierda
     st.markdown(f"""
         <div class="header-container">
             <img src="{link_bandera}" class="flag-img">
@@ -206,26 +207,3 @@ if st.session_state.liga_actual:
     if c1.button("Clasificación"): manejar_click("clas")
     if c2.button("Stats Generales"): manejar_click("stats")
     if c3.button("Ver Fixture"): manejar_click("fix")
-
-    st.divider()
-
-    # 3. RENDERIZADO DE TABLAS
-    view = st.session_state.vista_activa
-    if view:
-        tipo_carga = "stats" if view == "stats" else "clasificacion" if view == "clas" else "fixture"
-        nombre_archivo = f"RESUMEN_STATS_{archivo_sufijo}.xlsx" if view == "stats" else \
-                         f"CLASIFICACION_LIGA_{archivo_sufijo}.xlsx" if view == "clas" else \
-                         f"CARTELERA_PROXIMOS_{archivo_sufijo}.xlsx"
-        
-        df = cargar_excel(nombre_archivo, tipo=tipo_carga)
-        
-        if df is not None:
-            if view == "clas" and 'ÚLTIMOS 5' in df.columns:
-                df['ÚLTIMOS 5'] = df['ÚLTIMOS 5'].apply(formatear_last_5)
-
-            styler = df.style.hide(axis="index")
-            if 'PTS' in df.columns:
-                styler = styler.set_properties(subset=['PTS'], **{'background-color': '#262730', 'font-weight': 'bold'})
-            
-            html_final = styler.to_html(escape=False)
-            st.markdown(f'<div class="table-scroll">{html_final}</div>', unsafe_allow_html=True)
