@@ -50,7 +50,7 @@ TRADUCCIONES = {
 }
 
 # ────────────────────────────────────────────────
-# FUNCIONES DE FORMATO (RECUPERADAS)
+# FUNCIONES DE FORMATO
 # ────────────────────────────────────────────────
 
 def limpiar_nombre_equipo(nombre):
@@ -61,8 +61,7 @@ def formatear_xg_badge(val):
     try:
         num = float(val)
         color = "#137031" if num > 1.50 else "#821f1f"
-        label = f"+{num:.1f}"
-        return f'<div style="display: flex; justify-content: center;"><span style="background-color: {color}; color: white; padding: 4px 10px; border-radius: 6px; font-weight: bold; font-size: 12px; min-width: 45px; text-align: center;">{label}</span></div>'
+        return f'<div style="display: flex; justify-content: center;"><span style="background-color: {color}; color: white; padding: 4px 10px; border-radius: 6px; font-weight: bold; font-size: 12px; min-width: 45px; text-align: center;">+{num:.1f}</span></div>'
     except: return val
 
 def html_barra_posesion(valor):
@@ -98,14 +97,25 @@ def cargar_excel(ruta_archivo, tipo="general"):
             if 'Poss' in df.columns: df['Poss'] = df['Poss'].apply(html_barra_posesion)
             cols_ok = ['Squad', 'MP', 'Poss', 'Gls', 'Ast', 'CrdY', 'CrdR', 'xG']
             df = df[[c for c in cols_ok if c in df.columns]]
+            df = df.rename(columns=TRADUCCIONES)
+        
         elif tipo == "clasificacion":
             drop_c = ['Notes', 'Goalkeeper', 'Top Team Scorer', 'Attendance', 'Pts/MP', 'Pts/PJ']
             df = df.drop(columns=[c for c in drop_c if c in df.columns])
+            df = df.rename(columns=TRADUCCIONES)
+            # REORDENAR COLUMNAS PARA PONER PTS AL LADO DE EQUIPO
+            cols = list(df.columns)
+            if 'EQUIPO' in cols and 'PTS' in cols:
+                cols.remove('PTS')
+                idx = cols.index('EQUIPO')
+                cols.insert(idx + 1, 'PTS')
+                df = df[cols]
+                
         elif tipo == "fixture":
             drop_f = ['Day', 'Score', 'Referee', 'Match Report', 'Notes', 'Attendance', 'Wk']
             df = df.drop(columns=[c for c in drop_f if c in df.columns])
+            df = df.rename(columns=TRADUCCIONES)
         
-        df = df.rename(columns=TRADUCCIONES)
         return df.dropna(how='all')
     except: return None
 
@@ -171,15 +181,11 @@ st.markdown("""
 # Logo Principal
 st.markdown('<div style="text-align:center; margin-bottom:20px;"><img src="https://i.postimg.cc/C516P7F5/33.png" width="300"></div>', unsafe_allow_html=True)
 
-# ────────────────────────────────────────────────
-# LÓGICA DE ESTADO (SESSION STATE)
-# ────────────────────────────────────────────────
-
+# LÓGICA DE NAVEGACIÓN
 if "liga_sel" not in st.session_state: st.session_state.liga_sel = None
 if "vista_activa" not in st.session_state: st.session_state.vista_activa = None
 if "menu_op" not in st.session_state: st.session_state.menu_op = False
 
-# Botón Competencias
 if st.button("COMPETENCIAS"):
     st.session_state.menu_op = not st.session_state.menu_op
 
@@ -191,17 +197,13 @@ if st.session_state.menu_op:
         st.session_state.vista_activa = None
         st.rerun()
 
-# ────────────────────────────────────────────────
 # CUERPO DE LA APP
-# ────────────────────────────────────────────────
-
 if st.session_state.liga_sel:
     liga = st.session_state.liga_sel
     st.markdown(f'<div class="header-container"><img src="{BANDERAS.get(liga, "")}" class="flag-img"><h1 class="header-title">{liga}</h1></div>', unsafe_allow_html=True)
     
     col1, col2, col3, col4 = st.columns(4)
     
-    # Lógica de ACORDEÓN: Si pulsas la que ya está activa, se cierra (None).
     if col1.button("Clasificación"):
         st.session_state.vista_activa = "clas" if st.session_state.vista_activa != "clas" else None
     if col2.button("Stats Generales"):
@@ -216,7 +218,7 @@ if st.session_state.liga_sel:
     view = st.session_state.vista_activa
     if view:
         if view == "odds":
-            with st.spinner('Scrapeo de cuotas...'):
+            with st.spinner('Cargando picks...'):
                 raw = obtener_cuotas_api(liga)
                 df_odds = procesar_cuotas(raw)
                 if df_odds is not None and not df_odds.empty:
@@ -226,23 +228,16 @@ if st.session_state.liga_sel:
                         return row
                     html = df_odds.apply(aplicar_b, axis=1).style.hide(axis="index").to_html(escape=False)
                     st.markdown(f'<div class="table-scroll">{html}</div>', unsafe_allow_html=True)
-        
         else:
             sufijo = MAPEO_ARCHIVOS.get(liga)
-            configs = {
-                "clas": (f"CLASIFICACION_LIGA_{sufijo}.xlsx", "clasificacion"),
-                "stats": (f"RESUMEN_STATS_{sufijo}.xlsx", "stats"),
-                "fix": (f"CARTELERA_PROXIMOS_{sufijo}.xlsx", "fixture")
-            }
+            configs = {"clas": (f"CLASIFICACION_LIGA_{sufijo}.xlsx", "clasificacion"), "stats": (f"RESUMEN_STATS_{sufijo}.xlsx", "stats"), "fix": (f"CARTELERA_PROXIMOS_{sufijo}.xlsx", "fixture")}
             archivo, tipo = configs[view]
             df = cargar_excel(archivo, tipo=tipo)
             
             if df is not None:
                 if 'ÚLTIMOS 5' in df.columns:
                     df['ÚLTIMOS 5'] = df['ÚLTIMOS 5'].apply(formatear_last_5)
-                
                 styler = df.style.hide(axis="index")
                 if 'PTS' in df.columns:
                     styler = styler.set_properties(subset=['PTS'], **{'background-color': '#262730', 'font-weight': 'bold'})
-                
                 st.markdown(f'<div class="table-scroll">{styler.to_html(escape=False)}</div>', unsafe_allow_html=True)
