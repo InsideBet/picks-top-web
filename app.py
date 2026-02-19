@@ -44,39 +44,38 @@ st.markdown("""
     /* CONTENEDOR DE SCROLL MAESTRO (Horizontal y Vertical) */
     .table-scroll {
         width: 100%;
-        max-height: 450px; /* Altura máxima para scrolleo vertical */
-        overflow-x: auto !important; /* Scroll horizontal */
-        overflow-y: auto !important; /* Scroll vertical */
+        max-height: 450px; 
+        overflow-x: auto !important;
+        overflow-y: auto !important;
         display: block;
         border: 1px solid #374151;
         border-radius: 8px;
+        margin-bottom: 20px;
     }
 
-    /* Estilo de la barra de scroll para que sea fina y roja */
-    .table-scroll::-webkit-scrollbar {
-        width: 8px;
-        height: 8px;
-    }
-    .table-scroll::-webkit-scrollbar-thumb {
-        background: #ff1800;
-        border-radius: 10px;
-    }
-    .table-scroll::-webkit-scrollbar-track {
-        background: #1f2937;
-    }
+    /* Estilo de la barra de scroll fina y roja */
+    .table-scroll::-webkit-scrollbar { width: 8px; height: 8px; }
+    .table-scroll::-webkit-scrollbar-thumb { background: #ff1800; border-radius: 10px; }
+    .table-scroll::-webkit-scrollbar-track { background: #1f2937; }
 
     /* Forzar que la tabla no se encoja en PC */
     .table-scroll table {
         min-width: 850px; 
         width: 100%;
+        border-collapse: collapse;
     }
 
-    /* Fijar el encabezado de la tabla para que no desaparezca al scrollear abajo */
+    /* Encabezado Fijo (Sticky) */
     .table-scroll th {
         position: sticky;
         top: 0;
         z-index: 10;
         background-color: #1f2937 !important;
+        color: #e5e7eb;
+        padding: 12px;
+        border: 1px solid #374151;
+        font-size: 13px;
+        text-align: center !important;
     }
 
     /* Box de información (st.info) */
@@ -87,14 +86,21 @@ st.markdown("""
     }
     
     div[data-testid="stNotificationContent"] p, 
-    div[data-testid="stNotificationContent"],
-    div[role="alert"] div,
-    div[role="alert"] {
+    div[role="alert"] div {
         color: white !important;
         font-weight: 600 !important;
     }
-
     div[role="alert"] svg { fill: white !important; }
+
+    /* Celdas de tabla */
+    td { 
+        padding: 10px; 
+        border: 1px solid #374151; 
+        font-size: 14px; 
+        text-align: center !important; 
+        white-space: nowrap !important; 
+    }
+    tr:hover { background-color: #21262d; }
 
     /* Contenedor Cuadraditos Forma */
     .forma-container { display: flex; justify-content: center; gap: 4px; min-width: 120px; }
@@ -102,12 +108,6 @@ st.markdown("""
     .win { background-color: #137031; }
     .loss { background-color: #821f1f; }
     .draw { background-color: #82711f; }
-
-    /* Estilo de Tablas HTML */
-    table { border-collapse: collapse; color: #e5e7eb; }
-    th { padding: 12px; border: 1px solid #374151; font-size: 13px; text-align: center !important; }
-    td { padding: 10px; border: 1px solid #374151; font-size: 14px; text-align: center !important; white-space: nowrap !important; }
-    tr:hover { background-color: #21262d; }
 
     /* Estilo para los botones */
     div.stButton > button {
@@ -155,6 +155,7 @@ def cargar_excel(ruta_archivo, tipo="general"):
         df = df.drop(columns=[c for c in drop_cols if c in df.columns])
         df = df.rename(columns=TRADUCCIONES)
         
+        # Mover PTS después de EQUIPO en Clasificación
         if tipo == "clasificacion" and 'PTS' in df.columns and 'EQUIPO' in df.columns:
             cols = list(df.columns)
             cols.insert(cols.index('EQUIPO') + 1, cols.pop(cols.index('PTS')))
@@ -202,7 +203,6 @@ for i, (code, nombre_pantalla) in enumerate(LIGAS.items()):
                 styler = df_c.style.hide(axis='index')
                 if 'PTS' in df_c.columns:
                     styler = styler.set_properties(subset=['PTS'], **{'background-color': '#262c35', 'font-weight': 'bold'})
-                
                 st.markdown(f'<div class="table-scroll">{styler.to_html(escape=False)}</div>', unsafe_allow_html=True)
             else:
                 st.error("Archivo no encontrado.")
@@ -210,10 +210,11 @@ for i, (code, nombre_pantalla) in enumerate(LIGAS.items()):
         elif current_view == "stats":
             df_s = cargar_excel(f"RESUMEN_STATS_{archivo_sufijo}.xlsx")
             if df_s is not None:
-                # También aplicamos el contenedor de scroll a Stats Generales
-                st.markdown('<div class="table-scroll">', unsafe_allow_html=True)
-                st.dataframe(df_s, use_container_width=True, hide_index=True)
-                st.markdown('</div>', unsafe_allow_html=True)
+                # Convertimos Stats Generales a HTML para aplicar el mismo estilo
+                styler_s = df_s.style.hide(axis='index')
+                st.markdown(f'<div class="table-scroll">{styler_s.to_html(escape=False)}</div>', unsafe_allow_html=True)
+            else:
+                st.error("Archivo no encontrado.")
 
         elif current_view == "fix":
             df_f = cargar_excel(f"CARTELERA_PROXIMOS_{archivo_sufijo}.xlsx", tipo="fixture")
