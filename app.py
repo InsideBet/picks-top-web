@@ -133,7 +133,7 @@ st.markdown("""
 st.markdown('<div style="text-align:center; margin-bottom:20px;"><img src="https://i.postimg.cc/C516P7F5/33.png" width="300"></div>', unsafe_allow_html=True)
 
 # 4) Selector de Liga (Champions primero)
-liga_seleccionada = st.selectbox("SELECCIONA UNA COMPETICIÓN", LIGAS_ORDENADAS)
+liga_seleccionada = st.selectbox("SELECCIONA UNA COMPETENCIA", LIGAS_ORDENADAS)
 
 if liga_seleccionada:
     archivo_sufijo = MAPEO_ARCHIVOS.get(liga_seleccionada)
