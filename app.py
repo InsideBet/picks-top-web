@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import re
 
 # ────────────────────────────────────────────────
 # CONFIGURACIÓN DE PÁGINA
@@ -12,14 +11,15 @@ USER = "InsideBet"
 REPO = "picks-top-web"
 BASE_URL = f"https://raw.githubusercontent.com/{USER}/{REPO}/main/datos_fbref"
 
-LIGAS_ORDENADAS = [
-    "Champions League", "Premier League", "La Liga", "Serie A", 
-    "Bundesliga", "Ligue 1", "Primeira Liga", "Eredivisie"
-]
+LIGAS = {
+    "PL": "Premier League", "PD": "La Liga", "SA": "Serie A",
+    "BL1": "Bundesliga", "FL1": "Ligue 1", "PPL": "Primeira Liga",
+    "DED": "Eredivisie", "CL": "Champions League"
+}
 
 MAPEO_ARCHIVOS = {
     "Premier League": "Premier_League", "La Liga": "La_Liga", "Serie A": "Serie_A",
-    "Bundesliga": "Bundesliga", "Ligue 1": "Ligue_1", "Primeira Liga": "Primeira_Liga",
+    "Bundesliga": "Bundesliga", "Ligue_1": "Ligue_1", "Primeira Liga": "Primeira_Liga",
     "Eredivisie": "Eredivisie", "Champions League": "Champions_League"
 }
 
@@ -33,21 +33,38 @@ TRADUCCIONES = {
 }
 
 # ────────────────────────────────────────────────
-# FUNCIONES DE PROCESAMIENTO (TU CODE ORIGINAL)
+# FUNCIONES DE PROCESAMIENTO VISUAL
 # ────────────────────────────────────────────────
 
-def limpiar_nombre_equipo(nombre):
-    if pd.isna(nombre): return ""
-    return re.sub(r'^[a-z]{2,3}\s+', '', str(nombre))
-
 def formatear_xg_badge(val):
+    """Convierte el xG en una cajita (badge) de color."""
     try:
         num = float(val)
-        if num > 2.50: label, color = "+2.5", "#137031"
-        elif num > 1.50: label, color = "+1.5", "#137031"
-        else: label, color = "+0.5", "#821f1f"
-        return f'<div style="display:flex;justify-content:center;"><span style="background-color:{color};color:white;padding:4px 10px;border-radius:6px;font-weight:bold;font-size:12px;min-width:45px;text-align:center;">{label}</span></div>'
-    except: return val
+        if num > 2.50:
+            label, color = "+2.5", "#137031" # Verde oscuro
+        elif num > 1.50:
+            label, color = "+1.5", "#137031" # Verde oscuro
+        else:
+            label, color = "+0.5", "#821f1f" # Rojo oscuro
+            
+        return f'''
+        <div style="display: flex; justify-content: center;">
+            <span style="
+                background-color: {color}; 
+                color: white; 
+                padding: 4px 10px; 
+                border-radius: 6px; 
+                font-weight: bold; 
+                font-size: 12px;
+                min-width: 45px;
+                text-align: center;
+                display: inline-block;">
+                {label}
+            </span>
+        </div>
+        '''
+    except:
+        return val
 
 def html_barra_posesion(valor):
     try:
@@ -55,7 +72,12 @@ def html_barra_posesion(valor):
         num = float(clean_val)
         percent = int(round(num if num > 1 else num * 100))
         percent = min(max(percent, 0), 100)
-        return f'<div class="bar-container"><div class="bar-bg"><div class="bar-fill" style="width:{percent}%;"></div></div><div class="bar-text">{percent}%</div></div>'
+        return f'''
+        <div class="bar-container">
+            <div class="bar-bg"><div class="bar-fill" style="width: {percent}%;"></div></div>
+            <div class="bar-text">{percent}%</div>
+        </div>
+        '''
     except: return valor
 
 def formatear_last_5(valor):
@@ -66,104 +88,102 @@ def formatear_last_5(valor):
     for l in letras:
         clase = "win" if l == 'W' else "loss" if l == 'L' else "draw" if l == 'D' else ""
         html_str += f'<span class="forma-box {clase}">{trad.get(l, l)}</span>'
-    return html_str + '</div>'
+    html_str += '</div>'
+    return html_str
 
 @st.cache_data(ttl=300)
 def cargar_excel(ruta_archivo, tipo="general"):
     url = f"{BASE_URL}/{ruta_archivo}"
     try:
         df = pd.read_excel(url)
-        for col in ['Squad', 'Home', 'Away']:
-            if col in df.columns:
-                df[col] = df[col].apply(limpiar_nombre_equipo)
-
         if tipo == "stats":
+            # REGLA DE LA COLUMNA Q (Índice 16)
             if len(df.columns) >= 17:
-                df = df.rename(columns={df.columns[16]: 'xG'})
+                col_q = df.columns[16]
+                df = df.rename(columns={col_q: 'xG'})
+            
             df.columns = [str(c).strip() for c in df.columns]
-            if 'xG' in df.columns: df['xG'] = df['xG'].apply(formatear_xg_badge)
-            if 'Poss' in df.columns: df['Poss'] = df['Poss'].apply(html_barra_posesion)
+            
+            # Aplicar badges de xG
+            if 'xG' in df.columns:
+                df['xG'] = df['xG'].apply(formatear_xg_badge)
+
+            # Aplicar barras de Posesión
+            if 'Poss' in df.columns:
+                df['Poss'] = df['Poss'].apply(html_barra_posesion)
+
             cols_ok = ['Squad', 'MP', 'Poss', 'Gls', 'Ast', 'CrdY', 'CrdR', 'xG']
             df = df[[c for c in cols_ok if c in df.columns]]
 
         elif tipo == "clasificacion":
             drop_c = ['Notes', 'Goalkeeper', 'Top Team Scorer', 'Attendance', 'Pts/MP', 'Pts/PJ']
             df = df.drop(columns=[c for c in drop_c if c in df.columns])
-            df = df.rename(columns=TRADUCCIONES)
-            cols = list(df.columns)
-            if 'EQUIPO' in cols and 'PTS' in cols:
-                cols.remove('EQUIPO'); cols.remove('PTS')
-                df = df[['EQUIPO', 'PTS'] + cols]
-
+            
         elif tipo == "fixture":
             drop_f = ['Day', 'Score', 'Referee', 'Match Report', 'Notes', 'Attendance', 'Wk']
-            df = df.drop(columns=[c for c in drop_f if c in df.columns])     
-        
+            df = df.drop(columns=[c for c in drop_f if c in df.columns])
 
         df = df.rename(columns=TRADUCCIONES)
         return df.dropna(how='all')
     except: return None
 
 # ────────────────────────────────────────────────
-# ESTILOS CSS (TUS ORIGINALES)
+# ESTILOS CSS
 # ────────────────────────────────────────────────
 st.markdown("""
 <style>
     .stApp { background-color: #0e1117; color: #e5e7eb; }
-    .table-scroll { width: 100%; max-height: 450px; overflow: auto; border: 1px solid #374151; border-radius: 8px; margin-bottom: 25px; }
+    .table-scroll { width: 100%; max-height: 450px; overflow: auto; border: 1px solid #374151; border-radius: 8px; margin-bottom: 20px; }
+    .table-scroll::-webkit-scrollbar { width: 8px; height: 8px; }
+    .table-scroll::-webkit-scrollbar-thumb { background: #ff1800; border-radius: 10px; }
+    .table-scroll table { min-width: 850px; width: 100%; border-collapse: collapse; }
     th { position: sticky; top: 0; background-color: #1f2937 !important; color: white; padding: 12px; border: 1px solid #374151; font-size: 13px; text-align: center !important; }
     td { padding: 10px; border: 1px solid #374151; font-size: 14px; text-align: center !important; white-space: nowrap; }
+
     .bar-container { display: flex; align-items: center; justify-content: flex-start; gap: 8px; width: 140px; margin: 0 auto; }
     .bar-bg { background-color: #2d3139; border-radius: 10px; flex-grow: 1; height: 7px; overflow: hidden; }
-    .bar-fill { background-color: #ff1800; height: 100%; border-radius: 10px; }
+    .bar-fill { background-color: #ff4b4b; height: 100%; border-radius: 10px; }
     .bar-text { font-size: 12px; font-weight: bold; min-width: 32px; text-align: right; }
+
     .forma-container { display: flex; justify-content: center; gap: 4px; }
     .forma-box { width: 22px; height: 22px; line-height: 22px; text-align: center; border-radius: 4px; font-weight: bold; font-size: 11px; color: white; }
     .win { background-color: #137031; } .loss { background-color: #821f1f; } .draw { background-color: #82711f; }
-    
-    /* Botón Maestro */
-    div.stButton > button { background-color: #ff1800 !important; color: white !important; font-weight: bold !important; width: 100%; border-radius: 8px; height: 3.5em; border: none; }
+
+    div.stButton > button { background-color: #ff1800 !important; color: white !important; font-weight: bold !important; width: 100%; border-radius: 8px; border: none !important; }
 </style>
 """, unsafe_allow_html=True)
 
-# ────────────────────────────────────────────────
-# INTERFAZ DE USUARIO
-# ────────────────────────────────────────────────
 st.markdown('<div style="text-align:center; margin-bottom:20px;"><img src="https://i.postimg.cc/C516P7F5/33.png" width="300"></div>', unsafe_allow_html=True)
 
-# Control de visibilidad
-if "show_menu" not in st.session_state:
-    st.session_state.show_menu = False
+tab_objects = st.tabs(list(LIGAS.values()))
 
-if st.button("COMPETENCIAS"):
-    st.session_state.show_menu = not st.session_state.show_menu
+for i, (code, nombre_pantalla) in enumerate(LIGAS.items()):
+    with tab_objects[i]:
+        archivo_sufijo = MAPEO_ARCHIVOS.get(nombre_pantalla)
+        if f"show_{code}" not in st.session_state: st.session_state[f"show_{code}"] = None
 
-# Si el botón está activo, se muestra tu estructura original
-if st.session_state.show_menu:
-    liga_seleccionada = st.selectbox("Selecciona una competencia", ["---"] + LIGAS_ORDENADAS)
+        c1, c2, c3 = st.columns(3)
+        if c1.button(f"🏆 Clasificación", key=f"c_{code}"): st.session_state[f"show_{code}"] = "clas"
+        if c2.button(f"📊 Stats Generales", key=f"s_{code}"): st.session_state[f"show_{code}"] = "stats"
+        if c3.button(f"📅 Ver Fixture", key=f"f_{code}"): st.session_state[f"show_{code}"] = "fix"
 
-    if liga_seleccionada != "---":
-        archivo_sufijo = MAPEO_ARCHIVOS.get(liga_seleccionada)
+        st.divider()
+        view = st.session_state[f"show_{code}"]
 
-        # 1. BLOQUE CLASIFICACIÓN
-        with st.expander("🏆 CLASIFICACIÓN", expanded=True):
-            df_clas = cargar_excel(f"CLASIFICACION_LIGA_{archivo_sufijo}.xlsx", tipo="clasificacion")
-            if df_clas is not None:
-                if 'ÚLTIMOS 5' in df_clas.columns:
-                    df_clas['ÚLTIMOS 5'] = df_clas['ÚLTIMOS 5'].apply(formatear_last_5)
-                st.markdown(f'<div class="table-scroll">{df_clas.style.hide(axis="index").to_html(escape=False)}</div>', unsafe_allow_html=True)
+        if view == "stats":
+            df = cargar_excel(f"RESUMEN_STATS_{archivo_sufijo}.xlsx", tipo="stats")
+            if df is not None:
+                # Usamos to_html con escape=False para que el HTML de los badges y barras funcione
+                html_table = df.style.hide(axis='index').to_html(escape=False)
+                st.markdown(f'<div class="table-scroll">{html_table}</div>', unsafe_allow_html=True)
 
-        # 2. BLOQUE STATS
-        with st.expander("📊 STATS GENERALES", expanded=True):
-            df_stats = cargar_excel(f"RESUMEN_STATS_{archivo_sufijo}.xlsx", tipo="stats")
-            if df_stats is not None:
-                st.markdown(f'<div class="table-scroll">{df_stats.style.hide(axis="index").to_html(escape=False)}</div>', unsafe_allow_html=True)
+        elif view == "clas":
+            df = cargar_excel(f"CLASIFICACION_LIGA_{archivo_sufijo}.xlsx", tipo="clasificacion")
+            if df is not None:
+                if 'ÚLTIMOS 5' in df.columns: df['ÚLTIMOS 5'] = df['ÚLTIMOS 5'].apply(formatear_last_5)
+                st.markdown(f'<div class="table-scroll">{df.style.hide(axis="index").to_html(escape=False)}</div>', unsafe_allow_html=True)
 
-        # 3. BLOQUE FIXTURE
-        with st.expander("📅 FIXTURE / PRÓXIMOS", expanded=True):
-            df_fix = cargar_excel(f"CARTELERA_PROXIMOS_{archivo_sufijo}.xlsx", tipo="fixture")
-            if df_fix is not None:
-                st.markdown(f'<div class="table-scroll">{df_fix.style.hide(axis="index").to_html(escape=False)}</div>', unsafe_allow_html=True)
-
-# Un pequeño espacio al final para ayudar con el scroll en PC
-st.markdown("<br><br><br><br>", unsafe_allow_html=True)
+        elif view == "fix":
+            df = cargar_excel(f"CARTELERA_PROXIMOS_{archivo_sufijo}.xlsx", tipo="fixture")
+            if df is not None:
+                st.markdown(f'<div class="table-scroll">{df.style.hide(axis="index").to_html(escape=False)}</div>', unsafe_allow_html=True)
