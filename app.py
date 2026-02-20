@@ -235,10 +235,10 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Logo centrado y responsive
+# Reemplaza la línea del logo por esta:
 st.markdown("""
-    <div style="display: flex; justify-content: center; padding: 20px 0;">
-        <img src="https://i.postimg.cc/hJKrngzD/33.png" style="width: 100%; max-width: 600px; height: auto;">
+    <div style="display: flex; justify-content: center; margin-top: -30px; margin-bottom: 10px;">
+        <img src="https://i.postimg.cc/hJKrngzD/33.png" style="width: 80%; max-width: 900px; height: auto;">
     </div>
     """, unsafe_allow_html=True)
 
