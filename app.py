@@ -301,7 +301,7 @@ if st.session_state.liga_sel:
                             </div>
                             <div>
                                 <span style="color: white; font-weight: bold; font-size: 0.8rem;">🔥 OVER / 🛡️ UNDER</span>
-                                <p style="font-size: 0.85rem; color: #9ca3af; margin: 5px 0;"><b>Predicción xG:</b> Basado en el promedio de Goles Esperados del <b>scrapeo</b> de datos de FBRef.</p>
+                                <p style="font-size: 0.85rem; color: #9ca3af; margin: 5px 0;"><b>Predicción xG:</b> Basado en el promedio de <b>Goles Esperados.</b></p>
                             </div>
                         </div>
                     </div>
