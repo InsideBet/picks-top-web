@@ -97,7 +97,7 @@ def cargar_excel(ruta_archivo, tipo="general"):
             if 'Poss' in df.columns: df['Poss'] = df['Poss'].apply(html_barra_posesion)
             cols_ok = ['Squad', 'MP', 'Poss', 'Gls', 'Ast', 'CrdY', 'CrdR', 'xG']
             df = df[[c for c in cols_ok if c in df.columns]]
-            df = df.rename(columns=TRADUCHONES)
+            df = df.rename(columns=TRADUCCIONES)
         
         elif tipo == "clasificacion":
             drop_c = ['Notes', 'Goalkeeper', 'Top Team Scorer', 'Attendance', 'Pts/MP', 'Pts/PJ']
@@ -155,45 +155,69 @@ def procesar_cuotas(data):
     return pd.DataFrame(rows)
 
 # ────────────────────────────────────────────────
-# ESTILOS CSS (SCROLL INTERNO SEGURO)
+# ESTILOS CSS (RE-ESTRUCTURACIÓN DE SCROLL)
 # ────────────────────────────────────────────────
 st.markdown("""
 <style>
+    /* RESET DE CONTENEDORES DE STREAMLIT */
+    /* Forzamos al contenedor principal a permitir desbordamiento */
+    .main .block-container {
+        max-width: 95% !important;
+        padding-top: 2rem !important;
+        overflow: visible !important;
+    }
+    
+    [data-testid="stAppViewContainer"] {
+        overflow: visible !important;
+    }
+
+    [data-testid="stMainViewContainer"] {
+        overflow: visible !important;
+    }
+
+    /* ESTILO DE TABLAS */
     .stApp { background-color: #0e1117; color: #e5e7eb; }
     
-    .table-scroll-container { 
+    .table-container { 
         width: 100%; 
-        max-height: 550px; 
-        overflow-y: auto !important; 
-        overflow-x: auto !important;
+        overflow-x: auto; /* Scroll horizontal si la tabla es muy ancha */
+        overflow-y: visible; /* IMPORTANTE: Dejamos que el scroll vertical lo maneje la web */
         border: 1px solid #374151; 
         border-radius: 8px; 
-        margin-bottom: 20px;
-        background-color: #1a1c23;
+        margin-bottom: 50px;
     }
     
+    table { width: 100%; border-collapse: collapse; }
+
     th { 
-        position: sticky; top: 0; z-index: 100;
-        background-color: #1f2937 !important; color: white !important; 
-        padding: 12px; border: 1px solid #374151; 
+        position: sticky; 
+        top: 0;
+        z-index: 100;
+        background-color: #1f2937 !important; 
+        color: white !important; 
+        padding: 12px; 
+        border: 1px solid #374151; 
     }
+    
     td { padding: 12px; border: 1px solid #374151; text-align: center !important; }
     
-    .header-container { display: flex; align-items: center; gap: 15px; margin: 15px 0; }
-    .header-title { color: white !important; font-size: 1.8rem; font-weight: bold; margin: 0; }
-    .flag-img { width: 40px; border-radius: 4px; }
-    .bar-container { display: flex; align-items: center; gap: 8px; width: 130px; margin: 0 auto; }
+    /* OTROS ESTILOS */
+    .header-container { display: flex; align-items: center; justify-content: flex-start; gap: 15px; margin: 20px 0; padding-left: 10px; }
+    .header-title { color: white !important; font-size: 2rem; font-weight: bold; margin: 0; }
+    .flag-img { width: 45px; height: auto; border-radius: 4px; }
+    .bar-container { display: flex; align-items: center; justify-content: flex-start; gap: 8px; width: 140px; margin: 0 auto; }
     .bar-bg { background-color: #2d3139; border-radius: 10px; flex-grow: 1; height: 7px; overflow: hidden; }
-    .bar-fill { background-color: #ff4b4b; height: 100%; }
+    .bar-fill { background-color: #ff4b4b; height: 100%; border-radius: 10px; }
+    .bar-text { font-size: 12px; font-weight: bold; min-width: 32px; text-align: right; }
     .forma-container { display: flex; justify-content: center; gap: 4px; }
-    .forma-box { width: 22px; height: 22px; line-height: 22px; text-align: center; border-radius: 4px; font-weight: bold; font-size: 11px; }
-    .win { background-color: #137031; color: white; } .loss { background-color: #821f1f; color: white; } .draw { background-color: #82711f; color: white; }
+    .forma-box { width: 22px; height: 22px; line-height: 22px; text-align: center; border-radius: 4px; font-weight: bold; font-size: 11px; color: white; }
+    .win { background-color: #137031; } .loss { background-color: #821f1f; } .draw { background-color: #82711f; }
     div.stButton > button { background-color: #ff1800 !important; color: white !important; font-weight: bold !important; border-radius: 8px; height: 45px; width: 100%; }
 </style>
 """, unsafe_allow_html=True)
 
-# Logo
-st.markdown('<div style="text-align:center; margin-bottom:20px;"><img src="https://i.postimg.cc/C516P7F5/33.png" width="250"></div>', unsafe_allow_html=True)
+# Logo Principal
+st.markdown('<div style="text-align:center; margin-bottom:20px;"><img src="https://i.postimg.cc/C516P7F5/33.png" width="300"></div>', unsafe_allow_html=True)
 
 # LÓGICA DE NAVEGACIÓN
 if "liga_sel" not in st.session_state: st.session_state.liga_sel = None
@@ -206,38 +230,52 @@ if st.button("COMPETENCIAS"):
 if st.session_state.menu_op:
     sel = st.selectbox("Ligas", ["-- Selecciona --"] + LIGAS_LISTA, label_visibility="collapsed")
     if sel != "-- Selecciona --":
-        st.session_state.liga_sel = sel; st.session_state.menu_op = False; st.session_state.vista_activa = None; st.rerun()
+        st.session_state.liga_sel = sel
+        st.session_state.menu_op = False
+        st.session_state.vista_activa = None
+        st.rerun()
 
+# CUERPO DE LA APP
 if st.session_state.liga_sel:
     liga = st.session_state.liga_sel
     st.markdown(f'<div class="header-container"><img src="{BANDERAS.get(liga, "")}" class="flag-img"><h1 class="header-title">{liga}</h1></div>', unsafe_allow_html=True)
     
-    c1, c2, c3, c4 = st.columns(4)
-    if c1.button("Clasificación"): st.session_state.vista_activa = "clas" if st.session_state.vista_activa != "clas" else None
-    if c2.button("Stats Generales"): st.session_state.vista_activa = "stats" if st.session_state.vista_activa != "stats" else None
-    if c3.button("Ver Fixture"): st.session_state.vista_activa = "fix" if st.session_state.vista_activa != "fix" else None
-    if c4.button("Picks & Cuotas"): st.session_state.vista_activa = "odds" if st.session_state.vista_activa != "odds" else None
+    col1, col2, col3, col4 = st.columns(4)
+    
+    if col1.button("Clasificación"):
+        st.session_state.vista_activa = "clas" if st.session_state.vista_activa != "clas" else None
+    if col2.button("Stats Generales"):
+        st.session_state.vista_activa = "stats" if st.session_state.vista_activa != "stats" else None
+    if col3.button("Ver Fixture"):
+        st.session_state.vista_activa = "fix" if st.session_state.vista_activa != "fix" else None
+    if col4.button("Picks & Cuotas"):
+        st.session_state.vista_activa = "odds" if st.session_state.vista_activa != "odds" else None
 
     st.divider()
 
     view = st.session_state.vista_activa
     if view:
         if view == "odds":
-            with st.spinner('Scrapeo de cuotas...'):
-                raw = obtener_cuotas_api(liga); df_odds = procesar_cuotas(raw)
+            with st.spinner('Cargando mercado...'):
+                raw = obtener_cuotas_api(liga)
+                df_odds = procesar_cuotas(raw)
                 if df_odds is not None and not df_odds.empty:
                     def aplicar_b(row):
                         m = min(row['1'], row['X'], row['2'])
                         row['1'], row['X'], row['2'] = badge_cuota(row['1'], row['1']==m), badge_cuota(row['X'], row['X']==m), badge_cuota(row['2'], row['2']==m)
                         return row
                     html = df_odds.apply(aplicar_b, axis=1).style.hide(axis="index").to_html(escape=False)
-                    st.markdown(f'<div class="table-scroll-container">{html}</div>', unsafe_allow_html=True)
+                    st.markdown(f'<div class="table-container">{html}</div>', unsafe_allow_html=True)
         else:
             sufijo = MAPEO_ARCHIVOS.get(liga)
-            archivo, tipo = (f"CLASIFICACION_LIGA_{sufijo}.xlsx", "clasificacion") if view=="clas" else (f"RESUMEN_STATS_{sufijo}.xlsx", "stats") if view=="stats" else (f"CARTELERA_PROXIMOS_{sufijo}.xlsx", "fixture")
+            configs = {"clas": (f"CLASIFICACION_LIGA_{sufijo}.xlsx", "clasificacion"), "stats": (f"RESUMEN_STATS_{sufijo}.xlsx", "stats"), "fix": (f"CARTELERA_PROXIMOS_{sufijo}.xlsx", "fixture")}
+            archivo, tipo = configs[view]
             df = cargar_excel(archivo, tipo=tipo)
+            
             if df is not None:
-                if 'ÚLTIMOS 5' in df.columns: df['ÚLTIMOS 5'] = df['ÚLTIMOS 5'].apply(formatear_last_5)
+                if 'ÚLTIMOS 5' in df.columns:
+                    df['ÚLTIMOS 5'] = df['ÚLTIMOS 5'].apply(formatear_last_5)
                 styler = df.style.hide(axis="index")
-                if 'PTS' in df.columns: styler = styler.set_properties(subset=['PTS'], **{'background-color': '#262730', 'font-weight': 'bold'})
-                st.markdown(f'<div class="table-scroll-container">{styler.to_html(escape=False)}</div>', unsafe_allow_html=True)
+                if 'PTS' in df.columns:
+                    styler = styler.set_properties(subset=['PTS'], **{'background-color': '#262730', 'font-weight': 'bold'})
+                st.markdown(f'<div class="table-container">{styler.to_html(escape=False)}</div>', unsafe_allow_html=True)
