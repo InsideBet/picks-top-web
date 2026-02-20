@@ -54,10 +54,12 @@ TRADUCCIONES = {
 # ────────────────────────────────────────────────
 
 def limpiar_nombre_equipo(nombre):
-    if pd.isna(nombre) or str(nombre).strip() == "": return nombre
-    # Elimina los sufijos de país de 2 letras al final (ej: "Inter it" -> "Inter")
-    # y también limpia espacios sobrantes.
-    return re.sub(r'\s+[a-z]{2}$', '', str(nombre)).strip()
+    if pd.isna(nombre) or str(nombre).lower() == 'nan': return ""
+    # Regex mejorada: Quita códigos de 2 letras al inicio o al final (it, es, eng, fr, be, etc)
+    txt = str(nombre)
+    txt = re.sub(r'^[a-z]{2}\s+', '', txt) # Quita al inicio: "be Club Brugge" -> "Club Brugge"
+    txt = re.sub(r'\s+[a-z]{2,3}$', '', txt) # Quita al final: "Inter it" -> "Inter" o "Newcastle eng" -> "Newcastle"
+    return txt.strip()
 
 def formatear_xg_badge(val):
     try:
@@ -89,6 +91,10 @@ def cargar_excel(ruta_archivo, tipo="general"):
     try:
         df = pd.read_excel(url)
         
+        # LIMPIEZA INICIAL: Quitar filas donde Local y Visitante sean nulos
+        if 'Home' in df.columns and 'Away' in df.columns:
+            df = df.dropna(subset=['Home', 'Away'], how='all')
+
         if tipo == "stats":
             if 'Squad' in df.columns:
                 df['Squad'] = df['Squad'].apply(limpiar_nombre_equipo)
@@ -115,28 +121,33 @@ def cargar_excel(ruta_archivo, tipo="general"):
                 df = df[cols]
                 
         elif tipo == "fixture":
-            # 1. Quitamos Round y otras columnas
+            # 1. Quitamos Round y basura
             drop_f = ['Round', 'Day', 'Score', 'Referee', 'Match Report', 'Notes', 'Attendance', 'Wk']
             df = df.drop(columns=[c for c in drop_f if c in df.columns])
             
-            # 2. Renombramos para identificar LOCAL y VISITANTE
+            # 2. Renombramos
             df = df.rename(columns=TRADUCCIONES)
             
-            # 3. Limpiamos los nombres de los equipos (quitar paises)
+            # 3. Limpiamos nombres de equipos quitando paises
             if 'LOCAL' in df.columns:
                 df['LOCAL'] = df['LOCAL'].apply(limpiar_nombre_equipo)
             if 'VISITANTE' in df.columns:
                 df['VISITANTE'] = df['VISITANTE'].apply(limpiar_nombre_equipo)
             
-            # 4. Aseguramos que FECHA y HORA no sean NaN visualmente
-            if 'FECHA' in df.columns: df['FECHA'] = df['FECHA'].fillna('TBD')
-            if 'HORA' in df.columns: df['HORA'] = df['HORA'].fillna('Por definir')
+            # 4. Quitamos filas que después de limpiar quedaron vacías (las filas 'nan')
+            df = df[df['LOCAL'] != ""]
+            
+            # 5. Formato de Fecha y Hora
+            if 'FECHA' in df.columns: 
+                df['FECHA'] = df['FECHA'].apply(lambda x: str(x).split(' ')[0] if pd.notna(x) else "TBD")
+            if 'HORA' in df.columns: 
+                df['HORA'] = df['HORA'].fillna("Por definir")
         
-        return df.dropna(how='all')
+        return df.dropna(how='all').reset_index(drop=True)
     except: return None
 
 # ────────────────────────────────────────────────
-# LÓGICA DE CUOTAS
+# LÓGICA DE CUOTAS (Se mantiene igual)
 # ────────────────────────────────────────────────
 
 def obtener_cuotas_api(liga_nombre):
@@ -302,26 +313,6 @@ if st.session_state.liga_sel:
                     html = styler_df[['FECHA','LOCAL','VISITANTE','1','X','2','TENDENCIA']].style.hide(axis="index").to_html(escape=False)
                     st.markdown(f'<div class="table-container">{html}</div>', unsafe_allow_html=True)
 
-                    st.markdown("""
-                    <div style="background-color: #1a1c23; border: 1px solid #374151; border-radius: 8px; padding: 15px; margin-top: -20px; margin-bottom: 30px;">
-                        <h4 style="margin-top:0; color:#ced4da; font-size: 1rem; border-bottom: 1px solid #374151; padding-bottom: 5px;">Guía de Análisis InsideBet:</h4>
-                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
-                            <div>
-                                <span style="background-color: #b59410; color: white; padding: 2px 8px; border-radius: 4px; font-weight: bold; font-size: 0.8rem;">⭐ DORADO</span>
-                                <p style="font-size: 0.85rem; color: #9ca3af; margin: 5px 0;"><b>Value Bet:</b> La cuota es un 15% superior a la estadística de puntos. Mayor rentabilidad detectada.</p>
-                            </div>
-                            <div>
-                                <span style="background-color: #137031; color: #00ff88; padding: 2px 8px; border-radius: 4px; font-weight: bold; font-size: 0.8rem;">VERDE</span>
-                                <p style="font-size: 0.85rem; color: #9ca3af; margin: 5px 0;"><b>Favorito:</b> Resultado con mayor probabilidad estadística según la casa de apuestas.</p>
-                            </div>
-                            <div>
-                                <span style="color: white; font-weight: bold; font-size: 0.8rem;">🔥 OVER / 🛡️ UNDER</span>
-                                <p style="font-size: 0.85rem; color: #9ca3af; margin: 5px 0;"><b>Predicción xG:</b> Basado en el promedio de <b>Goles Esperados.</b></p>
-                            </div>
-                        </div>
-                    </div>
-                    """, unsafe_allow_html=True)
-
         else:
             configs = {"clas": (f"CLASIFICACION_LIGA_{sufijo}.xlsx", "clasificacion"), 
                        "stats": (f"RESUMEN_STATS_{sufijo}.xlsx", "stats"), 
@@ -334,23 +325,6 @@ if st.session_state.liga_sel:
                 styler = df.style.hide(axis="index")
                 if 'PTS' in df.columns: styler = styler.set_properties(subset=['PTS'], **{'background-color': '#262730', 'font-weight': 'bold'})
                 st.markdown(f'<div class="table-container">{styler.to_html(escape=False)}</div>', unsafe_allow_html=True)
-
-                if view == "stats":
-                    st.markdown("""
-                    <div style="background-color: #1a1c23; border: 1px solid #374151; border-radius: 8px; padding: 15px; margin-top: -20px; margin-bottom: 30px;">
-                        <h4 style="margin-top:0; color:#ced4da; font-size: 1rem; border-bottom: 1px solid #374151; padding-bottom: 5px;">Métricas Avanzadas:</h4>
-                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
-                            <div>
-                                <span style="background-color: #137031; color: white; padding: 2px 8px; border-radius: 4px; font-weight: bold; font-size: 0.8rem;">+1.5 xG</span>
-                                <p style="font-size: 0.85rem; color: #9ca3af; margin: 5px 0;"><b>Goles Esperados:</b> Calidad de las ocasiones creadas. En verde si el equipo genera peligro constante.</p>
-                            </div>
-                            <div>
-                                <span style="background-color: #ff4b4b; color: white; padding: 2px 8px; border-radius: 4px; font-weight: bold; font-size: 0.8rem;">POSESIÓN</span>
-                                <p style="font-size: 0.85rem; color: #9ca3af; margin: 5px 0;">Control del balón promedio. Indica el estilo de dominio del equipo durante el torneo.</p>
-                            </div>
-                        </div>
-                    </div>
-                    """, unsafe_allow_html=True)
 
 st.write("---")
 st.caption("InsideBet Official | Sistema de análisis futbolístico")
