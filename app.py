@@ -84,31 +84,31 @@ def html_barra_posesion(valor):
     except: return valor
 
 def grafico_picos_forma(valor, alineacion="left"):
-    """Genera un gráfico SVG de picos con puntos pequeños y elegantes"""
+    """Genera un gráfico SVG de picos que ocupa el 100% con círculos pequeños"""
     if pd.isna(valor) or valor == "": return ""
     letras = list(str(valor).upper().replace(" ", ""))[:5]
     if not letras: return ""
     
-    # Ajuste de coordenadas para un look más estilizado
-    mapeo_y = {'W': 5, 'D': 12, 'L': 19}
+    mapeo_y = {'W': 4, 'D': 11, 'L': 18}
     colores_puntos = {'W': '#137031', 'D': '#b59410', 'L': '#821f1f'}
     
     puntos_coords = []
     puntos_svg = []
     
+    # Mantenemos el escalado al 100% del contenedor
     for i, l in enumerate(letras):
-        x = 10 + (i * 20) 
-        y = mapeo_y.get(l, 12)
+        x = 5 + (i * 22.5) 
+        y = mapeo_y.get(l, 11)
         puntos_coords.append(f"{x},{y}")
-        # Radio reducido a 2.5 para elegancia y stroke fino
-        puntos_svg.append(f'<circle cx="{x}" cy="{y}" r="2.5" fill="{colores_puntos.get(l, "#4b5563")}" stroke="#0e1117" stroke-width="0.8" />')
+        # Aquí la clave: r="2" hace el círculo más pequeño y elegante
+        puntos_svg.append(f'<circle cx="{x}" cy="{y}" r="2.2" fill="{colores_puntos.get(l, "#4b5563")}" stroke="#0e1117" stroke-width="0.5" />')
     
     path_d = "M " + " L ".join(puntos_coords)
     
     svg = f'''
-    <div style="width: 100%; height: 30px; display: flex; align-items: center; justify-content: {'flex-start' if alineacion=='left' else 'flex-end'};">
-        <svg width="100px" height="24" viewBox="0 0 100 24" preserveAspectRatio="xMinYMid meet">
-            <path d="{path_d}" fill="none" stroke="#1ed7de" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" opacity="0.4" />
+    <div style="width: 100%; height: 30px; display: flex; align-items: center;">
+        <svg width="100%" height="22" viewBox="0 0 100 22" preserveAspectRatio="none">
+            <path d="{path_d}" fill="none" stroke="#1ed7de" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" opacity="0.5" />
             {''.join(puntos_svg)}
         </svg>
     </div>
