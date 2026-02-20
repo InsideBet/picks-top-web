@@ -46,24 +46,20 @@ TRADUCCIONES = {
     'Last 5': 'ÚLTIMOS 5', 'Wk': 'JORNADA', 'Date': 'FECHA', 'Time': 'HORA',
     'Home': 'LOCAL', 'Away': 'VISITANTE', 'Venue': 'ESTADIO',
     'Poss': 'POSESIÓN', 'Gls': 'GOLES', 'Ast': 'ASISTENCIAS', 
-    'CrdY': 'AMARILLAS', 'CrdR': 'ROJAS', 'xG': 'xG', 'LOGO': ' '
+    'CrdY': 'AMARILLAS', 'CrdR': 'ROJAS', 'xG': 'xG'
 }
 
 # ────────────────────────────────────────────────
-# FUNCIONES DE LOGOS Y FORMATO
+# FUNCIONES DE FORMATO
 # ────────────────────────────────────────────────
-
-def obtener_logo_url(nombre_equipo):
-    """Genera una URL de logo basada en el nombre del equipo"""
-    if pd.isna(nombre_equipo): return ""
-    # Limpiamos el nombre para que sea compatible con bases de datos de logos
-    nombre_clean = str(nombre_equipo).replace(" ", "-").lower()
-    # Usamos un servicio de logos gratuito basado en nombres de equipos
-    return f"https://media.api-sports.io/football/teams/logo_placeholder.png" # Placeholder por defecto
 
 def limpiar_nombre_equipo(nombre):
     if pd.isna(nombre): return nombre
     return re.sub(r'^[a-z]+\s+', '', str(nombre))
+
+def formatear_logo(url):
+    # Esta función permite que el link se vea como imagen en la tabla HTML
+    return f'<img src="{url}" width="30">'
 
 def formatear_xg_badge(val):
     try:
@@ -94,13 +90,12 @@ def cargar_excel(ruta_archivo, tipo="general"):
     url = f"{BASE_URL}/{ruta_archivo}"
     try:
         df = pd.read_excel(url)
-        col_equipo = 'Squad' if 'Squad' in df.columns else ('EQUIPO' if 'EQUIPO' in df.columns else None)
-        
-        if col_equipo:
+        col_equipo = 'Squad' if 'Squad' in df.columns else 'EQUIPO'
+        if col_equipo in df.columns:
             df[col_equipo] = df[col_equipo].apply(limpiar_nombre_equipo)
-            # Insertamos la columna de Logo al principio
-            # Nota: FBRef usa una estructura de logos fija, intentaremos linkearla
-            df.insert(0, 'LOGO', "https://i.postimg.cc/85zX8M6v/logo-placeholder.png") 
+            # Añadimos columna de logo con el placeholder que configuramos
+            df.insert(0, ' ', "https://i.postimg.cc/85zX8M6v/logo-placeholder.png")
+            df[' '] = df[' '].apply(formatear_logo)
 
         if tipo == "stats":
             if len(df.columns) >= 17:
@@ -108,7 +103,7 @@ def cargar_excel(ruta_archivo, tipo="general"):
             df['xG_val'] = df['xG'].fillna(0)
             if 'xG' in df.columns: df['xG'] = df['xG'].apply(formatear_xg_badge)
             if 'Poss' in df.columns: df['Poss'] = df['Poss'].apply(html_barra_posesion)
-            cols_ok = ['LOGO', 'Squad', 'MP', 'Poss', 'Gls', 'Ast', 'CrdY', 'CrdR', 'xG', 'xG_val']
+            cols_ok = [' ', 'Squad', 'MP', 'Poss', 'Gls', 'Ast', 'CrdY', 'CrdR', 'xG', 'xG_val']
             df = df[[c for c in cols_ok if c in df.columns]]
             df = df.rename(columns=TRADUCCIONES)
         
@@ -132,8 +127,9 @@ def cargar_excel(ruta_archivo, tipo="general"):
     except: return None
 
 # ────────────────────────────────────────────────
-# LÓGICA DE CUOTAS (IGUAL QUE ANTES)
+# LÓGICA DE CUOTAS
 # ────────────────────────────────────────────────
+
 def obtener_cuotas_api(liga_nombre):
     sport_key = MAPEO_ODDS_API.get(liga_nombre)
     if not sport_key or not API_KEY: return None
@@ -255,7 +251,6 @@ if st.session_state.liga_sel:
         df_stats_base = cargar_excel(f"RESUMEN_STATS_{sufijo}.xlsx", "stats")
 
         if view == "odds":
-            # ... (Código de Odds igual que antes) ...
             st.subheader("⚔️ Comparador H2H")
             if df_clas_base is not None:
                 equipos = sorted(df_clas_base['EQUIPO'].unique())
@@ -308,19 +303,13 @@ if st.session_state.liga_sel:
                 if 'ÚLTIMOS 5' in df.columns: df['ÚLTIMOS 5'] = df['ÚLTIMOS 5'].apply(formatear_last_5)
                 if 'xG_val' in df.columns: df = df.drop(columns=['xG_val'])
                 
-                # CONFIGURACIÓN DE COLUMNAS PARA IMÁGENES
-                st.data_editor(
-                    df,
-                    column_config={
-                        " ": st.column_config.ImageColumn(" ", width="small"),
-                        "EQUIPO": st.column_config.TextColumn("EQUIPO", width="medium"),
-                        "PJ": st.column_config.NumberColumn("PJ", width="small"),
-                        "PTS": st.column_config.NumberColumn("PTS", width="small")
-                    },
-                    hide_index=True,
-                    disabled=df.columns,
-                    use_container_width=True
-                )
+                # RESTAURAMOS EL ESTILO HTML PARA QUE SE VEAN LOS COLORES
+                styler = df.style.hide(axis="index")
+                if 'PTS' in df.columns: 
+                    styler = styler.set_properties(subset=['PTS'], **{'background-color': '#262730', 'font-weight': 'bold'})
+                
+                # IMPORTANTE: to_html(escape=False) es lo que permite que el HTML se ejecute
+                st.markdown(f'<div class="table-container">{styler.to_html(escape=False)}</div>', unsafe_allow_html=True)
 
                 if view == "stats":
                     st.markdown("""
@@ -329,7 +318,11 @@ if st.session_state.liga_sel:
                         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
                             <div>
                                 <span style="background-color: #137031; color: white; padding: 2px 8px; border-radius: 4px; font-weight: bold; font-size: 0.8rem;">+1.5 xG</span>
-                                <p style="font-size: 0.85rem; color: #9ca3af; margin: 5px 0;"><b>Goles Esperados:</b> Calidad de las ocasiones creadas.</p>
+                                <p style="font-size: 0.85rem; color: #9ca3af; margin: 5px 0;"><b>Goles Esperados:</b> Calidad de las ocasiones creadas. En verde si el equipo genera peligro constante.</p>
+                            </div>
+                            <div>
+                                <span style="background-color: #ff4b4b; color: white; padding: 2px 8px; border-radius: 4px; font-weight: bold; font-size: 0.8rem;">POSESIÓN</span>
+                                <p style="font-size: 0.85rem; color: #9ca3af; margin: 5px 0;">Control del balón promedio. Indica el estilo de dominio del equipo durante el torneo.</p>
                             </div>
                         </div>
                     </div>
