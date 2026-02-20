@@ -189,7 +189,6 @@ st.markdown("""
 <style>
     .stApp { background-color: #0e1117; color: #e5e7eb; }
     
-    /* LOGO REALMENTE CENTRADO */
     .main-logo-container {
         text-align: center;
         width: 100%;
@@ -201,7 +200,6 @@ st.markdown("""
         margin: 0 auto;
     }
 
-    /* TABLAS Y CONTENEDORES */
     .table-container { 
         width: 100%; 
         overflow-x: auto; 
@@ -218,7 +216,6 @@ st.markdown("""
     }
     td { padding: 12px; border: 1px solid #374151; text-align: center !important; }
 
-    /* BOTONES CIAN UNIFICADOS */
     div.stButton > button { 
         background-color: transparent !important; 
         color: #1ed7de !important; 
@@ -230,19 +227,16 @@ st.markdown("""
         background-color: #1ed7de22 !important;
     }
 
-    /* BOTÓN COMPETENCIAS (CIAN SÓLIDO) */
     .stButton > button[kind="secondary"]:first-child { 
         background-color: #1ed7de !important; 
         color: #0e1117 !important; 
         border: none !important;
     }
 
-    /* TRAZO CIAN SELECTOR */
     div[data-baseweb="select"] {
         border: 1px solid #1ed7de !important;
     }
 
-    /* ALINEACION TITULO Y BANDERA */
     .header-container {
         display: flex;
         align-items: center;
@@ -293,7 +287,6 @@ if st.session_state.liga_sel:
     
     col1, col2, col3, col4 = st.columns(4)
     
-    # Lógica de Acordeón: Al pulsar el activo, se cierra (setea a None)
     if col1.button("Clasificación", use_container_width=True): 
         st.session_state.vista_activa = "clas" if st.session_state.vista_activa != "clas" else None
         st.rerun()
@@ -317,36 +310,46 @@ if st.session_state.liga_sel:
 
         if view == "odds":
             st.subheader("⚔️ Comparador H2H")
-            if df_clas_base is not None:
+            if df_clas_base is not None and df_stats_base is not None:
                 equipos = sorted(df_clas_base['EQUIPO'].unique())
                 col_h1, col_h2 = st.columns(2)
                 eq_l = col_h1.selectbox("Local", equipos, index=0)
                 eq_v = col_h2.selectbox("Visitante", equipos, index=1)
                 
                 try:
+                    # Datos de Clasificación
                     d_l = df_clas_base[df_clas_base['EQUIPO'] == eq_l].iloc[0]
                     d_v = df_clas_base[df_clas_base['EQUIPO'] == eq_v].iloc[0]
                     
+                    # Datos de Stats
+                    s_l = df_stats_base[df_stats_base['EQUIPO'] == eq_l].iloc[0]
+                    s_v = df_stats_base[df_stats_base['EQUIPO'] == eq_v].iloc[0]
+                    
+                    def row_h2h(label, val1, val2, highlight=False):
+                        color = "#1ed7de" if highlight else "white"
+                        return f"""
+                        <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #2d3139; padding: 10px 0;">
+                            <span style="font-weight: bold; color: {color}; width: 20%; text-align: left;">{val1}</span>
+                            <span style="color: #9ca3af; font-size: 0.85rem;">{label.upper()}</span>
+                            <span style="font-weight: bold; color: {color}; width: 20%; text-align: right;">{val2}</span>
+                        </div>"""
+
                     st.markdown(f"""
-                    <div style="background: #1f2937; padding: 20px; border-radius: 12px; border: 1px solid #1ed7de44;">
-                        <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #2d3139; padding: 10px 0;">
-                            <span style="font-weight: bold; color: #1ed7de;">{d_l['PTS']}</span>
-                            <span style="color: #9ca3af;">PUNTOS</span>
-                            <span style="font-weight: bold; color: #1ed7de;">{d_v['PTS']}</span>
-                        </div>
-                        <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #2d3139; padding: 10px 0;">
-                            <span style="font-weight: bold; color: white;">{d_l['G']}</span>
-                            <span style="color: #9ca3af;">VICTORIAS</span>
-                            <span style="font-weight: bold; color: white;">{d_v['G']}</span>
-                        </div>
-                        <div style="display: flex; justify-content: space-between; padding: 10px 0;">
-                            <span style="font-weight: bold; color: white;">{d_l['GF']}</span>
-                            <span style="color: #9ca3af;">GOLES FAVOR</span>
-                            <span style="font-weight: bold; color: white;">{d_v['GF']}</span>
+                    <div style="background: #1f2937; padding: 25px; border-radius: 12px; border: 1px solid #1ed7de44;">
+                        {row_h2h("Puntos", d_l['PTS'], d_v['PTS'], True)}
+                        {row_h2h("Victorias", d_l['G'], d_v['G'])}
+                        {row_h2h("Goles Favor", d_l['GF'], d_v['GF'])}
+                        {row_h2h("xG Generado", s_l['xG_val'], s_v['xG_val'])}
+                        {row_h2h("Posesión Prom.", s_l['POSESIÓN'], s_v['POSESIÓN'])}
+                        <div style="margin-top: 15px; display: flex; justify-content: space-between; align-items: center;">
+                            <div style="width: 40%">{formatear_last_5(d_l.get('ÚLTIMOS 5', ''))}</div>
+                            <span style="color: #9ca3af; font-size: 0.85rem;">FORMA</span>
+                            <div style="width: 40%; display: flex; justify-content: flex-end;">{formatear_last_5(d_v.get('ÚLTIMOS 5', ''))}</div>
                         </div>
                     </div>
                     """, unsafe_allow_html=True)
-                except: st.warning("Datos de comparación no disponibles.")
+                except Exception as e:
+                    st.warning("Datos de comparación incompletos.")
 
             raw = obtener_cuotas_api(liga)
             df_odds = procesar_cuotas(raw, df_clas_base)
@@ -386,4 +389,4 @@ if st.session_state.liga_sel:
                 st.markdown(f'<div class="table-container">{styler.to_html(escape=False)}</div>', unsafe_allow_html=True)
 
 st.write("---")
-st.caption("InsideBet Official | Datos y estadísticas")
+st.caption("InsideBet Official | scrapeo")
