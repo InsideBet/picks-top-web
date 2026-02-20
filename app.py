@@ -50,7 +50,7 @@ TRADUCCIONES = {
 }
 
 # ────────────────────────────────────────────────
-# FUNCIONES DE FORMATO (RESTAURADAS AL 100%)
+# FUNCIONES DE FORMATO (ORIGINALES)
 # ────────────────────────────────────────────────
 
 def limpiar_nombre_equipo(nombre):
@@ -132,13 +132,13 @@ def formatear_last_5(valor):
 
 def obtener_fdr_html(nombre_equipo, puntos_dict, total_equipos):
     pos = puntos_dict.get(nombre_equipo, 10)
-    if pos <= 5: color = "#137031" # Verde (Top)
-    elif pos > (total_equipos - 3): color = "#821f1f" # Rojo (Descenso)
-    else: color = "#b59410" # Amarillo (Media)
+    if pos <= 5: color = "#137031"
+    elif pos > (total_equipos - 3): color = "#821f1f"
+    else: color = "#b59410"
     return f'<div style="display: flex; align-items: center; justify-content: center; gap: 8px;">{nombre_equipo} <span style="height: 8px; width: 8px; background-color: {color}; border-radius: 50%; display: inline-block;"></span></div>'
 
 # ────────────────────────────────────────────────
-# LÓGICA DE CARGA Y PROCESAMIENTO
+# FUNCIONES DE CARGA
 # ────────────────────────────────────────────────
 
 @st.cache_data(ttl=300)
@@ -146,13 +146,11 @@ def cargar_excel(ruta_archivo, tipo="general"):
     url = f"{BASE_URL}/{ruta_archivo}"
     try:
         df = pd.read_excel(url)
-        if 'Home' in df.columns and 'Away' in df.columns:
-            df = df.dropna(subset=['Home', 'Away'], how='all')
         if tipo == "stats":
             if 'Squad' in df.columns: df['Squad'] = df['Squad'].apply(limpiar_nombre_equipo)
             if len(df.columns) >= 17: df = df.rename(columns={df.columns[16]: 'xG'})
-            df['xG_val'] = df['xG'] # Guardar valor numérico para comparador
-            df['Poss_num'] = df['Poss'].apply(lambda x: float(re.findall(r"\d+", str(x))[0]) if re.findall(r"\d+", str(x)) else 0.0)
+            df['xG_val'] = df['xG'].fillna(0)
+            df['Poss_num'] = df['Poss'].apply(lambda x: re.findall(r"\d+", str(x))[0] if re.findall(r"\d+", str(x)) else "0")
             df['Poss'] = df['Poss'].apply(html_barra_posesion)
             df['xG'] = df['xG'].apply(formatear_xg_badge)
             df = df.rename(columns=TRADUCCIONES)
@@ -166,7 +164,7 @@ def cargar_excel(ruta_archivo, tipo="general"):
         return df.reset_index(drop=True)
     except: return None
 
-# ... (Funciones de Cuotas Api y Badge Cuota se mantienen idénticas)
+# ... (Funciones de Cuotas Api y Badge Cuota)
 def obtener_cuotas_api(liga_nombre):
     sport_key = MAPEO_ODDS_API.get(liga_nombre)
     if not sport_key or not API_KEY: return None
@@ -208,15 +206,14 @@ st.markdown("""
     .stApp { background-color: #0e1117; color: #e5e7eb; }
     .table-container { width: 100%; overflow-x: auto; border: 1px solid #1ed7de44; border-radius: 8px; margin-bottom: 20px; background-color: #161b22; }
     table { width: 100%; border-collapse: collapse; }
-    th { background-color: #1f2937 !important; color: #1ed7de !important; padding: 12px; border: 1px solid #374151; font-size: 13px; text-transform: uppercase; }
-    td { padding: 12px; border: 1px solid #374151; text-align: center !important; font-size: 14px; }
-    div.stButton > button { background-color: transparent !important; color: #1ed7de !important; border: 1px solid #1ed7de !important; font-weight: bold !important; width: 100%; }
-    div.stButton > button:hover { background-color: #1ed7de22 !important; }
+    th { background-color: #1f2937 !important; color: #1ed7de !important; padding: 12px; border: 1px solid #374151; font-size: 13px; }
+    td { padding: 12px; border: 1px solid #374151; text-align: center !important; }
+    div.stButton > button { background-color: transparent !important; color: #1ed7de !important; border: 1px solid #1ed7de !important; width: 100%; }
 </style>
 """, unsafe_allow_html=True)
 
 # ────────────────────────────────────────────────
-# ESTRUCTURA DE LA APP
+# ESTRUCTURA
 # ────────────────────────────────────────────────
 st.markdown('<div style="text-align:center; padding:20px;"><img src="https://i.postimg.cc/SKPzCcyV/33.png" style="width:40%;"></div>', unsafe_allow_html=True)
 
@@ -246,53 +243,47 @@ if st.session_state.liga_sel:
     view = st.session_state.vista_activa
     if view:
         sufijo = MAPEO_ARCHIVOS.get(liga)
-        df_clas = cargar_excel(f"CLASIFICACION_LIGA_{sufijo}.xlsx", "clasificacion")
-        df_stats = cargar_excel(f"RESUMEN_STATS_{sufijo}.xlsx", "stats")
+        
+        # VISTA CLASIFICACIÓN (RESTAURADA)
+        if view == "clas":
+            df = cargar_excel(f"CLASIFICACION_LIGA_{sufijo}.xlsx", "clasificacion")
+            if df is not None:
+                df['FORMA'] = df['ÚLTIMOS 5'].apply(grafico_picos_forma)
+                df['ÚLTIMOS 5'] = df['ÚLTIMOS 5'].apply(formatear_last_5)
+                cols = ['POS', 'EQUIPO', 'PJ', 'G', 'E', 'P', 'GF', 'GC', 'DG', 'PTS', 'ÚLTIMOS 5', 'FORMA']
+                st.markdown(f'<div class="table-container">{df[cols].style.hide(axis="index").to_html(escape=False)}</div>', unsafe_allow_html=True)
 
-        # --- VISTA CLASIFICACIÓN (PERSONALIZADA) ---
-        if view == "clas" and df_clas is not None:
-            df_v = df_clas.copy()
-            if 'ÚLTIMOS 5' in df_v.columns:
-                df_v['FORMA'] = df_v['ÚLTIMOS 5'].apply(grafico_picos_forma)
-                df_v['ÚLTIMOS 5'] = df_v['ÚLTIMOS 5'].apply(formatear_last_5)
-            cols = ['POS', 'EQUIPO', 'PJ', 'G', 'E', 'P', 'GF', 'GC', 'DG', 'PTS', 'ÚLTIMOS 5', 'FORMA']
-            st.markdown(f'<div class="table-container">{df_v[cols].style.hide(axis="index").to_html(escape=False)}</div>', unsafe_allow_html=True)
+        # VISTA STATS (RESTAURADA)
+        elif view == "stats":
+            df = cargar_excel(f"RESUMEN_STATS_{sufijo}.xlsx", "stats")
+            if df is not None:
+                cols_s = ['EQUIPO', 'PJ', 'POSESIÓN', 'GOLES', 'ASISTENCIAS', 'xG', 'AMARILLAS', 'ROJAS']
+                st.markdown(f'<div class="table-container">{df[cols_s].style.hide(axis="index").to_html(escape=False)}</div>', unsafe_allow_html=True)
 
-        # --- VISTA STATS (PERSONALIZADA) ---
-        elif view == "stats" and df_stats is not None:
-            df_v = df_stats.copy()
-            cols_show = ['EQUIPO', 'PJ', 'POSESIÓN', 'GOLES', 'ASISTENCIAS', 'xG', 'AMARILLAS', 'ROJAS']
-            st.markdown(f'<div class="table-container">{df_v[cols_show].style.hide(axis="index").to_html(escape=False)}</div>', unsafe_allow_html=True)
+        # VISTA FIXTURE (CON FDR)
+        elif view == "fix":
+            df_c = cargar_excel(f"CLASIFICACION_LIGA_{sufijo}.xlsx", "clasificacion")
+            df_f = cargar_excel(f"CARTELERA_PROXIMOS_{sufijo}.xlsx", "fixture")
+            if df_f is not None and df_c is not None:
+                pos_dict = pd.Series(df_c.index.values + 1, index=df_c.EQUIPO).to_dict()
+                top_6 = df_c.head(6)['EQUIPO'].tolist()
+                solo_int = st.checkbox("⭐ Ver solo partidos de interés")
+                if solo_int: df_f = df_f[df_f['LOCAL'].isin(top_6) | df_f['VISITANTE'].isin(top_6)]
+                df_f['LOCAL'] = df_f['LOCAL'].apply(lambda x: obtener_fdr_html(x, pos_dict, len(df_c)))
+                df_f['VISITANTE'] = df_f['VISITANTE'].apply(lambda x: obtener_fdr_html(x, pos_dict, len(df_c)))
+                st.markdown(f'<div class="table-container">{df_f[["FECHA", "HORA", "LOCAL", "VISITANTE", "ESTADIO"]].style.hide(axis="index").to_html(escape=False)}</div>', unsafe_allow_html=True)
 
-        # --- VISTA FIXTURE (NUEVO FDR) ---
-        elif view == "fix" and df_clas is not None:
-            st.subheader("🗓️ Cartelera Próximos Partidos")
-            top_6 = df_clas.head(6)['EQUIPO'].tolist()
-            solo_interes = st.checkbox("⭐ Ver solo partidos de interés (Top 6)")
-            df_fix = cargar_excel(f"CARTELERA_PROXIMOS_{sufijo}.xlsx", "fixture")
-            if df_fix is not None:
-                pos_dict = pd.Series(df_clas.index.values + 1, index=df_clas.EQUIPO).to_dict()
-                if solo_interes:
-                    df_fix = df_fix[df_fix['LOCAL'].isin(top_6) | df_fix['VISITANTE'].isin(top_6)]
-                df_fix['LOCAL'] = df_fix['LOCAL'].apply(lambda x: obtener_fdr_html(x, pos_dict, len(df_clas)))
-                df_fix['VISITANTE'] = df_fix['VISITANTE'].apply(lambda x: obtener_fdr_html(x, pos_dict, len(df_clas)))
-                cols_f = ['FECHA', 'HORA', 'LOCAL', 'VISITANTE', 'ESTADIO']
-                st.markdown(f'<div class="table-container">{df_fix[cols_f].style.hide(axis="index").to_html(escape=False)}</div>', unsafe_allow_html=True)
-                st.markdown("""<div style="background:#161b22; padding:15px; border-radius:8px; border:1px solid #1ed7de44;"><div style="display:flex; gap:20px;"><span><span style="height:8px; width:8px; background-color:#137031; border-radius:50%; display:inline-block;"></span> <b>Elite:</b> Top 5</span><span><span style="height:8px; width:8px; background-color:#b59410; border-radius:50%; display:inline-block;"></span> <b>Media Tabla</b></span><span><span style="height:8px; width:8px; background-color:#821f1f; border-radius:50%; display:inline-block;"></span> <b>Zona Crítica</b></span></div></div>""", unsafe_allow_html=True)
-
-        # --- VISTA ODDS (RESTURADA) ---
-        elif view == "odds" and df_clas is not None:
-            st.subheader("📊 Picks & Cuotas")
+        # VISTA ODDS (RESTURADA)
+        elif view == "odds":
+            df_c = cargar_excel(f"CLASIFICACION_LIGA_{sufijo}.xlsx", "clasificacion")
             raw = obtener_cuotas_api(liga)
-            df_odds = procesar_cuotas(raw, df_clas)
-            if df_odds is not None:
-                def aplicar_estilo_cuotas(r):
+            df_o = procesar_cuotas(raw, df_c)
+            if df_o is not None:
+                def color_o(r):
                     m = min(r['1'], r['X'], r['2'])
-                    r['1'] = badge_cuota(r['1'], r['1']==m)
-                    r['X'] = badge_cuota(r['X'], r['X']==m)
-                    r['2'] = badge_cuota(r['2'], r['2']==m)
+                    r['1'], r['X'], r['2'] = badge_cuota(r['1'], r['1']==m), badge_cuota(r['X'], r['X']==m), badge_cuota(r['2'], r['2']==m)
                     return r
-                st.markdown(f'<div class="table-container">{df_odds.apply(aplicar_estilo_cuotas, axis=1).style.hide(axis="index").to_html(escape=False)}</div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="table-container">{df_o.apply(color_o, axis=1).style.hide(axis="index").to_html(escape=False)}</div>', unsafe_allow_html=True)
 
 st.write("---")
 st.caption("InsideBet Official | scrapeo")
