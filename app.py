@@ -118,7 +118,6 @@ def generar_radar_svg(val_l, val_v, labels):
     radius = 70
     
     def get_coords(value, angle, max_val=100):
-        # Evitar división por cero y manejar nans
         v = float(value) if pd.notna(value) else 0
         r = (min(v, max_val) / max_val) * radius
         x = center + r * np.cos(angle - np.pi/2)
@@ -259,7 +258,7 @@ st.markdown("""
     .stApp { background-color: #0e1117; color: #e5e7eb; }
     .main-logo-container { text-align: center; width: 100%; padding: 20px 0; }
     .main-logo-img { width: 50%; max-width: 500px; margin: 0 auto; }
-    .table-container { width: 100%; overflow-x: auto; border: 1px solid #1ed7de44; border-radius: 8px; margin-bottom: 50px; background-color: #161b22; }
+    .table-container { width: 100%; overflow-x: auto; border: 1px solid #1ed7de44; border-radius: 8px; margin-bottom: 20px; background-color: #161b22; }
     table { width: 100%; border-collapse: collapse; }
     th { position: sticky; top: 0; z-index: 100; background-color: #1f2937 !important; color: #1ed7de !important; padding: 12px; border: 1px solid #374151; }
     td { padding: 12px; border: 1px solid #374151; text-align: center !important; }
@@ -269,6 +268,11 @@ st.markdown("""
     div[data-baseweb="select"] { border: 1px solid #1ed7de !important; }
     .header-container { display: flex; align-items: center; justify-content: flex-start; gap: 15px; margin: 25px 0; }
     .header-title { color: white !important; font-size: 2rem; font-weight: bold; margin: 0; line-height: 1; }
+    
+    /* Estilo Leyenda */
+    .leyenda-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-top: 10px; background: #1f2937; padding: 15px; border-radius: 8px; border: 1px solid #4b5563; }
+    .leyenda-item { display: flex; align-items: center; gap: 10px; font-size: 0.85rem; color: #9ca3af; }
+    .color-box { width: 15px; height: 15px; border-radius: 3px; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -316,16 +320,12 @@ if st.session_state.liga_sel:
             st.subheader("⚔️ Comparador H2H")
             if df_clas_base is not None and df_stats_base is not None:
                 equipos = sorted(df_clas_base['EQUIPO'].unique())
-                
-                # Layout de filtros para H2H
                 f1, f2, f3 = st.columns([2, 2, 1])
                 eq_l = f1.selectbox("Equipo Local", equipos, index=0)
                 eq_v = f2.selectbox("Equipo Visitante", equipos, index=min(1, len(equipos)-1))
                 tipo_filtro = f3.selectbox("Filtro Stats", ["Global", "Local vs Visitante"])
                 
                 try:
-                    # En una versión real con datasets divididos, aquí filtraríamos por Local/Away. 
-                    # Por ahora simulamos la carga de las filas de los equipos seleccionados.
                     d_l = df_clas_base[df_clas_base['EQUIPO'] == eq_l].iloc[0]
                     d_v = df_clas_base[df_clas_base['EQUIPO'] == eq_v].iloc[0]
                     s_l = df_stats_base[df_stats_base['EQUIPO'] == eq_l].iloc[0]
@@ -341,7 +341,6 @@ if st.session_state.liga_sel:
                     radar_v = [min(d_v['PTS']*1.5, 100), p_v_val, min(d_v['GF']*1.2, 100), min(xg_v_num*20, 100), min(d_v['G']*5, 100)]
                     
                     col_rad, col_stats = st.columns([1, 2])
-                    
                     with col_rad:
                         st.markdown(generar_radar_svg(radar_l, radar_v, radar_labels), unsafe_allow_html=True)
                         st.markdown(f'<div style="text-align:center; font-size:10px;"><span style="color:#1ed7de">■ {eq_l}</span> <span style="color:#b59410">■ {eq_v}</span></div>', unsafe_allow_html=True)
@@ -398,6 +397,26 @@ if st.session_state.liga_sel:
                 styler_df = df_odds.apply(aplicar_estilo, axis=1)
                 html = styler_df[['FECHA','LOCAL','VISITANTE','1','X','2','TENDENCIA']].style.hide(axis="index").to_html(escape=False)
                 st.markdown(f'<div class="table-container">{html}</div>', unsafe_allow_html=True)
+                
+                # SECCIÓN LEYENDA (NUEVO)
+                st.markdown("""
+                <div class="leyenda-grid">
+                    <div class="leyenda-item">
+                        <div class="color-box" style="background: #b59410;"></div>
+                        <span><b>⭐ Value Bet:</b> Cuota con valor estadístico (Probabilidad > Casa).</span>
+                    </div>
+                    <div class="leyenda-item">
+                        <div class="color-box" style="background: #137031;"></div>
+                        <span><b>Favorito:</b> La cuota más baja (mayor probabilidad de éxito).</span>
+                    </div>
+                    <div class="leyenda-item">
+                        <span>🔥 <b>Over:</b> Tendencia a +2.5 goles basada en xG acumulado.</span>
+                    </div>
+                    <div class="leyenda-item">
+                        <span>🛡️ <b>Under:</b> Tendencia a pocos goles basada en xG acumulado.</span>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
 
         else:
             configs = {"clas": (f"CLASIFICACION_LIGA_{sufijo}.xlsx", "clasificacion"), 
@@ -409,11 +428,9 @@ if st.session_state.liga_sel:
                 if 'ÚLTIMOS 5' in df.columns: df['ÚLTIMOS 5'] = df['ÚLTIMOS 5'].apply(formatear_last_5)
                 cols_to_drop = ['xG_val', 'Poss_num']
                 df_view = df.drop(columns=[c for c in cols_to_drop if c in df.columns])
-                
                 busqueda = st.text_input("🔍 Filtrar por equipo...", "").strip().lower()
                 if busqueda and 'EQUIPO' in df_view.columns:
                     df_view = df_view[df_view['EQUIPO'].str.lower().str.contains(busqueda)]
-
                 styler = df_view.style.hide(axis="index")
                 if 'PTS' in df_view.columns: 
                     styler = styler.set_properties(subset=['PTS'], **{'background-color': '#1ed7de22', 'font-weight': 'bold', 'color': '#1ed7de'})
