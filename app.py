@@ -73,7 +73,7 @@ def html_barra_posesion(valor):
     except: return valor
 
 def formatear_last_5(valor):
-    if pd.isna(valor): return ""
+    if pd.isna(valor) or str(valor).strip() == '': return ""
     trad = {'W': 'G', 'L': 'P', 'D': 'E'}
     letras = list(str(valor).upper().replace(" ", ""))[:5]
     html_str = '<div class="forma-container">'
@@ -87,8 +87,8 @@ def cargar_excel(ruta_archivo, tipo="general"):
     url = f"{BASE_URL}/{ruta_archivo}"
     try:
         df = pd.read_excel(url)
-        # Limpieza inicial de nans para evitar que "contaminen" la tabla
-        df = df.replace(np.nan, '', regex=True)
+        # Limpieza de nulos por defecto para evitar errores de renderizado
+        df = df.fillna('')
 
         if 'Squad' in df.columns:
             df['Squad'] = df['Squad'].apply(limpiar_nombre_equipo)
@@ -118,13 +118,13 @@ def cargar_excel(ruta_archivo, tipo="general"):
             drop_f = ['Day', 'Score', 'Referee', 'Match Report', 'Notes', 'Attendance', 'Wk']
             df = df.drop(columns=[c for c in drop_f if c in df.columns])
             df = df.rename(columns=TRADUCCIONES)
-            # Reemplazo seguro para HORA y FECHA
+            # Limpieza de nulos en HORA y FECHA específica para el Fixture
             if 'HORA' in df.columns:
-                df['HORA'] = df['HORA'].apply(lambda x: 'Por definir' if str(x).strip() == '' or str(x).lower() == 'nan' else x)
+                df['HORA'] = df['HORA'].astype(str).replace(['nan', 'NaN', ''], 'Por definir')
             if 'FECHA' in df.columns:
-                df['FECHA'] = df['FECHA'].apply(lambda x: 'TBD' if str(x).strip() == '' or str(x).lower() == 'nan' else x)
+                df['FECHA'] = df['FECHA'].astype(str).replace(['nan', 'NaN', ''], 'TBD')
         
-        return df.dropna(how='all')
+        return df.dropna(how='all').reset_index(drop=True)
     except: return None
 
 # ────────────────────────────────────────────────
@@ -243,10 +243,10 @@ if st.session_state.liga_sel:
     st.markdown(f'<div class="header-container"><img src="{BANDERAS.get(liga, "")}" class="flag-img"><h1 class="header-title">{liga}</h1></div>', unsafe_allow_html=True)
     
     col1, col2, col3, col4 = st.columns(4)
-    if col1.button("Clasificación"): st.session_state.vista_activa = "clas"
-    if col2.button("Stats Generales"): st.session_state.vista_activa = "stats"
-    if col3.button("Ver Fixture"): st.session_state.vista_activa = "fix"
-    if col4.button("Picks & Cuotas"): st.session_state.vista_activa = "odds"
+    if col1.button("Clasificación"): st.session_state.vista_activa = "clas" if st.session_state.vista_activa != "clas" else None
+    if col2.button("Stats Generales"): st.session_state.vista_activa = "stats" if st.session_state.vista_activa != "stats" else None
+    if col3.button("Ver Fixture"): st.session_state.vista_activa = "fix" if st.session_state.vista_activa != "fix" else None
+    if col4.button("Picks & Cuotas"): st.session_state.vista_activa = "odds" if st.session_state.vista_activa != "odds" else None
 
     st.divider()
 
@@ -314,6 +314,23 @@ if st.session_state.liga_sel:
                     styler = styler.set_properties(subset=['PTS'], **{'background-color': '#262730', 'font-weight': 'bold'})
                 
                 st.markdown(f'<div class="table-container">{styler.to_html(escape=False)}</div>', unsafe_allow_html=True)
+
+                if view == "stats":
+                    st.markdown("""
+                    <div style="background-color: #1a1c23; border: 1px solid #374151; border-radius: 8px; padding: 15px; margin-top: -20px; margin-bottom: 30px;">
+                        <h4 style="margin-top:0; color:#ced4da; font-size: 1rem; border-bottom: 1px solid #374151; padding-bottom: 5px;">Métricas Avanzadas:</h4>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+                            <div>
+                                <span style="background-color: #137031; color: white; padding: 2px 8px; border-radius: 4px; font-weight: bold; font-size: 0.8rem;">+1.5 xG</span>
+                                <p style="font-size: 0.85rem; color: #9ca3af; margin: 5px 0;"><b>Goles Esperados:</b> Calidad de las ocasiones creadas. En verde si el equipo genera peligro constante.</p>
+                            </div>
+                            <div>
+                                <span style="background-color: #ff4b4b; color: white; padding: 2px 8px; border-radius: 4px; font-weight: bold; font-size: 0.8rem;">POSESIÓN</span>
+                                <p style="font-size: 0.85rem; color: #9ca3af; margin: 5px 0;">Control del balón promedio. Indica el estilo de dominio del equipo durante el torneo.</p>
+                            </div>
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
 
 st.write("---")
 st.caption("InsideBet Official | Sistema de análisis futbolístico")
