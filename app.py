@@ -78,10 +78,10 @@ def formatear_last_5(valor):
     if pd.isna(valor): return ""
     trad = {'W': 'G', 'L': 'P', 'D': 'E'}
     letras = list(str(valor).upper().replace(" ", ""))[:5]
-    html_str = '<div class="forma-container">'
+    html_str = '<div class="forma-container" style="display: flex; gap: 4px; justify-content: center;">'
     for l in letras:
-        clase = "win" if l == 'W' else "loss" if l == 'L' else "draw" if l == 'D' else ""
-        html_str += f'<span class="forma-box {clase}">{trad.get(l, l)}</span>'
+        bg = "#137031" if l == 'W' else "#821f1f" if l == 'L' else "#82711f" if l == 'D' else "#2d3139"
+        html_str += f'<span style="background-color: {bg}; color: white; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: bold; min-width: 20px; text-align: center;">{trad.get(l, l)}</span>'
     return html_str + '</div>'
 
 @st.cache_data(ttl=300)
@@ -196,23 +196,12 @@ st.markdown("""
         align-items: center;
         width: 100%;
         padding: 10px 0;
-        margin-top: -20px;
-    }
-    .main-logo-link {
-        display: flex;
-        justify-content: center;
-        width: 100%;
-        text-decoration: none;
+        margin-top: -200px;
     }
     .main-logo-img {
         width: 50%;
         max-width: 500px;
         height: auto;
-        transition: transform 0.3s ease;
-    }
-    .main-logo-img:hover {
-        transform: scale(1.03);
-        filter: brightness(1.2);
     }
 
     /* TABLAS Y CONTENEDORES */
@@ -224,13 +213,6 @@ st.markdown("""
         margin-bottom: 50px;
         background-color: #161b22;
     }
-    table { width: 100%; border-collapse: collapse; }
-    th { 
-        position: sticky; top: 0; z-index: 100;
-        background-color: #1f2937 !important; color: #1ed7de !important; 
-        padding: 12px; border: 1px solid #374151; 
-    }
-    td { padding: 12px; border: 1px solid #374151; text-align: center !important; }
     
     /* CARTAS H2H */
     .h2h-card { 
@@ -239,36 +221,45 @@ st.markdown("""
         border-radius: 12px; 
         padding: 20px; 
         margin-bottom: 25px;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.3);
     }
     .h2h-row { display: flex; justify-content: space-between; align-items: center; margin: 10px 0; border-bottom: 1px solid #2d3139; padding-bottom: 5px; }
-    .h2h-val { font-weight: bold; font-size: 1.1rem; color: #1ed7de; }
-    .h2h-label { color: #9ca3af; font-size: 0.9rem; text-transform: uppercase; }
 
-    /* BOTONES */
-    /* Botón Competencias (Rojo) */
+    /* BOTONES - TODOS UNIFICADOS A CIAN */
+    /* Botón Competencias */
     div.stButton > button:first-child { 
-        background-color: #ff1800 !important; 
-        color: white !important; 
+        background-color: #1ed7de !important; 
+        color: #0e1117 !important; 
         border: none !important;
+        font-weight: bold !important;
     }
 
-    /* Botones de Navegación (Tono Logo) */
-    div.stHeader + div [data-testid="stHorizontalBlock"] button {
+    /* Botones de Navegación */
+    [data-testid="stHorizontalBlock"] button {
         background-color: transparent !important;
         color: #1ed7de !important;
         border: 1px solid #1ed7de !important;
         transition: 0.3s;
     }
-    div.stHeader + div [data-testid="stHorizontalBlock"] button:hover {
+    [data-testid="stHorizontalBlock"] button:hover {
         background-color: #1ed7de22 !important;
         border-color: white !important;
     }
 
-    /* OTROS ELEMENTOS */
+    /* Color del trazo (Focus) en selectores y inputs unificado a Cian */
+    .stSelectbox div[data-baseweb="select"] > div {
+        border-color: #1ed7de !important;
+    }
+
+    /* Alineación de Bandera y Título */
+    .header-container {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        margin-bottom: 10px;
+    }
+    .header-title { color: white !important; font-size: 2rem; font-weight: bold; margin: 0; line-height: 1; }
+
     .bar-fill { background-color: #1ed7de; height: 100%; border-radius: 10px; }
-    .header-title { color: white !important; font-size: 2rem; font-weight: bold; margin: 0; }
-    .forma-box.win { background-color: #137031; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -276,7 +267,6 @@ st.markdown("""
 # ESTRUCTURA DE LA APP
 # ────────────────────────────────────────────────
 
-# Logo Clickable y Centrado
 st.markdown("""
     <div class="main-logo-container">
         <a href="/" target="_self" class="main-logo-link">
@@ -289,7 +279,7 @@ if "liga_sel" not in st.session_state: st.session_state.liga_sel = None
 if "vista_activa" not in st.session_state: st.session_state.vista_activa = None
 if "menu_op" not in st.session_state: st.session_state.menu_op = False
 
-# Botón principal
+# Botón principal Cian
 if st.button("COMPETENCIAS"):
     st.session_state.menu_op = not st.session_state.menu_op
 
@@ -298,15 +288,21 @@ if st.session_state.menu_op:
     if sel != "Selecciona Liga/Competencia":
         st.session_state.liga_sel = sel
         st.session_state.menu_op = False
-        st.session_state.vista_activa = None
+        st.session_state.vista_activa = "clas" # Iniciar siempre en clasificación
         st.rerun()
 
 if st.session_state.liga_sel:
     liga = st.session_state.liga_sel
-    st.markdown(f'<div class="header-container"><img src="{BANDERAS.get(liga, "")}" style="width:40px; margin-right:15px; vertical-align:middle;"><span class="header-title">{liga}</span></div>', unsafe_allow_html=True)
+    st.markdown(f'''
+        <div class="header-container">
+            <img src="{BANDERAS.get(liga, "")}" style="width:40px; height:auto;">
+            <span class="header-title">{liga}</span>
+        </div>
+    ''', unsafe_allow_html=True)
     
     st.write("")
     col1, col2, col3, col4 = st.columns(4)
+    # Sistema acordeón: cada botón actualiza la vista activa
     if col1.button("Clasificación"): st.session_state.vista_activa = "clas"
     if col2.button("Stats Generales"): st.session_state.vista_activa = "stats"
     if col3.button("Ver Fixture"): st.session_state.vista_activa = "fix"
@@ -334,6 +330,7 @@ if st.session_state.liga_sel:
                     
                     st.markdown(f"""
                     <div class="h2h-card">
+                        <div class="h2h-row"><span style="color:#1ed7de; font-weight:bold;">{eq_l}</span><span style="color:#9ca3af;">VS</span><span style="color:#1ed7de; font-weight:bold;">{eq_v}</span></div>
                         <div class="h2h-row"><span class="h2h-val">{d_l['PTS']}</span><span class="h2h-label">Puntos</span><span class="h2h-val">{d_v['PTS']}</span></div>
                         <div class="h2h-row"><span class="h2h-val">{d_l['G']}</span><span class="h2h-label">Victorias</span><span class="h2h-val">{d_v['G']}</span></div>
                         <div class="h2h-row"><span class="h2h-val">{d_l['GF']}</span><span class="h2h-label">Goles F.</span><span class="h2h-val">{d_v['GF']}</span></div>
@@ -379,4 +376,4 @@ if st.session_state.liga_sel:
                 st.markdown(f'<div class="table-container">{styler.to_html(escape=False)}</div>', unsafe_allow_html=True)
 
 st.write("---")
-st.caption("InsideBet Official | Sistema de análisis futbolístico")
+st.caption("InsideBet Official | scrapeo")
