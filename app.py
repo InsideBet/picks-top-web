@@ -115,6 +115,10 @@ def cargar_excel(ruta_archivo, tipo="general"):
             drop_f = ['Day', 'Score', 'Referee', 'Match Report', 'Notes', 'Attendance', 'Wk']
             df = df.drop(columns=[c for c in drop_f if c in df.columns])
             df = df.rename(columns=TRADUCCIONES)
+            # 2) CORRECCIÓN DE NaN EN HORA
+            if 'HORA' in df.columns:
+                df['HORA'] = df['HORA'].fillna('Por definir')
+                df['HORA'] = df['HORA'].replace('nan', 'Por definir')
         
         return df.dropna(how='all')
     except: return None
@@ -166,19 +170,33 @@ def procesar_cuotas(data, df_clas):
     return pd.DataFrame(rows)
 
 # ────────────────────────────────────────────────
-# ESTILOS CSS
+# ESTILOS CSS (MEJORADO PARA MÓVILES)
 # ────────────────────────────────────────────────
 st.markdown("""
 <style>
     .stApp { background-color: #0e1117; color: #e5e7eb; }
+    
+    /* 1) AJUSTE DE ANCHO DE TABLAS */
     .table-container { 
-        width: 100%; 
-        overflow-x: auto; 
+        width: 100% !important; 
+        overflow-x: auto !important; 
         border: 1px solid #374151; 
         border-radius: 8px; 
         margin-bottom: 50px;
     }
-    table { width: 100%; border-collapse: collapse; }
+    
+    table { 
+        width: 100% !important; 
+        border-collapse: collapse; 
+        font-size: 0.9rem; /* Un poco más pequeño para que quepa más */
+    }
+    
+    /* Forzar que las columnas se ajusten al contenido en móviles */
+    @media screen and (max-width: 768px) {
+        table { font-size: 0.75rem; }
+        td, th { padding: 6px !important; }
+    }
+
     th { 
         position: sticky; top: 0; z-index: 100;
         background-color: #1f2937 !important; color: white !important; 
@@ -196,10 +214,10 @@ st.markdown("""
     .header-container { display: flex; align-items: center; gap: 15px; margin: 20px 0; }
     .header-title { color: white !important; font-size: 2rem; font-weight: bold; margin: 0; }
     .flag-img { width: 45px; border-radius: 4px; }
-    .bar-container { display: flex; align-items: center; gap: 8px; width: 140px; margin: 0 auto; }
+    .bar-container { display: flex; align-items: center; gap: 8px; width: 100px; margin: 0 auto; }
     .bar-bg { background-color: #2d3139; border-radius: 10px; flex-grow: 1; height: 7px; overflow: hidden; }
     .bar-fill { background-color: #ff4b4b; height: 100%; border-radius: 10px; }
-    .bar-text { font-size: 12px; font-weight: bold; min-width: 32px; text-align: right; }
+    .bar-text { font-size: 11px; font-weight: bold; min-width: 32px; text-align: right; }
     .forma-container { display: flex; justify-content: center; gap: 4px; }
     .forma-box { width: 22px; height: 22px; line-height: 22px; text-align: center; border-radius: 4px; font-weight: bold; font-size: 11px; color: white; }
     .win { background-color: #137031; } .loss { background-color: #821f1f; } .draw { background-color: #82711f; }
@@ -303,23 +321,6 @@ if st.session_state.liga_sel:
                     styler = styler.set_properties(subset=['PTS'], **{'background-color': '#262730', 'font-weight': 'bold'})
                 
                 st.markdown(f'<div class="table-container">{styler.to_html(escape=False)}</div>', unsafe_allow_html=True)
-
-                if view == "stats":
-                    st.markdown("""
-                    <div style="background-color: #1a1c23; border: 1px solid #374151; border-radius: 8px; padding: 15px; margin-top: -20px; margin-bottom: 30px;">
-                        <h4 style="margin-top:0; color:#ced4da; font-size: 1rem; border-bottom: 1px solid #374151; padding-bottom: 5px;">Métricas Avanzadas:</h4>
-                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
-                            <div>
-                                <span style="background-color: #137031; color: white; padding: 2px 8px; border-radius: 4px; font-weight: bold; font-size: 0.8rem;">+1.5 xG</span>
-                                <p style="font-size: 0.85rem; color: #9ca3af; margin: 5px 0;"><b>Goles Esperados:</b> Calidad de las ocasiones creadas. En verde si el equipo genera peligro constante.</p>
-                            </div>
-                            <div>
-                                <span style="background-color: #ff4b4b; color: white; padding: 2px 8px; border-radius: 4px; font-weight: bold; font-size: 0.8rem;">POSESIÓN</span>
-                                <p style="font-size: 0.85rem; color: #9ca3af; margin: 5px 0;">Control del balón promedio. Indica el estilo de dominio del equipo durante el torneo.</p>
-                            </div>
-                        </div>
-                    </div>
-                    """, unsafe_allow_html=True)
 
 st.write("---")
 st.caption("InsideBet Official | Sistema de análisis futbolístico")
