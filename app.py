@@ -50,7 +50,7 @@ TRADUCCIONES = {
 }
 
 # ────────────────────────────────────────────────
-# FUNCIONES DE FORMATO (ORIGINALES E INTACTAS)
+# FUNCIONES DE FORMATO
 # ────────────────────────────────────────────────
 
 def limpiar_nombre_equipo(nombre):
@@ -93,7 +93,6 @@ def cargar_excel(ruta_archivo, tipo="general"):
         if tipo == "stats":
             if len(df.columns) >= 17:
                 df = df.rename(columns={df.columns[16]: 'xG'})
-            # Columna técnica oculta para cálculos
             df['xG_val'] = df['xG'].fillna(0)
             if 'xG' in df.columns: df['xG'] = df['xG'].apply(formatear_xg_badge)
             if 'Poss' in df.columns: df['Poss'] = df['Poss'].apply(html_barra_posesion)
@@ -209,7 +208,7 @@ st.markdown("""
 st.markdown('<div style="text-align:center; margin-bottom:20px;"><img src="https://i.postimg.cc/C516P7F5/33.png" width="300"></div>', unsafe_allow_html=True)
 
 # ────────────────────────────────────────────────
-# LÓGICA DE NAVEGACIÓN (ACORDEÓN RESTAURADO)
+# LÓGICA DE NAVEGACIÓN
 # ────────────────────────────────────────────────
 if "liga_sel" not in st.session_state: st.session_state.liga_sel = None
 if "vista_activa" not in st.session_state: st.session_state.vista_activa = None
@@ -278,17 +277,36 @@ if st.session_state.liga_sel:
 
                     def aplicar_estilo(row):
                         m = min(row['1'], row['X'], row['2'])
-                        # CORRECCIÓN: Usar .get() o asegurar que la columna existe en el objeto row
                         row['1'] = badge_cuota(row['1'], row['1']==m, row['VAL_H'])
                         row['X'] = badge_cuota(row['X'], row['X']==m)
                         row['2'] = badge_cuota(row['2'], row['2']==m)
                         return row
                     
-                    # CORRECCIÓN: No filtramos las columnas antes del apply para que 'VAL_H' esté presente
                     styler_df = df_odds.apply(aplicar_estilo, axis=1)
-                    # Ahora sí filtramos para mostrar
                     html = styler_df[['FECHA','LOCAL','VISITANTE','1','X','2','TENDENCIA']].style.hide(axis="index").to_html(escape=False)
                     st.markdown(f'<div class="table-container">{html}</div>', unsafe_allow_html=True)
+
+                    # LEYENDA SECCIÓN CUOTAS
+                    st.markdown("""
+                    <div style="background-color: #1a1c23; border: 1px solid #374151; border-radius: 8px; padding: 15px; margin-top: -20px; margin-bottom: 30px;">
+                        <h4 style="margin-top:0; color:#ced4da; font-size: 1rem; border-bottom: 1px solid #374151; padding-bottom: 5px;">Guía de Análisis InsideBet:</h4>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+                            <div>
+                                <span style="background-color: #b59410; color: white; padding: 2px 8px; border-radius: 4px; font-weight: bold; font-size: 0.8rem;">⭐ DORADO</span>
+                                <p style="font-size: 0.85rem; color: #9ca3af; margin: 5px 0;"><b>Value Bet:</b> La cuota es un 15% superior a la estadística de puntos. Mayor rentabilidad detectada.</p>
+                            </div>
+                            <div>
+                                <span style="background-color: #137031; color: #00ff88; padding: 2px 8px; border-radius: 4px; font-weight: bold; font-size: 0.8rem;">VERDE</span>
+                                <p style="font-size: 0.85rem; color: #9ca3af; margin: 5px 0;"><b>Favorito:</b> Resultado con mayor probabilidad estadística según la casa de apuestas.</p>
+                            </div>
+                            <div>
+                                <span style="color: white; font-weight: bold; font-size: 0.8rem;">🔥 OVER / 🛡️ UNDER</span>
+                                <p style="font-size: 0.85rem; color: #9ca3af; margin: 5px 0;"><b>Predicción xG:</b> Basado en el promedio de Goles Esperados del <b>scrapeo</b> de datos de FBRef.</p>
+                            </div>
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
+
         else:
             configs = {"clas": (f"CLASIFICACION_LIGA_{sufijo}.xlsx", "clasificacion"), 
                        "stats": (f"RESUMEN_STATS_{sufijo}.xlsx", "stats"), 
@@ -301,3 +319,24 @@ if st.session_state.liga_sel:
                 styler = df.style.hide(axis="index")
                 if 'PTS' in df.columns: styler = styler.set_properties(subset=['PTS'], **{'background-color': '#262730', 'font-weight': 'bold'})
                 st.markdown(f'<div class="table-container">{styler.to_html(escape=False)}</div>', unsafe_allow_html=True)
+
+                # LEYENDA SECCIÓN STATS GENERALES
+                if view == "stats":
+                    st.markdown("""
+                    <div style="background-color: #1a1c23; border: 1px solid #374151; border-radius: 8px; padding: 15px; margin-top: -20px; margin-bottom: 30px;">
+                        <h4 style="margin-top:0; color:#ced4da; font-size: 1rem; border-bottom: 1px solid #374151; padding-bottom: 5px;">Métricas Avanzadas:</h4>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+                            <div>
+                                <span style="background-color: #137031; color: white; padding: 2px 8px; border-radius: 4px; font-weight: bold; font-size: 0.8rem;">+1.5 xG</span>
+                                <p style="font-size: 0.85rem; color: #9ca3af; margin: 5px 0;"><b>Goles Esperados:</b> Calidad de las ocasiones creadas. En verde si el equipo genera peligro constante.</p>
+                            </div>
+                            <div>
+                                <span style="background-color: #ff4b4b; color: white; padding: 2px 8px; border-radius: 4px; font-weight: bold; font-size: 0.8rem;">POSESIÓN</span>
+                                <p style="font-size: 0.85rem; color: #9ca3af; margin: 5px 0;">Control del balón promedio. Indica el estilo de dominio del equipo durante el torneo.</p>
+                            </div>
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+st.write("---")
+st.caption("InsideBet Official | Sistema de análisis futbolístico")
