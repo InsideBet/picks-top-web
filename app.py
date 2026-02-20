@@ -57,9 +57,16 @@ def limpiar_nombre_equipo(nombre):
     if pd.isna(nombre): return nombre
     return re.sub(r'^[a-z]+\s+', '', str(nombre))
 
-def formatear_logo(url):
-    # Esta función permite que el link se vea como imagen en la tabla HTML
-    return f'<img src="{url}" width="30">'
+def formatear_equipo_con_logo(nombre):
+    # Generamos el HTML con el logo a la izquierda del nombre
+    # Usamos el logo default azul por ahora
+    logo_url = "https://i.postimg.cc/85zX8M6v/logo-placeholder.png"
+    return f'''
+    <div style="display: flex; align-items: center; gap: 10px;">
+        <img src="{logo_url}" width="24" height="24" style="object-fit: contain;">
+        <span>{nombre}</span>
+    </div>
+    '''
 
 def formatear_xg_badge(val):
     try:
@@ -91,11 +98,11 @@ def cargar_excel(ruta_archivo, tipo="general"):
     try:
         df = pd.read_excel(url)
         col_equipo = 'Squad' if 'Squad' in df.columns else 'EQUIPO'
+        
         if col_equipo in df.columns:
             df[col_equipo] = df[col_equipo].apply(limpiar_nombre_equipo)
-            # Añadimos columna de logo con el placeholder que configuramos
-            df.insert(0, ' ', "https://i.postimg.cc/85zX8M6v/logo-placeholder.png")
-            df[' '] = df[' '].apply(formatear_logo)
+            # Aplicamos la función para unir Logo + Nombre en la misma celda
+            df[col_equipo] = df[col_equipo].apply(formatear_equipo_con_logo)
 
         if tipo == "stats":
             if len(df.columns) >= 17:
@@ -103,7 +110,7 @@ def cargar_excel(ruta_archivo, tipo="general"):
             df['xG_val'] = df['xG'].fillna(0)
             if 'xG' in df.columns: df['xG'] = df['xG'].apply(formatear_xg_badge)
             if 'Poss' in df.columns: df['Poss'] = df['Poss'].apply(html_barra_posesion)
-            cols_ok = [' ', 'Squad', 'MP', 'Poss', 'Gls', 'Ast', 'CrdY', 'CrdR', 'xG', 'xG_val']
+            cols_ok = ['Squad', 'MP', 'Poss', 'Gls', 'Ast', 'CrdY', 'CrdR', 'xG', 'xG_val']
             df = df[[c for c in cols_ok if c in df.columns]]
             df = df.rename(columns=TRADUCCIONES)
         
@@ -149,7 +156,16 @@ def badge_cuota(val, es_minimo=False, tiene_valor=False):
 def procesar_cuotas(data, df_clas):
     if not data or not isinstance(data, list): return None
     rows = []
-    puntos_dict = pd.Series(df_clas.PTS.values, index=df_clas.EQUIPO).to_dict() if df_clas is not None else {}
+    # Aquí necesitamos limpiar el HTML del nombre del equipo para el mapeo de puntos
+    def extraer_nombre_puro(html_str):
+        if '<span>' in str(html_str):
+            return re.search(r'<span>(.*?)</span>', html_str).group(1)
+        return html_str
+
+    if df_clas is not None:
+        puntos_dict = {extraer_nombre_puro(eq): pts for eq, pts in zip(df_clas.EQUIPO, df_clas.PTS)}
+    else:
+        puntos_dict = {}
     
     for match in data:
         home, away = match.get('home_team'), match.get('away_team')
@@ -191,8 +207,11 @@ st.markdown("""
         background-color: #1f2937 !important; color: white !important; 
         padding: 12px; border: 1px solid #374151; 
     }
-    td { padding: 12px; border: 1px solid #374151; text-align: center !important; }
+    td { padding: 12px; border: 1px solid #374151; text-align: left !important; }
     
+    /* Centramos celdas excepto la de Equipo */
+    td:not(:nth-child(2)) { text-align: center !important; }
+
     .h2h-card { background: linear-gradient(135deg, #1f2937 0%, #111827 100%); border: 1px solid #374151; border-radius: 12px; padding: 20px; margin-bottom: 25px; }
     .h2h-row { display: flex; justify-content: space-between; align-items: center; margin: 10px 0; border-bottom: 1px solid #2d3139; padding-bottom: 5px; }
     .h2h-val { font-weight: bold; font-size: 1.1rem; color: #00ff88; }
@@ -253,13 +272,17 @@ if st.session_state.liga_sel:
         if view == "odds":
             st.subheader("⚔️ Comparador H2H")
             if df_clas_base is not None:
-                equipos = sorted(df_clas_base['EQUIPO'].unique())
-                col_h1, col_h2 = st.columns(2)
-                eq_l = col_h1.selectbox("Local", equipos, index=0)
-                eq_v = col_h2.selectbox("Visitante", equipos, index=1)
+                # Extraemos nombres puros para el selectbox
+                equipos_html = sorted(df_clas_base['EQUIPO'].unique())
+                equipos_nombres = [re.search(r'<span>(.*?)</span>', e).group(1) for e in equipos_html]
                 
-                d_l = df_clas_base[df_clas_base['EQUIPO'] == eq_l].iloc[0]
-                d_v = df_clas_base[df_clas_base['EQUIPO'] == eq_v].iloc[0]
+                col_h1, col_h2 = st.columns(2)
+                eq_l_nom = col_h1.selectbox("Local", equipos_nombres, index=0)
+                eq_v_nom = col_h2.selectbox("Visitante", equipos_nombres, index=1)
+                
+                # Buscamos la fila correspondiente usando el HTML generado
+                d_l = df_clas_base[df_clas_base['EQUIPO'].str.contains(eq_l_nom)].iloc[0]
+                d_v = df_clas_base[df_clas_base['EQUIPO'].str.contains(eq_v_nom)].iloc[0]
                 
                 st.markdown(f"""
                 <div class="h2h-card">
@@ -274,10 +297,14 @@ if st.session_state.liga_sel:
                 df_odds = procesar_cuotas(raw, df_clas_base)
                 if df_odds is not None and not df_odds.empty:
                     if df_stats_base is not None:
+                        # Extraemos nombres puros de stats para predicción
+                        stats_dict = {re.search(r'<span>(.*?)</span>', eq).group(1): xg 
+                                     for eq, xg in zip(df_stats_base['EQUIPO'], df_stats_base['xG_val'])}
+                        
                         def predecir_goles(r):
                             try:
-                                xg_l = df_stats_base[df_stats_base['EQUIPO'] == r['LOCAL']]['xG_val'].values[0]
-                                xg_v = df_stats_base[df_stats_base['EQUIPO'] == r['VISITANTE']]['xG_val'].values[0]
+                                xg_l = stats_dict.get(r['LOCAL'], 0)
+                                xg_v = stats_dict.get(r['VISITANTE'], 0)
                                 return "🔥 Over" if (float(xg_l) + float(xg_v)) > 2.7 else "🛡️ Under"
                             except: return "---"
                         df_odds['TENDENCIA'] = df_odds.apply(predecir_goles, axis=1)
@@ -303,12 +330,10 @@ if st.session_state.liga_sel:
                 if 'ÚLTIMOS 5' in df.columns: df['ÚLTIMOS 5'] = df['ÚLTIMOS 5'].apply(formatear_last_5)
                 if 'xG_val' in df.columns: df = df.drop(columns=['xG_val'])
                 
-                # RESTAURAMOS EL ESTILO HTML PARA QUE SE VEAN LOS COLORES
                 styler = df.style.hide(axis="index")
                 if 'PTS' in df.columns: 
                     styler = styler.set_properties(subset=['PTS'], **{'background-color': '#262730', 'font-weight': 'bold'})
                 
-                # IMPORTANTE: to_html(escape=False) es lo que permite que el HTML se ejecute
                 st.markdown(f'<div class="table-container">{styler.to_html(escape=False)}</div>', unsafe_allow_html=True)
 
                 if view == "stats":
