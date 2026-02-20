@@ -54,11 +54,10 @@ TRADUCCIONES = {
 # ────────────────────────────────────────────────
 
 def limpiar_nombre_equipo(nombre):
-    if pd.isna(nombre): return nombre
-    # Limpia códigos de país al final (ej: "Inter it", "Real Madrid es")
-    nombre = re.sub(r'\s+[a-z]{2}$', '', str(nombre))
-    # Limpia códigos de país al inicio (ej: "it Inter", "es Real Madrid")
-    return re.sub(r'^[a-z]{2}\s+', '', nombre)
+    if pd.isna(nombre) or str(nombre).strip() == "": return nombre
+    # Elimina los sufijos de país de 2 letras al final (ej: "Inter it" -> "Inter")
+    # y también limpia espacios sobrantes.
+    return re.sub(r'\s+[a-z]{2}$', '', str(nombre)).strip()
 
 def formatear_xg_badge(val):
     try:
@@ -90,15 +89,12 @@ def cargar_excel(ruta_archivo, tipo="general"):
     try:
         df = pd.read_excel(url)
         
-        # Lógica de limpieza de nulos y nombres para todas las tablas
-        df = df.fillna('')
-        
         if tipo == "stats":
             if 'Squad' in df.columns:
                 df['Squad'] = df['Squad'].apply(limpiar_nombre_equipo)
             if len(df.columns) >= 17:
                 df = df.rename(columns={df.columns[16]: 'xG'})
-            df['xG_val'] = pd.to_numeric(df['xG'], errors='coerce').fillna(0)
+            df['xG_val'] = df['xG'].fillna(0)
             if 'xG' in df.columns: df['xG'] = df['xG'].apply(formatear_xg_badge)
             if 'Poss' in df.columns: df['Poss'] = df['Poss'].apply(html_barra_posesion)
             cols_ok = ['Squad', 'MP', 'Poss', 'Gls', 'Ast', 'CrdY', 'CrdR', 'xG', 'xG_val']
@@ -119,25 +115,24 @@ def cargar_excel(ruta_archivo, tipo="general"):
                 df = df[cols]
                 
         elif tipo == "fixture":
-            # Eliminar Round y columnas innecesarias
+            # 1. Quitamos Round y otras columnas
             drop_f = ['Round', 'Day', 'Score', 'Referee', 'Match Report', 'Notes', 'Attendance', 'Wk']
             df = df.drop(columns=[c for c in drop_f if c in df.columns])
             
-            # Limpiar nombres de equipos en Local y Visitante
-            if 'Home' in df.columns:
-                df['Home'] = df['Home'].apply(limpiar_nombre_equipo)
-            if 'Away' in df.columns:
-                df['Away'] = df['Away'].apply(limpiar_nombre_equipo)
-                
+            # 2. Renombramos para identificar LOCAL y VISITANTE
             df = df.rename(columns=TRADUCCIONES)
             
-            # Limpiar específicamente NaN en HORA y FECHA que a veces persisten como strings
-            if 'HORA' in df.columns:
-                df['HORA'] = df['HORA'].astype(str).replace(['nan', 'NaN', ''], 'Por definir')
-            if 'FECHA' in df.columns:
-                df['FECHA'] = df['FECHA'].astype(str).replace(['nan', 'NaN', ''], 'TBD')
+            # 3. Limpiamos los nombres de los equipos (quitar paises)
+            if 'LOCAL' in df.columns:
+                df['LOCAL'] = df['LOCAL'].apply(limpiar_nombre_equipo)
+            if 'VISITANTE' in df.columns:
+                df['VISITANTE'] = df['VISITANTE'].apply(limpiar_nombre_equipo)
+            
+            # 4. Aseguramos que FECHA y HORA no sean NaN visualmente
+            if 'FECHA' in df.columns: df['FECHA'] = df['FECHA'].fillna('TBD')
+            if 'HORA' in df.columns: df['HORA'] = df['HORA'].fillna('Por definir')
         
-        return df.dropna(how='all').reset_index(drop=True)
+        return df.dropna(how='all')
     except: return None
 
 # ────────────────────────────────────────────────
