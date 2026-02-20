@@ -69,9 +69,18 @@ def formatear_xg_badge(val):
 
 def html_barra_posesion(valor):
     try:
-        num = float(str(valor).replace('%', '').strip())
+        # Extraer solo el número si viene con % o etiquetas
+        num_str = str(valor).replace('%', '').strip()
+        num = float(re.findall(r"[-+]?\d*\.\d+|\d+", num_str)[0])
         percent = min(max(int(num), 0), 100)
-        return f'<div class="bar-container"><div class="bar-bg"><div class="bar-fill" style="width: {percent}%;"></div></div><div class="bar-text">{percent}%</div></div>'
+        return f'''
+        <div style="position: relative; width: 100%; background-color: #2d3139; border-radius: 4px; height: 20px; overflow: hidden; border: 1px solid #4b5563;">
+            <div style="width: {percent}%; background-color: #1ed7de; height: 100%;"></div>
+            <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; color: white; font-size: 11px; font-weight: bold; text-shadow: 1px 1px 2px black;">
+                {percent}%
+            </div>
+        </div>
+        '''
     except: return valor
 
 def formatear_last_5(valor):
@@ -233,9 +242,7 @@ st.markdown("""
         border: none !important;
     }
 
-    div[data-baseweb="select"] {
-        border: 1px solid #1ed7de !important;
-    }
+    div[data-baseweb="select"] { border: 1px solid #1ed7de !important; }
 
     .header-container {
         display: flex;
@@ -245,8 +252,6 @@ st.markdown("""
         margin: 25px 0;
     }
     .header-title { color: white !important; font-size: 2rem; font-weight: bold; margin: 0; line-height: 1; }
-
-    .bar-fill { background-color: #1ed7de; height: 100%; border-radius: 10px; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -264,7 +269,6 @@ if "liga_sel" not in st.session_state: st.session_state.liga_sel = None
 if "vista_activa" not in st.session_state: st.session_state.vista_activa = None
 if "menu_op" not in st.session_state: st.session_state.menu_op = False
 
-# Botón principal
 if st.button("COMPETENCIAS", use_container_width=True):
     st.session_state.menu_op = not st.session_state.menu_op
 
@@ -286,7 +290,6 @@ if st.session_state.liga_sel:
     ''', unsafe_allow_html=True)
     
     col1, col2, col3, col4 = st.columns(4)
-    
     if col1.button("Clasificación", use_container_width=True): 
         st.session_state.vista_activa = "clas" if st.session_state.vista_activa != "clas" else None
         st.rerun()
@@ -314,42 +317,41 @@ if st.session_state.liga_sel:
                 equipos = sorted(df_clas_base['EQUIPO'].unique())
                 col_h1, col_h2 = st.columns(2)
                 eq_l = col_h1.selectbox("Local", equipos, index=0)
-                eq_v = col_h2.selectbox("Visitante", equipos, index=1)
+                eq_v = col_h2.selectbox("Visitante", equipos, index=min(1, len(equipos)-1))
                 
                 try:
-                    # Datos de Clasificación
                     d_l = df_clas_base[df_clas_base['EQUIPO'] == eq_l].iloc[0]
                     d_v = df_clas_base[df_clas_base['EQUIPO'] == eq_v].iloc[0]
-                    
-                    # Datos de Stats
                     s_l = df_stats_base[df_stats_base['EQUIPO'] == eq_l].iloc[0]
                     s_v = df_stats_base[df_stats_base['EQUIPO'] == eq_v].iloc[0]
                     
                     def row_h2h(label, val1, val2, highlight=False):
                         color = "#1ed7de" if highlight else "white"
-                        return f"""
-                        <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #2d3139; padding: 10px 0;">
-                            <span style="font-weight: bold; color: {color}; width: 20%; text-align: left;">{val1}</span>
-                            <span style="color: #9ca3af; font-size: 0.85rem;">{label.upper()}</span>
-                            <span style="font-weight: bold; color: {color}; width: 20%; text-align: right;">{val2}</span>
+                        return f"""<div style="display: flex; justify-content: space-between; border-bottom: 1px solid #2d3139; padding: 10px 0;">
+                            <span style="font-weight: bold; color: {color}; width: 25%; text-align: left;">{val1}</span>
+                            <span style="color: #9ca3af; font-size: 0.8rem; text-align: center;">{label.upper()}</span>
+                            <span style="font-weight: bold; color: {color}; width: 25%; text-align: right;">{val2}</span>
                         </div>"""
+
+                    # Limpieza para el H2H
+                    p_l = str(s_l.get('POSESIÓN', '0%')).split('%')[0].split('>')[-1].strip() + "%"
+                    p_v = str(s_v.get('POSESIÓN', '0%')).split('%')[0].split('>')[-1].strip() + "%"
 
                     st.markdown(f"""
                     <div style="background: #1f2937; padding: 25px; border-radius: 12px; border: 1px solid #1ed7de44;">
                         {row_h2h("Puntos", d_l['PTS'], d_v['PTS'], True)}
                         {row_h2h("Victorias", d_l['G'], d_v['G'])}
                         {row_h2h("Goles Favor", d_l['GF'], d_v['GF'])}
-                        {row_h2h("xG Generado", s_l['xG_val'], s_v['xG_val'])}
-                        {row_h2h("Posesión Prom.", s_l['POSESIÓN'], s_v['POSESIÓN'])}
+                        {row_h2h("xG Generado", str(s_l['xG']).split('+')[-1].split('<')[0], str(s_v['xG']).split('+')[-1].split('<')[0])}
+                        {row_h2h("Posesión", p_l, p_v)}
                         <div style="margin-top: 15px; display: flex; justify-content: space-between; align-items: center;">
                             <div style="width: 40%">{formatear_last_5(d_l.get('ÚLTIMOS 5', ''))}</div>
-                            <span style="color: #9ca3af; font-size: 0.85rem;">FORMA</span>
+                            <span style="color: #9ca3af; font-size: 0.8rem;">FORMA</span>
                             <div style="width: 40%; display: flex; justify-content: flex-end;">{formatear_last_5(d_v.get('ÚLTIMOS 5', ''))}</div>
                         </div>
                     </div>
                     """, unsafe_allow_html=True)
-                except Exception as e:
-                    st.warning("Datos de comparación incompletos.")
+                except: st.warning("Datos de comparación incompletos.")
 
             raw = obtener_cuotas_api(liga)
             df_odds = procesar_cuotas(raw, df_clas_base)
@@ -357,9 +359,9 @@ if st.session_state.liga_sel:
                 if df_stats_base is not None:
                     def predecir_goles(r):
                         try:
-                            xg_l = df_stats_base[df_stats_base['EQUIPO'] == r['LOCAL']]['xG_val'].values[0]
-                            xg_v = df_stats_base[df_stats_base['EQUIPO'] == r['VISITANTE']]['xG_val'].values[0]
-                            return "🔥 Over" if (float(xg_l) + float(xg_v)) > 2.7 else "🛡️ Under"
+                            xg_l = float(str(df_stats_base[df_stats_base['EQUIPO'] == r['LOCAL']]['xG'].values[0]).split('+')[-1].split('<')[0])
+                            xg_v = float(str(df_stats_base[df_stats_base['EQUIPO'] == r['VISITANTE']]['xG'].values[0]).split('+')[-1].split('<')[0])
+                            return "🔥 Over" if (xg_l + xg_v) > 2.7 else "🛡️ Under"
                         except: return "---"
                     df_odds['TENDENCIA'] = df_odds.apply(predecir_goles, axis=1)
 
@@ -373,7 +375,6 @@ if st.session_state.liga_sel:
                 styler_df = df_odds.apply(aplicar_estilo, axis=1)
                 html = styler_df[['FECHA','LOCAL','VISITANTE','1','X','2','TENDENCIA']].style.hide(axis="index").to_html(escape=False)
                 st.markdown(f'<div class="table-container">{html}</div>', unsafe_allow_html=True)
-
         else:
             configs = {"clas": (f"CLASIFICACION_LIGA_{sufijo}.xlsx", "clasificacion"), 
                        "stats": (f"RESUMEN_STATS_{sufijo}.xlsx", "stats"), 
@@ -382,7 +383,6 @@ if st.session_state.liga_sel:
             df = cargar_excel(archivo, tipo=tipo)
             if df is not None:
                 if 'ÚLTIMOS 5' in df.columns: df['ÚLTIMOS 5'] = df['ÚLTIMOS 5'].apply(formatear_last_5)
-                if 'xG_val' in df.columns: df = df.drop(columns=['xG_val'])
                 styler = df.style.hide(axis="index")
                 if 'PTS' in df.columns: 
                     styler = styler.set_properties(subset=['PTS'], **{'background-color': '#1ed7de22', 'font-weight': 'bold', 'color': '#1ed7de'})
