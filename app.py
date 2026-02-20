@@ -235,7 +235,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-st.markdown('<div style="text-align:center; margin-bottom:20px;"><img src="https://i.postimg.cc/8jw99yn0/33.png" width="400"></div>', unsafe_allow_html=True)
+st.markdown('<div style="text-align:center; margin-bottom:20px;"><img src="https://i.postimg.cc/hJKrngzD/33.png" width="400"></div>', unsafe_allow_html=True)
 
 # ────────────────────────────────────────────────
 # LÓGICA DE NAVEGACIÓN
