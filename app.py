@@ -50,7 +50,7 @@ TRADUCCIONES = {
 }
 
 # ────────────────────────────────────────────────
-# FUNCIONES DE FORMATO Y LÓGICA
+# FUNCIONES DE FORMATO (SIN MODIFICACIONES)
 # ────────────────────────────────────────────────
 
 def limpiar_nombre_equipo(nombre):
@@ -87,37 +87,61 @@ def grafico_picos_forma(valor, alineacion="left"):
     if pd.isna(valor) or valor == "": return ""
     letras = list(str(valor).upper().replace(" ", ""))[:5]
     if not letras: return ""
+    
     mapeo_y = {'W': 4, 'D': 11, 'L': 18}
     colores_puntos = {'W': '#137031', 'D': '#b59410', 'L': '#821f1f'}
+    
     puntos_coords = []
     puntos_svg = []
+    
     for i, l in enumerate(letras):
         x = 10 + (i * 25) 
         y = mapeo_y.get(l, 11)
         puntos_coords.append(f"{x},{y}")
         puntos_svg.append(f'<circle cx="{x}" cy="{y}" r="3" fill="{colores_puntos.get(l, "#4b5563")}" stroke="#0e1117" stroke-width="0.5" />')
+    
     path_d = "M " + " L ".join(puntos_coords)
-    svg = f'''<div style="width: 100%; height: 30px; display: flex; align-items: center; justify-content: {'flex-start' if alineacion=='left' else 'flex-end'};"><svg width="130" height="22" viewBox="0 0 130 22" preserveAspectRatio="xMidYMid meet"><path d="{path_d}" fill="none" stroke="#1ed7de" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" opacity="0.4" />{''.join(puntos_svg)}</svg></div>'''
+    
+    svg = f'''
+    <div style="width: 100%; height: 30px; display: flex; align-items: center; justify-content: {'flex-start' if alineacion=='left' else 'flex-end'};">
+        <svg width="130" height="22" viewBox="0 0 130 22" preserveAspectRatio="xMidYMid meet">
+            <path d="{path_d}" fill="none" stroke="#1ed7de" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" opacity="0.4" />
+            {''.join(puntos_svg)}
+        </svg>
+    </div>
+    '''
     return svg
 
 def generar_radar_svg(val_l, val_v, labels):
     size = 200
     center = size / 2
     radius = 70
+    
     def get_coords(value, angle, max_val=100):
         v = float(value) if pd.notna(value) else 0
         r = (min(v, max_val) / max_val) * radius
         x = center + r * np.cos(angle - np.pi/2)
         y = center + r * np.sin(angle - np.pi/2)
         return f"{x},{y}"
+
     angles = np.linspace(0, 2*np.pi, len(labels), endpoint=False)
+    
     grid = ""
     for r_f in [0.25, 0.5, 0.75, 1.0]:
         pts = [f"{center + (radius*r_f)*np.cos(a-np.pi/2)},{center + (radius*r_f)*np.sin(a-np.pi/2)}" for a in angles]
         grid += f'<polygon points="{" ".join(pts)}" fill="none" stroke="#4b5563" stroke-width="0.5" stroke-dasharray="2,2" />'
+
     pts_l = [get_coords(v, a) for v, a in zip(val_l, angles)]
     pts_v = [get_coords(v, a) for v, a in zip(val_v, angles)]
-    radar = f'''<svg width="100%" height="{size}" viewBox="0 0 {size} {size}">{grid}<polygon points="{" ".join(pts_l)}" fill="#1ed7de22" stroke="#1ed7de" stroke-width="2" /><polygon points="{" ".join(pts_v)}" fill="#b5941022" stroke="#b59410" stroke-width="2" />{''.join([f'<text x="{center + (radius+20)*np.cos(a-np.pi/2)}" y="{center + (radius+20)*np.sin(a-np.pi/2)}" fill="#9ca3af" font-size="9" text-anchor="middle">{l}</text>' for l, a in zip(labels, angles)])}</svg>'''
+    
+    radar = f'''
+    <svg width="100%" height="{size}" viewBox="0 0 {size} {size}">
+        {grid}
+        <polygon points="{" ".join(pts_l)}" fill="#1ed7de22" stroke="#1ed7de" stroke-width="2" />
+        <polygon points="{" ".join(pts_v)}" fill="#b5941022" stroke="#b59410" stroke-width="2" />
+        {''.join([f'<text x="{center + (radius+20)*np.cos(a-np.pi/2)}" y="{center + (radius+20)*np.sin(a-np.pi/2)}" fill="#9ca3af" font-size="9" text-anchor="middle">{l}</text>' for l, a in zip(labels, angles)])}
+    </svg>
+    '''
     return radar
 
 def formatear_last_5(valor):
@@ -130,6 +154,10 @@ def formatear_last_5(valor):
         html_str += f'<span style="background-color: {clase_color}; color: white; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: bold; min-width: 20px; text-align: center;">{trad.get(l, l)}</span>'
     return html_str + '</div>'
 
+# ────────────────────────────────────────────────
+# FUNCIONES DE CARGA Y PROCESAMIENTO
+# ────────────────────────────────────────────────
+
 @st.cache_data(ttl=300)
 def cargar_excel(ruta_archivo, tipo="general"):
     url = f"{BASE_URL}/{ruta_archivo}"
@@ -137,6 +165,7 @@ def cargar_excel(ruta_archivo, tipo="general"):
         df = pd.read_excel(url)
         if 'Home' in df.columns and 'Away' in df.columns:
             df = df.dropna(subset=['Home', 'Away'], how='all')
+
         if tipo == "stats":
             if 'Squad' in df.columns:
                 df['Squad'] = df['Squad'].apply(limpiar_nombre_equipo)
@@ -147,9 +176,11 @@ def cargar_excel(ruta_archivo, tipo="general"):
                 df['Poss_num'] = df['Poss'].apply(lambda x: re.findall(r"\d+", str(x))[0] if re.findall(r"\d+", str(x)) else "0")
                 df['Poss'] = df['Poss'].apply(html_barra_posesion)
             if 'xG' in df.columns: df['xG'] = df['xG'].apply(formatear_xg_badge)
+            
             cols_ok = ['Squad', 'MP', 'Poss', 'Poss_num', 'Gls', 'Ast', 'CrdY', 'CrdR', 'xG', 'xG_val']
             df = df[[c for c in cols_ok if c in df.columns]]
             df = df.rename(columns=TRADUCCIONES)
+        
         elif tipo == "clasificacion":
             if 'Squad' in df.columns:
                 df['Squad'] = df['Squad'].apply(limpiar_nombre_equipo)
@@ -164,6 +195,7 @@ def cargar_excel(ruta_archivo, tipo="general"):
                 idx = cols.index('EQUIPO')
                 cols.insert(idx + 1, 'PTS')
                 df = df[cols]
+                
         elif tipo == "fixture":
             drop_f = ['Round', 'Day', 'Score', 'Referee', 'Match Report', 'Notes', 'Attendance', 'Wk']
             df = df.drop(columns=[c for c in drop_f if c in df.columns])
@@ -177,8 +209,10 @@ def cargar_excel(ruta_archivo, tipo="general"):
                 df['FECHA'] = df['FECHA'].apply(lambda x: str(x).split(' ')[0] if pd.notna(x) else "TBD")
             if 'HORA' in df.columns: 
                 df['HORA'] = df['HORA'].fillna("Por definir")
+        
         return df.dropna(how='all').reset_index(drop=True)
-    except: return None
+    except Exception as e: 
+        return None
 
 def obtener_cuotas_api(liga_nombre):
     sport_key = MAPEO_ODDS_API.get(liga_nombre)
@@ -246,11 +280,12 @@ st.markdown("""
 # ────────────────────────────────────────────────
 st.markdown('<div class="main-logo-container"><img src="https://i.postimg.cc/SKPzCcyV/33.png" class="main-logo-img"></div>', unsafe_allow_html=True)
 
+# Session States para el menú y los nuevos botones (Acordeones)
 if "liga_sel" not in st.session_state: st.session_state.liga_sel = None
 if "vista_activa" not in st.session_state: st.session_state.vista_activa = None
 if "menu_op" not in st.session_state: st.session_state.menu_op = False
-if "h2h_op" not in st.session_state: st.session_state.h2h_op = False
-if "confidence_op" not in st.session_state: st.session_state.confidence_op = False
+if "h2h_visible" not in st.session_state: st.session_state.h2h_visible = False
+if "confianza_visible" not in st.session_state: st.session_state.confianza_visible = False
 
 if st.button("COMPETENCIAS", use_container_width=True):
     st.session_state.menu_op = not st.session_state.menu_op
@@ -278,66 +313,126 @@ if st.session_state.liga_sel:
     view = st.session_state.vista_activa
     if view:
         sufijo = MAPEO_ARCHIVOS.get(liga)
+        
         with st.spinner("Actualizando datos..."):
             df_clas_base = cargar_excel(f"CLASIFICACION_LIGA_{sufijo}.xlsx", "clasificacion")
             df_stats_base = cargar_excel(f"RESUMEN_STATS_{sufijo}.xlsx", "stats")
 
         if view == "odds":
-            # 1. BOTÓN COMPARADOR H2H
+            
+            # --- NUEVO BOTÓN: COMPARADOR H2H ---
             if st.button("⚔️ COMPARADOR H2H", use_container_width=True):
-                st.session_state.h2h_op = not st.session_state.h2h_op
+                st.session_state.h2h_visible = not st.session_state.h2h_visible
             
-            if st.session_state.h2h_op and df_clas_base is not None and df_stats_base is not None:
-                equipos = sorted(df_clas_base['EQUIPO'].unique())
-                f1, f2, f3 = st.columns([2, 2, 1])
-                eq_l = f1.selectbox("Equipo Local", equipos, index=0)
-                eq_v = f2.selectbox("Equipo Visitante", equipos, index=min(1, len(equipos)-1))
-                tipo_f = f3.selectbox("Filtro Stats", ["Global", "L vs V"])
-                try:
-                    d_l, d_v = df_clas_base[df_clas_base['EQUIPO']==eq_l].iloc[0], df_clas_base[df_clas_base['EQUIPO']==eq_v].iloc[0]
-                    s_l, s_v = df_stats_base[df_stats_base['EQUIPO']==eq_l].iloc[0], df_stats_base[df_stats_base['EQUIPO']==eq_v].iloc[0]
-                    radar_labels = ["PTS", "POSS", "GF", "xG", "VICT"]
-                    radar_l = [min(d_l['PTS']*1.5, 100), float(s_l['Poss_num']), min(d_l['GF']*1.2, 100), min(float(s_l['xG_val'])*20, 100), min(d_l['G']*5, 100)]
-                    radar_v = [min(d_v['PTS']*1.5, 100), float(s_v['Poss_num']), min(d_v['GF']*1.2, 100), min(float(s_v['xG_val'])*20, 100), min(d_v['G']*5, 100)]
-                    c_rad, c_st = st.columns([1, 2])
-                    with c_rad:
-                        st.markdown(generar_radar_svg(radar_l, radar_v, radar_labels), unsafe_allow_html=True)
-                        st.markdown(f'<div style="text-align:center; font-size:10px;"><span style="color:#1ed7de">■ {eq_l}</span> <span style="color:#b59410">■ {eq_v}</span></div>', unsafe_allow_html=True)
-                    with c_st:
-                        st.markdown(f'<div style="background:#1f2937; padding:15px; border-radius:10px; border:1px solid #1ed7de44;"><div style="display:flex; justify-content:space-between; padding:5px 0;"><b>{d_l["PTS"]}</b> <span style="color:#9ca3af; font-size:0.75rem;">PUNTOS</span> <b>{d_v["PTS"]}</b></div><div style="display:flex; justify-content:space-between; padding:5px 0;"><b>{d_l["G"]}</b> <span style="color:#9ca3af; font-size:0.75rem;">VICTORIAS</span> <b>{d_v["G"]}</b></div><div style="display:flex; justify-content:space-between; padding:5px 0;"><b>{s_l["xG_val"]:.1f}</b> <span style="color:#9ca3af; font-size:0.75rem;">xG</span> <b>{s_v["xG_val"]:.1f}</b></div><div style="margin-top:10px; display:flex; justify-content:space-between;">{grafico_picos_forma(d_l["ÚLTIMOS 5"])} <span style="color:#9ca3af; font-size:0.75rem;">FORMA</span> {grafico_picos_forma(d_v["ÚLTIMOS 5"], "right")}</div></div>', unsafe_allow_html=True)
-                except: st.error("Error al comparar.")
+            if st.session_state.h2h_visible:
+                st.subheader("⚔️ Comparador H2H")
+                if df_clas_base is not None and df_stats_base is not None:
+                    equipos = sorted(df_clas_base['EQUIPO'].unique())
+                    f1, f2, f3 = st.columns([2, 2, 1])
+                    eq_l = f1.selectbox("Equipo Local", equipos, index=0)
+                    eq_v = f2.selectbox("Equipo Visitante", equipos, index=min(1, len(equipos)-1))
+                    tipo_filtro = f3.selectbox("Filtro Stats", ["Global", "Local vs Visitante"])
+                    
+                    try:
+                        d_l = df_clas_base[df_clas_base['EQUIPO'] == eq_l].iloc[0]
+                        d_v = df_clas_base[df_clas_base['EQUIPO'] == eq_v].iloc[0]
+                        s_l = df_stats_base[df_stats_base['EQUIPO'] == eq_l].iloc[0]
+                        s_v = df_stats_base[df_stats_base['EQUIPO'] == eq_v].iloc[0]
+                        
+                        p_l_val = float(s_l['Poss_num'])
+                        p_v_val = float(s_v['Poss_num'])
+                        xg_l_num = float(s_l['xG_val'])
+                        xg_v_num = float(s_v['xG_val'])
+                        
+                        radar_labels = ["PTS", "POSS", "GF", "xG", "VICT"]
+                        radar_l = [min(d_l['PTS']*1.5, 100), p_l_val, min(d_l['GF']*1.2, 100), min(xg_l_num*20, 100), min(d_l['G']*5, 100)]
+                        radar_v = [min(d_v['PTS']*1.5, 100), p_v_val, min(d_v['GF']*1.2, 100), min(xg_v_num*20, 100), min(d_v['G']*5, 100)]
+                        
+                        col_rad, col_stats = st.columns([1, 2])
+                        with col_rad:
+                            st.markdown(generar_radar_svg(radar_l, radar_v, radar_labels), unsafe_allow_html=True)
+                            st.markdown(f'<div style="text-align:center; font-size:10px;"><span style="color:#1ed7de">■ {eq_l}</span> <span style="color:#b59410">■ {eq_v}</span></div>', unsafe_allow_html=True)
 
-            # 2. BOTÓN ÍNDICE DE CONFIANZA (SMART PICK)
-            if st.button("🎯 ÍNDICE DE CONFIANZA", use_container_width=True):
-                st.session_state.confidence_op = not st.session_state.confidence_op
-            
-            if st.session_state.confidence_op and df_clas_base is not None and df_stats_base is not None:
-                st.info("Analizando tendencias, xG y Valor de Mercado...")
-                equipos = sorted(df_clas_base['EQUIPO'].unique())
-                eq_sel = st.selectbox("Selecciona equipo para ver su proyección", equipos)
-                try:
-                    stats = df_stats_base[df_stats_base['EQUIPO']==eq_sel].iloc[0]
-                    clas = df_clas_base[df_clas_base['EQUIPO']==eq_sel].iloc[0]
-                    # Algoritmo Smart Pick (Simplificado para ejemplo)
-                    score = (float(stats['xG_val']) * 0.4) + (clas['PTS']/(clas['PJ'] or 1) * 0.3) + (len(str(clas['ÚLTIMOS 5']).replace('L','')) * 0.3)
-                    conf_perc = min(int(score * 20), 100)
-                    fuegos = "🔥" * (conf_perc // 20)
-                    st.markdown(f"""
-                    <div style="background:#161b22; padding:20px; border-radius:10px; border:1px solid #b59410;">
-                        <h4 style="margin:0; color:#b59410;">{eq_sel} - Análisis de Probabilidad</h4>
-                        <div style="display:flex; align-items:center; gap:15px; margin:15px 0;">
-                            <div style="flex:1; background:#2d3139; height:12px; border-radius:6px; overflow:hidden;">
-                                <div style="width:{conf_perc}%; background:#1ed7de; height:100%;"></div>
+                        with col_stats:
+                            st.markdown(f"""
+                            <div style="background: #1f2937; padding: 20px; border-radius: 12px; border: 1px solid #1ed7de44;">
+                                <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #2d3139; padding: 10px 0;">
+                                    <span style="font-weight: bold; color: #1ed7de; width: 10%; text-align: left;">{d_l['PTS']}</span>
+                                    <span style="color: #9ca3af; font-size: 0.8rem; font-weight: bold;">PUNTOS {"(GLOBAL)" if tipo_filtro=="Global" else "(LOCAL)"}</span>
+                                    <span style="font-weight: bold; color: #1ed7de; width: 10%; text-align: right;">{d_v['PTS']}</span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #2d3139; padding: 10px 0;">
+                                    <span style="font-weight: bold; color: white; width: 10%; text-align: left;">{d_l['G']}</span>
+                                    <span style="color: #9ca3af; font-size: 0.8rem; font-weight: bold;">VICTORIAS</span>
+                                    <span style="font-weight: bold; color: white; width: 10%; text-align: right;">{d_v['G']}</span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #2d3139; padding: 10px 0;">
+                                    <span style="font-weight: bold; color: white; width: 10%; text-align: left;">{d_l['GF']}</span>
+                                    <span style="color: #9ca3af; font-size: 0.8rem; font-weight: bold;">GOLES FAVOR</span>
+                                    <span style="font-weight: bold; color: white; width: 10%; text-align: right;">{d_v['GF']}</span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #2d3139; padding: 10px 0;">
+                                    <span style="font-weight: bold; color: white; width: 10%; text-align: left;">{xg_l_num:.1f}</span>
+                                    <span style="color: #9ca3af; font-size: 0.8rem; font-weight: bold;">xG GENERADO</span>
+                                    <span style="font-weight: bold; color: white; width: 10%; text-align: right;">{xg_v_num:.1f}</span>
+                                </div>
+                                <div style="margin-top: 20px; display: flex; justify-content: space-between; align-items: center;">
+                                    <div style="flex: 1; text-align: left;">{grafico_picos_forma(d_l['ÚLTIMOS 5'], "left")}</div>
+                                    <span style="color: #9ca3af; font-size: 0.8rem; font-weight: bold; margin: 0 20px;">FORMA</span>
+                                    <div style="flex: 1; text-align: right;">{grafico_picos_forma(d_v['ÚLTIMOS 5'], "right")}</div>
+                                </div>
                             </div>
-                            <span style="font-weight:bold; color:#1ed7de;">{conf_perc}%</span>
-                        </div>
-                        <p style="font-size:0.9rem; color:#9ca3af;"><b>Confianza InsideBet:</b> {fuegos if fuegos else "🌑"}</p>
-                        <p style="font-size:0.85rem;">Basado en el dominio de xG (+{stats['xG_val']:.1f}) y rendimiento reciente.</p>
-                    </div>
-                    """, unsafe_allow_html=True)
-                except: st.warning("Datos insuficientes para el análisis de confianza.")
+                            """, unsafe_allow_html=True)
+                    except: st.warning("Datos de comparación no disponibles.")
+                st.divider()
 
-            # 3. TABLA DE CUOTAS (SIEMPRE FUERA)
+            # --- NUEVO BOTÓN: ÍNDICE DE CONFIANZA ---
+            if st.button("🎯 ÍNDICE DE CONFIANZA", use_container_width=True):
+                st.session_state.confianza_visible = not st.session_state.confianza_visible
+
+            if st.session_state.confianza_visible:
+                if df_clas_base is not None and df_stats_base is not None:
+                    st.info("Algoritmo Smart Pick: Analizando xG, Tendencias y Probabilidades.")
+                    equipos = sorted(df_clas_base['EQUIPO'].unique())
+                    eq_sel = st.selectbox("Selecciona equipo para análisis detallado", equipos)
+                    try:
+                        st_row = df_stats_base[df_stats_base['EQUIPO']==eq_sel].iloc[0]
+                        cl_row = df_clas_base[df_clas_base['EQUIPO']==eq_sel].iloc[0]
+                        
+                        # Cálculo del índice (Original completo)
+                        val_xg = float(st_row['xG_val'])
+                        val_pts = float(cl_row['PTS']) / (float(cl_row['PJ']) if cl_row['PJ'] > 0 else 1)
+                        racha = str(cl_row['ÚLTIMOS 5']).upper().count('W')
+                        
+                        score = (val_xg * 0.4) + (val_pts * 15) + (racha * 5)
+                        final_perc = min(int(score * 2), 100)
+                        fuegos = "🔥" * (final_perc // 20)
+                        
+                        st.markdown(f"""
+                        <div style="background:#161b22; padding:25px; border-radius:12px; border:1px solid #b59410; margin-bottom:20px;">
+                            <h3 style="color:#b59410; margin-top:0;">{eq_sel} - Confidence Report</h3>
+                            <div style="display:flex; align-items:center; gap:20px; margin:20px 0;">
+                                <div style="flex:1; background:#2d3139; height:15px; border-radius:8px; overflow:hidden;">
+                                    <div style="width:{final_perc}%; background:linear-gradient(90deg, #1ed7de, #b59410); height:100%;"></div>
+                                </div>
+                                <span style="font-size:1.5rem; font-weight:bold; color:#1ed7de;">{final_perc}%</span>
+                            </div>
+                            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px;">
+                                <div>
+                                    <p style="color:#9ca3af; margin:0;">Nivel de Confianza:</p>
+                                    <p style="font-size:1.2rem; margin:5px 0;">{fuegos if fuegos else "🌑"}</p>
+                                </div>
+                                <div>
+                                    <p style="color:#9ca3af; margin:0;">Factor Clave:</p>
+                                    <p style="font-size:1rem; margin:5px 0; color:white;">Dominio de xG acumulado: {val_xg:.1f}</p>
+                                </div>
+                            </div>
+                        </div>
+                        """, unsafe_allow_html=True)
+                    except: st.error("No se pudo generar el reporte de confianza para este equipo.")
+                st.divider()
+
+            # --- TABLA DE CUOTAS (SIEMPRE FUERA) ---
             st.subheader("📊 Picks & Cuotas")
             raw = obtener_cuotas_api(liga)
             df_odds = procesar_cuotas(raw, df_clas_base)
@@ -350,20 +445,43 @@ if st.session_state.liga_sel:
                             return "🔥 Over" if (float(xg_l) + float(xg_v)) > 2.7 else "🛡️ Under"
                         except: return "---"
                     df_odds['TENDENCIA'] = df_odds.apply(predecir_goles, axis=1)
+                
                 def aplicar_estilo(row):
                     m = min(row['1'], row['X'], row['2'])
                     row['1'] = badge_cuota(row['1'], row['1']==m, row['VAL_H'])
                     row['X'] = badge_cuota(row['X'], row['X']==m)
                     row['2'] = badge_cuota(row['2'], row['2']==m)
                     return row
+                
                 styler_df = df_odds.apply(aplicar_estilo, axis=1)
                 html = styler_df[['FECHA','LOCAL','VISITANTE','1','X','2','TENDENCIA']].style.hide(axis="index").to_html(escape=False)
                 st.markdown(f'<div class="table-container">{html}</div>', unsafe_allow_html=True)
                 
-                st.markdown("""<div class="leyenda-grid"><div class="leyenda-item"><div class="color-box" style="background:#b59410;"></div><span><b>Value Bet (⭐):</b> Valor Estadístico.</span></div><div class="leyenda-item"><div class="color-box" style="background:#137031;"></div><span><b>Favorito:</b> Más probable.</span></div><div class="leyenda-item"><span style="color:#1ed7de; font-weight:bold;">🔥 Over:</span><span>+2.5 Goles.</span></div><div class="leyenda-item"><span style="color:#9ca3af; font-weight:bold;">🛡️ Under:</span><span>-2.5 Goles.</span></div></div>""", unsafe_allow_html=True)
+                st.markdown("""
+                <div class="leyenda-grid">
+                    <div class="leyenda-item">
+                        <div class="color-box" style="background: #b59410;"></div>
+                        <span><b>Value Bet (⭐):</b> Cuota con valor estadístico.</span>
+                    </div>
+                    <div class="leyenda-item">
+                        <div class="color-box" style="background: #137031;"></div>
+                        <span><b>Favorito:</b> Cuota más probable de la casa.</span>
+                    </div>
+                    <div class="leyenda-item">
+                        <span style="color: #1ed7de; font-weight: bold;">🔥 Over:</span>
+                        <span>Tendencia a +2.5 goles.</span>
+                    </div>
+                    <div class="leyenda-item">
+                        <span style="color: #9ca3af; font-weight: bold;">🛡️ Under:</span>
+                        <span>Tendencia a -2.5 goles.</span>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
 
         else:
-            configs = {"clas": (f"CLASIFICACION_LIGA_{sufijo}.xlsx", "clasificacion"), "stats": (f"RESUMEN_STATS_{sufijo}.xlsx", "stats"), "fix": (f"CARTELERA_PROXIMOS_{sufijo}.xlsx", "fixture")}
+            configs = {"clas": (f"CLASIFICACION_LIGA_{sufijo}.xlsx", "clasificacion"), 
+                       "stats": (f"RESUMEN_STATS_{sufijo}.xlsx", "stats"), 
+                       "fix": (f"CARTELERA_PROXIMOS_{sufijo}.xlsx", "fixture")}
             archivo, tipo = configs[view]
             df = cargar_excel(archivo, tipo=tipo)
             if df is not None:
@@ -371,9 +489,11 @@ if st.session_state.liga_sel:
                 cols_to_drop = ['xG_val', 'Poss_num']
                 df_view = df.drop(columns=[c for c in cols_to_drop if c in df.columns])
                 busqueda = st.text_input("🔍 Filtrar por equipo...", "").strip().lower()
-                if busqueda and 'EQUIPO' in df_view.columns: df_view = df_view[df_view['EQUIPO'].str.lower().str.contains(busqueda)]
+                if busqueda and 'EQUIPO' in df_view.columns:
+                    df_view = df_view[df_view['EQUIPO'].str.lower().str.contains(busqueda)]
                 styler = df_view.style.hide(axis="index")
-                if 'PTS' in df_view.columns: styler = styler.set_properties(subset=['PTS'], **{'background-color': '#1ed7de22', 'font-weight': 'bold', 'color': '#1ed7de'})
+                if 'PTS' in df_view.columns: 
+                    styler = styler.set_properties(subset=['PTS'], **{'background-color': '#1ed7de22', 'font-weight': 'bold', 'color': '#1ed7de'})
                 st.markdown(f'<div class="table-container">{styler.to_html(escape=False)}</div>', unsafe_allow_html=True)
 
 st.write("---")
