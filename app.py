@@ -50,7 +50,7 @@ TRADUCCIONES = {
 }
 
 # ────────────────────────────────────────────────
-# FUNCIONES DE FORMATO
+# FUNCIONES DE FORMATO (Sacrosantas)
 # ────────────────────────────────────────────────
 
 def limpiar_nombre_equipo(nombre):
@@ -183,48 +183,46 @@ def procesar_cuotas(data, df_clas):
     return pd.DataFrame(rows)
 
 # ────────────────────────────────────────────────
-# ESTILOS CSS
+# ESTILOS CSS (Cian Total)
 # ────────────────────────────────────────────────
 st.markdown("""
 <style>
     .stApp { background-color: #0e1117; color: #e5e7eb; }
     
-    /* LOGO CENTRADO Y AJUSTADO */
+    /* LOGO CENTRADO */
     .main-logo-container {
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        width: 100%;
-        padding: 10px 0;
-        margin-top: -20px;
-    }
-    .main-logo-link {
-        display: flex;
-        justify-content: center;
-        width: 100%;
-        text-decoration: none;
+        display: flex; justify-content: center; align-items: center;
+        width: 100%; padding: 10px 0; margin-top: -20px;
     }
     .main-logo-img {
-        width: 50%;
-        max-width: 500px;
-        height: auto;
-        transition: transform 0.3s ease;
+        width: 45%; max-width: 450px; height: auto;
+        transition: transform 0.3s ease; cursor: pointer;
     }
-    .main-logo-img:hover {
-        transform: scale(1.03);
-        filter: brightness(1.2);
+    .main-logo-img:hover { transform: scale(1.03); filter: brightness(1.2); }
+
+    /* BOTONES CIAN (Toda la app) */
+    div.stButton > button {
+        background-color: transparent !important;
+        color: #1ed7de !important;
+        border: 2px solid #1ed7de !important;
+        font-weight: bold !important;
+        border-radius: 8px !important;
+        height: 45px !important;
+        transition: all 0.3s ease !important;
+        box-shadow: 0 0 5px rgba(30, 215, 222, 0.2) !important;
+    }
+    div.stButton > button:hover {
+        background-color: #1ed7de !important;
+        color: #0e1117 !important;
+        box-shadow: 0 0 15px rgba(30, 215, 222, 0.5) !important;
+        border-color: #1ed7de !important;
     }
 
     /* TABLAS Y CONTENEDORES */
     .table-container { 
-        width: 100%; 
-        overflow-x: auto; 
-        border: 1px solid #1ed7de44; 
-        border-radius: 8px; 
-        margin-bottom: 50px;
-        background-color: #161b22;
+        width: 100%; overflow-x: auto; border: 1px solid #1ed7de44; 
+        border-radius: 8px; margin-bottom: 50px; background-color: #161b22;
     }
-    table { width: 100%; border-collapse: collapse; }
     th { 
         position: sticky; top: 0; z-index: 100;
         background-color: #1f2937 !important; color: #1ed7de !important; 
@@ -232,43 +230,17 @@ st.markdown("""
     }
     td { padding: 12px; border: 1px solid #374151; text-align: center !important; }
     
-    /* CARTAS H2H */
     .h2h-card { 
         background: linear-gradient(135deg, #1f2937 0%, #0d1117 100%); 
-        border: 1px solid #1ed7de55; 
-        border-radius: 12px; 
-        padding: 20px; 
-        margin-bottom: 25px;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        border: 1px solid #1ed7de55; border-radius: 12px; padding: 20px; 
+        margin-bottom: 25px; box-shadow: 0 4px 15px rgba(0,0,0,0.3);
     }
-    .h2h-row { display: flex; justify-content: space-between; align-items: center; margin: 10px 0; border-bottom: 1px solid #2d3139; padding-bottom: 5px; }
     .h2h-val { font-weight: bold; font-size: 1.1rem; color: #1ed7de; }
-    .h2h-label { color: #9ca3af; font-size: 0.9rem; text-transform: uppercase; }
-
-    /* BOTONES */
-    /* Botón Competencias (Rojo) */
-    div.stButton > button:first-child { 
-        background-color: #ff1800 !important; 
-        color: white !important; 
-        border: none !important;
-    }
-
-    /* Botones de Navegación (Tono Logo) */
-    div.stHeader + div [data-testid="stHorizontalBlock"] button {
-        background-color: transparent !important;
-        color: #1ed7de !important;
-        border: 1px solid #1ed7de !important;
-        transition: 0.3s;
-    }
-    div.stHeader + div [data-testid="stHorizontalBlock"] button:hover {
-        background-color: #1ed7de22 !important;
-        border-color: white !important;
-    }
-
-    /* OTROS ELEMENTOS */
-    .bar-fill { background-color: #1ed7de; height: 100%; border-radius: 10px; }
     .header-title { color: white !important; font-size: 2rem; font-weight: bold; margin: 0; }
-    .forma-box.win { background-color: #137031; }
+    .bar-fill { background-color: #1ed7de; height: 100%; border-radius: 10px; }
+    
+    /* Forma Box colors */
+    .win { background-color: #137031; } .loss { background-color: #821f1f; } .draw { background-color: #82711f; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -276,36 +248,39 @@ st.markdown("""
 # ESTRUCTURA DE LA APP
 # ────────────────────────────────────────────────
 
-# Logo Clickable y Centrado
+# Logo Clickable (Home)
 st.markdown("""
     <div class="main-logo-container">
-        <a href="/" target="_self" class="main-logo-link">
+        <a href="/" target="_self">
             <img src="https://i.postimg.cc/SKPzCcyV/33.png" class="main-logo-img">
         </a>
     </div>
     """, unsafe_allow_html=True)
 
+# Inicialización de estados
 if "liga_sel" not in st.session_state: st.session_state.liga_sel = None
 if "vista_activa" not in st.session_state: st.session_state.vista_activa = None
 if "menu_op" not in st.session_state: st.session_state.menu_op = False
 
-# Botón principal
+# Acordeón de Competencias
 if st.button("COMPETENCIAS"):
     st.session_state.menu_op = not st.session_state.menu_op
 
 if st.session_state.menu_op:
-    sel = st.selectbox("Ligas", ["Selecciona Liga/Competencia"] + LIGAS_LISTA, label_visibility="collapsed")
+    sel = st.selectbox("Elija Liga", ["Selecciona Liga/Competencia"] + LIGAS_LISTA, label_visibility="collapsed")
     if sel != "Selecciona Liga/Competencia":
         st.session_state.liga_sel = sel
-        st.session_state.menu_op = False
+        st.session_state.menu_op = False # Se cierra al elegir
         st.session_state.vista_activa = None
         st.rerun()
 
+# Si hay una liga seleccionada
 if st.session_state.liga_sel:
     liga = st.session_state.liga_sel
-    st.markdown(f'<div class="header-container"><img src="{BANDERAS.get(liga, "")}" style="width:40px; margin-right:15px; vertical-align:middle;"><span class="header-title">{liga}</span></div>', unsafe_allow_html=True)
+    st.markdown(f'<div style="display:flex; align-items:center; margin-top:20px;"><img src="{BANDERAS.get(liga, "")}" style="width:45px; margin-right:15px;"><span class="header-title">{liga}</span></div>', unsafe_allow_html=True)
     
     st.write("")
+    # Botonera de vistas (Cian)
     col1, col2, col3, col4 = st.columns(4)
     if col1.button("Clasificación"): st.session_state.vista_activa = "clas"
     if col2.button("Stats Generales"): st.session_state.vista_activa = "stats"
@@ -331,28 +306,27 @@ if st.session_state.liga_sel:
                 try:
                     d_l = df_clas_base[df_clas_base['EQUIPO'] == eq_l].iloc[0]
                     d_v = df_clas_base[df_clas_base['EQUIPO'] == eq_v].iloc[0]
-                    
                     st.markdown(f"""
                     <div class="h2h-card">
-                        <div class="h2h-row"><span class="h2h-val">{d_l['PTS']}</span><span class="h2h-label">Puntos</span><span class="h2h-val">{d_v['PTS']}</span></div>
-                        <div class="h2h-row"><span class="h2h-val">{d_l['G']}</span><span class="h2h-label">Victorias</span><span class="h2h-val">{d_v['G']}</span></div>
-                        <div class="h2h-row"><span class="h2h-val">{d_l['GF']}</span><span class="h2h-label">Goles F.</span><span class="h2h-val">{d_v['GF']}</span></div>
+                        <div class="h2h-row"><span class="h2h-val">{d_l['PTS']}</span><span style="color:#9ca3af">Puntos</span><span class="h2h-val">{d_v['PTS']}</span></div>
+                        <div class="h2h-row"><span class="h2h-val">{d_l['G']}</span><span style="color:#9ca3af">Victorias</span><span class="h2h-val">{d_v['G']}</span></div>
+                        <div class="h2h-row"><span class="h2h-val">{d_l['GF']}</span><span style="color:#9ca3af">Goles F.</span><span class="h2h-val">{d_v['GF']}</span></div>
                     </div>
                     """, unsafe_allow_html=True)
-                except: st.warning("Datos de comparación no disponibles.")
+                except: st.warning("Datos incompletos.")
 
-            with st.spinner('Cargando mercado...'):
+            with st.spinner('Cargando cuotas...'):
                 raw = obtener_cuotas_api(liga)
                 df_odds = procesar_cuotas(raw, df_clas_base)
                 if df_odds is not None and not df_odds.empty:
                     if df_stats_base is not None:
-                        def predecir_goles(r):
+                        def pred_gol(r):
                             try:
                                 xg_l = df_stats_base[df_stats_base['EQUIPO'] == r['LOCAL']]['xG_val'].values[0]
                                 xg_v = df_stats_base[df_stats_base['EQUIPO'] == r['VISITANTE']]['xG_val'].values[0]
                                 return "🔥 Over" if (float(xg_l) + float(xg_v)) > 2.7 else "🛡️ Under"
                             except: return "---"
-                        df_odds['TENDENCIA'] = df_odds.apply(predecir_goles, axis=1)
+                        df_odds['TENDENCIA'] = df_odds.apply(pred_gol, axis=1)
 
                     def aplicar_estilo(row):
                         m = min(row['1'], row['X'], row['2'])
