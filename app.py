@@ -3,9 +3,10 @@ import pandas as pd
 import numpy as np
 import re
 import requests
-import streamlit.components.v1 as components
 
-# 1. CONFIGURACIÓN DE PÁGINA
+# ────────────────────────────────────────────────
+# CONFIGURACIÓN DE PÁGINA
+# ────────────────────────────────────────────────
 st.set_page_config(page_title="InsideBet", layout="wide")
 
 try:
@@ -48,7 +49,10 @@ TRADUCCIONES = {
     'CrdY': 'AMARILLAS', 'CrdR': 'ROJAS', 'xG': 'xG'
 }
 
-# 2. FUNCIONES DE FORMATO
+# ────────────────────────────────────────────────
+# FUNCIONES DE FORMATO
+# ────────────────────────────────────────────────
+
 def limpiar_nombre_equipo(nombre):
     if pd.isna(nombre): return nombre
     return re.sub(r'^[a-z]+\s+', '', str(nombre))
@@ -85,32 +89,47 @@ def cargar_excel(ruta_archivo, tipo="general"):
         col_equipo = 'Squad' if 'Squad' in df.columns else 'EQUIPO'
         if col_equipo in df.columns:
             df[col_equipo] = df[col_equipo].apply(limpiar_nombre_equipo)
+
         if tipo == "stats":
-            if len(df.columns) >= 17: df = df.rename(columns={df.columns[16]: 'xG'})
+            if len(df.columns) >= 17:
+                df = df.rename(columns={df.columns[16]: 'xG'})
             if 'xG' in df.columns: df['xG'] = df['xG'].apply(formatear_xg_badge)
             if 'Poss' in df.columns: df['Poss'] = df['Poss'].apply(html_barra_posesion)
             cols_ok = ['Squad', 'MP', 'Poss', 'Gls', 'Ast', 'CrdY', 'CrdR', 'xG']
             df = df[[c for c in cols_ok if c in df.columns]]
-            df = df.rename(columns=TRADUCCIONES)
+            df = df.rename(columns=TRADUCHONES)
+        
         elif tipo == "clasificacion":
             drop_c = ['Notes', 'Goalkeeper', 'Top Team Scorer', 'Attendance', 'Pts/MP', 'Pts/PJ']
-            df = df.drop(columns=[c for c in drop_c if c in df.columns]).rename(columns=TRADUCCIONES)
+            df = df.drop(columns=[c for c in drop_c if c in df.columns])
+            df = df.rename(columns=TRADUCCIONES)
             cols = list(df.columns)
             if 'EQUIPO' in cols and 'PTS' in cols:
-                cols.remove('PTS'); idx = cols.index('EQUIPO'); cols.insert(idx + 1, 'PTS'); df = df[cols]
+                cols.remove('PTS')
+                idx = cols.index('EQUIPO')
+                cols.insert(idx + 1, 'PTS')
+                df = df[cols]
+                
         elif tipo == "fixture":
-            df = df.drop(columns=[c for c in ['Day', 'Score', 'Referee', 'Match Report', 'Notes', 'Attendance', 'Wk'] if c in df.columns]).rename(columns=TRADUCCIONES)
+            drop_f = ['Day', 'Score', 'Referee', 'Match Report', 'Notes', 'Attendance', 'Wk']
+            df = df.drop(columns=[c for c in drop_f if c in df.columns])
+            df = df.rename(columns=TRADUCCIONES)
+        
         return df.dropna(how='all')
     except: return None
 
-# 3. LÓGICA DE CUOTAS
+# ────────────────────────────────────────────────
+# LÓGICA DE CUOTAS
+# ────────────────────────────────────────────────
+
 def obtener_cuotas_api(liga_nombre):
     sport_key = MAPEO_ODDS_API.get(liga_nombre)
     if not sport_key or not API_KEY: return None
     url = f"https://api.the-odds-api.com/v4/sports/{sport_key}/odds/"
     params = {'apiKey': API_KEY, 'regions': 'eu', 'markets': 'h2h', 'oddsFormat': 'decimal'}
     try:
-        res = requests.get(url, params=params); return res.json()
+        response = requests.get(url, params=params)
+        return response.json()
     except: return None
 
 def badge_cuota(val, es_minimo=False):
@@ -135,29 +154,31 @@ def procesar_cuotas(data):
         rows.append({"FECHA": commence, "LOCAL": home, "VISITANTE": away, "1": h, "X": d, "2": a})
     return pd.DataFrame(rows)
 
-# 4. CSS PARA ESTÉTICA Y PARCHE DE BRAVE
+# ────────────────────────────────────────────────
+# ESTILOS CSS (SCROLL INTERNO SEGURO)
+# ────────────────────────────────────────────────
 st.markdown("""
 <style>
     .stApp { background-color: #0e1117; color: #e5e7eb; }
     
-    /* Eliminamos el scroll interno feo y volvemos al diseño expandido */
-    .table-container { 
+    .table-scroll-container { 
         width: 100%; 
-        overflow-x: auto; 
+        max-height: 550px; 
+        overflow-y: auto !important; 
+        overflow-x: auto !important;
         border: 1px solid #374151; 
         border-radius: 8px; 
         margin-bottom: 20px;
         background-color: #1a1c23;
     }
     
-    table { width: 100%; border-collapse: collapse; }
     th { 
+        position: sticky; top: 0; z-index: 100;
         background-color: #1f2937 !important; color: white !important; 
-        padding: 12px; border: 1px solid #374151; text-align: center !important; 
+        padding: 12px; border: 1px solid #374151; 
     }
     td { padding: 12px; border: 1px solid #374151; text-align: center !important; }
     
-    /* Otros estilos */
     .header-container { display: flex; align-items: center; gap: 15px; margin: 15px 0; }
     .header-title { color: white !important; font-size: 1.8rem; font-weight: bold; margin: 0; }
     .flag-img { width: 40px; border-radius: 4px; }
@@ -166,33 +187,15 @@ st.markdown("""
     .bar-fill { background-color: #ff4b4b; height: 100%; }
     .forma-container { display: flex; justify-content: center; gap: 4px; }
     .forma-box { width: 22px; height: 22px; line-height: 22px; text-align: center; border-radius: 4px; font-weight: bold; font-size: 11px; }
-    .win { background-color: #137031; color: white; } 
-    .loss { background-color: #821f1f; color: white; } 
-    .draw { background-color: #82711f; color: white; }
+    .win { background-color: #137031; color: white; } .loss { background-color: #821f1f; color: white; } .draw { background-color: #82711f; color: white; }
     div.stButton > button { background-color: #ff1800 !important; color: white !important; font-weight: bold !important; border-radius: 8px; height: 45px; width: 100%; }
 </style>
 """, unsafe_allow_html=True)
 
-# 5. JS HACK PARA BRAVE: Obliga a recalcular la altura cada 1 segundo
-components.html(
-    """
-    <script>
-    function fixBraveScroll() {
-        const main = window.parent.document.querySelector('section.main');
-        if (main) {
-            main.style.height = 'auto';
-            window.parent.window.dispatchEvent(new Event('resize'));
-        }
-    }
-    setInterval(fixBraveScroll, 1000);
-    </script>
-    """,
-    height=0,
-)
-
-# 6. CONTENIDO
+# Logo
 st.markdown('<div style="text-align:center; margin-bottom:20px;"><img src="https://i.postimg.cc/C516P7F5/33.png" width="250"></div>', unsafe_allow_html=True)
 
+# LÓGICA DE NAVEGACIÓN
 if "liga_sel" not in st.session_state: st.session_state.liga_sel = None
 if "vista_activa" not in st.session_state: st.session_state.vista_activa = None
 if "menu_op" not in st.session_state: st.session_state.menu_op = False
@@ -228,7 +231,7 @@ if st.session_state.liga_sel:
                         row['1'], row['X'], row['2'] = badge_cuota(row['1'], row['1']==m), badge_cuota(row['X'], row['X']==m), badge_cuota(row['2'], row['2']==m)
                         return row
                     html = df_odds.apply(aplicar_b, axis=1).style.hide(axis="index").to_html(escape=False)
-                    st.markdown(f'<div class="table-container">{html}</div>', unsafe_allow_html=True)
+                    st.markdown(f'<div class="table-scroll-container">{html}</div>', unsafe_allow_html=True)
         else:
             sufijo = MAPEO_ARCHIVOS.get(liga)
             archivo, tipo = (f"CLASIFICACION_LIGA_{sufijo}.xlsx", "clasificacion") if view=="clas" else (f"RESUMEN_STATS_{sufijo}.xlsx", "stats") if view=="stats" else (f"CARTELERA_PROXIMOS_{sufijo}.xlsx", "fixture")
@@ -237,8 +240,4 @@ if st.session_state.liga_sel:
                 if 'ÚLTIMOS 5' in df.columns: df['ÚLTIMOS 5'] = df['ÚLTIMOS 5'].apply(formatear_last_5)
                 styler = df.style.hide(axis="index")
                 if 'PTS' in df.columns: styler = styler.set_properties(subset=['PTS'], **{'background-color': '#262730', 'font-weight': 'bold'})
-                st.markdown(f'<div class="table-container">{styler.to_html(escape=False)}</div>', unsafe_allow_html=True)
-
-# Espaciador final para que no quede pegado al borde
-st.write("###")
-st.write("---")
+                st.markdown(f'<div class="table-scroll-container">{styler.to_html(escape=False)}</div>', unsafe_allow_html=True)
