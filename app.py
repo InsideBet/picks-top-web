@@ -59,7 +59,6 @@ def limpiar_nombre_equipo(nombre):
     return re.sub(r'^[a-z]+\s+', '', str(nombre))
 
 def formatear_equipo_con_logo(nombre, logo_url=None):
-    # Generamos el HTML con el logo dinámico o el placeholder si no existe
     if not logo_url or pd.isna(logo_url):
         logo_url = "https://i.postimg.cc/85zX8M6v/logo-placeholder.png"
     
@@ -97,13 +96,11 @@ def formatear_last_5(valor):
 @st.cache_data(ttl=300)
 def cargar_excel(ruta_archivo, tipo="general"):
     url = f"{BASE_URL}/{ruta_archivo}"
-    # Ruta al archivo de mapeo de escudos en el REPO
     url_mapeo = f"https://raw.githubusercontent.com/{USER}/{REPO}/main/mapeo_escudos.xlsx"
     
     try:
         df = pd.read_excel(url)
         
-        # Intentamos cargar el mapeo de escudos
         try:
             df_mapeo = pd.read_excel(url_mapeo)
         except:
@@ -113,16 +110,11 @@ def cargar_excel(ruta_archivo, tipo="general"):
         
         if col_equipo in df.columns:
             df[col_equipo] = df[col_equipo].apply(limpiar_nombre_equipo)
-            
-            # Cruzamos los datos con el mapeo de escudos
             df = pd.merge(df, df_mapeo[['EQUIPO', 'LOGO_URL']], 
                           left_on=col_equipo, right_on='EQUIPO', 
                           how='left', suffixes=('', '_map'))
-            
-            # Aplicamos la función para unir Logo + Nombre en la misma celda
             df[col_equipo] = df.apply(lambda row: formatear_equipo_con_logo(row[col_equipo], row['LOGO_URL']), axis=1)
             
-            # Limpiamos columnas auxiliares del merge
             if 'EQUIPO_map' in df.columns: df.drop(columns=['EQUIPO_map'], inplace=True)
             if 'LOGO_URL' in df.columns: df.drop(columns=['LOGO_URL'], inplace=True)
 
@@ -216,11 +208,8 @@ st.markdown("""
 <style>
     .stApp { background-color: #0e1117; color: #e5e7eb; }
     .table-container { 
-        width: 100%; 
-        overflow-x: auto; 
-        border: 1px solid #374151; 
-        border-radius: 8px; 
-        margin-bottom: 50px;
+        width: 100%; overflow-x: auto; 
+        border: 1px solid #374151; border-radius: 8px; margin-bottom: 50px;
     }
     table { width: 100%; border-collapse: collapse; }
     th { 
@@ -229,7 +218,6 @@ st.markdown("""
         padding: 12px; border: 1px solid #374151; 
     }
     td { padding: 12px; border: 1px solid #374151; text-align: left !important; }
-    
     td:not(:nth-child(2)) { text-align: center !important; }
 
     .h2h-card { background: linear-gradient(135deg, #1f2937 0%, #111827 100%); border: 1px solid #374151; border-radius: 12px; padding: 20px; margin-bottom: 25px; }
@@ -343,13 +331,22 @@ if st.session_state.liga_sel:
                        "fix": (f"CARTELERA_PROXIMOS_{sufijo}.xlsx", "fixture")}
             archivo, tipo = configs[view]
             df = cargar_excel(archivo, tipo=tipo)
-            if df is not None:
-                if 'ÚLTIMOS 5' in df.columns: df['ÚLTIMOS 5'] = df['ÚLTIMOS 5'].apply(formatear_last_5)
-                if 'xG_val' in df.columns: df = df.drop(columns=['xG_val'])
+            
+            if df is not None and not df.empty:
+                if 'ÚLTIMOS 5' in df.columns: 
+                    df['ÚLTIMOS 5'] = df['ÚLTIMOS 5'].apply(formatear_last_5)
+                if 'xG_val' in df.columns: 
+                    df = df.drop(columns=['xG_val'])
                 
+                # CORRECCIÓN DE KEYERROR: Búsqueda segura de la columna de puntos
                 styler = df.style.hide(axis="index")
-                if 'PTS' in df.columns: 
-                    styler = styler.set_properties(subset=['PTS'], **{'background-color': '#262730', 'font-weight': 'bold'})
+                col_pts = next((c for c in df.columns if 'PTS' in str(c).upper()), None)
+                
+                if col_pts:
+                    styler = styler.set_properties(subset=[col_pts], **{
+                        'background-color': '#262730', 
+                        'font-weight': 'bold'
+                    })
                 
                 st.markdown(f'<div class="table-container">{styler.to_html(escape=False)}</div>', unsafe_allow_html=True)
 
@@ -360,11 +357,11 @@ if st.session_state.liga_sel:
                         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
                             <div>
                                 <span style="background-color: #137031; color: white; padding: 2px 8px; border-radius: 4px; font-weight: bold; font-size: 0.8rem;">+1.5 xG</span>
-                                <p style="font-size: 0.85rem; color: #9ca3af; margin: 5px 0;"><b>Goles Esperados:</b> Calidad de las ocasiones creadas. En verde si el equipo genera peligro constante.</p>
+                                <p style="font-size: 0.85rem; color: #9ca3af; margin: 5px 0;"><b>Goles Esperados:</b> Calidad de las ocasiones creadas.</p>
                             </div>
                             <div>
                                 <span style="background-color: #ff4b4b; color: white; padding: 2px 8px; border-radius: 4px; font-weight: bold; font-size: 0.8rem;">POSESIÓN</span>
-                                <p style="font-size: 0.85rem; color: #9ca3af; margin: 5px 0;">Control del balón promedio. Indica el estilo de dominio del equipo durante el torneo.</p>
+                                <p style="font-size: 0.85rem; color: #9ca3af; margin: 5px 0;">Control del balón promedio.</p>
                             </div>
                         </div>
                     </div>
