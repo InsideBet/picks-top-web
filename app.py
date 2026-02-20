@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 import re
 import requests
+import streamlit.components.v1 as components
 
 # 1. CONFIGURACIÓN DE PÁGINA
 st.set_page_config(page_title="InsideBet", layout="wide")
@@ -47,7 +48,7 @@ TRADUCCIONES = {
     'CrdY': 'AMARILLAS', 'CrdR': 'ROJAS', 'xG': 'xG'
 }
 
-# 2. FUNCIONES DE FORMATO (SIN CAMBIOS)
+# 2. FUNCIONES DE FORMATO
 def limpiar_nombre_equipo(nombre):
     if pd.isna(nombre): return nombre
     return re.sub(r'^[a-z]+\s+', '', str(nombre))
@@ -134,17 +135,15 @@ def procesar_cuotas(data):
         rows.append({"FECHA": commence, "LOCAL": home, "VISITANTE": away, "1": h, "X": d, "2": a})
     return pd.DataFrame(rows)
 
-# 4. CSS PARA SCROLL INTERNO (SOLUCIÓN BRAVE)
+# 4. CSS PARA ESTÉTICA Y PARCHE DE BRAVE
 st.markdown("""
 <style>
     .stApp { background-color: #0e1117; color: #e5e7eb; }
     
-    /* ESTA ES LA CLAVE: Altura fija y scroll obligatorio para la tabla */
-    .table-scroll-container { 
+    /* Eliminamos el scroll interno feo y volvemos al diseño expandido */
+    .table-container { 
         width: 100%; 
-        max-height: 650px; /* Altura máxima para que Brave no bloquee */
-        overflow-y: auto !important; 
-        overflow-x: auto !important;
+        overflow-x: auto; 
         border: 1px solid #374151; 
         border-radius: 8px; 
         margin-bottom: 20px;
@@ -153,12 +152,12 @@ st.markdown("""
     
     table { width: 100%; border-collapse: collapse; }
     th { 
-        position: sticky; top: 0; z-index: 100;
         background-color: #1f2937 !important; color: white !important; 
-        padding: 12px; border: 1px solid #374151; 
+        padding: 12px; border: 1px solid #374151; text-align: center !important; 
     }
     td { padding: 12px; border: 1px solid #374151; text-align: center !important; }
     
+    /* Otros estilos */
     .header-container { display: flex; align-items: center; gap: 15px; margin: 15px 0; }
     .header-title { color: white !important; font-size: 1.8rem; font-weight: bold; margin: 0; }
     .flag-img { width: 40px; border-radius: 4px; }
@@ -174,7 +173,24 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# 5. CONTENIDO PRINCIPAL
+# 5. JS HACK PARA BRAVE: Obliga a recalcular la altura cada 1 segundo
+components.html(
+    """
+    <script>
+    function fixBraveScroll() {
+        const main = window.parent.document.querySelector('section.main');
+        if (main) {
+            main.style.height = 'auto';
+            window.parent.window.dispatchEvent(new Event('resize'));
+        }
+    }
+    setInterval(fixBraveScroll, 1000);
+    </script>
+    """,
+    height=0,
+)
+
+# 6. CONTENIDO
 st.markdown('<div style="text-align:center; margin-bottom:20px;"><img src="https://i.postimg.cc/C516P7F5/33.png" width="250"></div>', unsafe_allow_html=True)
 
 if "liga_sel" not in st.session_state: st.session_state.liga_sel = None
@@ -212,8 +228,7 @@ if st.session_state.liga_sel:
                         row['1'], row['X'], row['2'] = badge_cuota(row['1'], row['1']==m), badge_cuota(row['X'], row['X']==m), badge_cuota(row['2'], row['2']==m)
                         return row
                     html = df_odds.apply(aplicar_b, axis=1).style.hide(axis="index").to_html(escape=False)
-                    # ENCAPSULADO CON SCROLL INTERNO
-                    st.markdown(f'<div class="table-scroll-container">{html}</div>', unsafe_allow_html=True)
+                    st.markdown(f'<div class="table-container">{html}</div>', unsafe_allow_html=True)
         else:
             sufijo = MAPEO_ARCHIVOS.get(liga)
             archivo, tipo = (f"CLASIFICACION_LIGA_{sufijo}.xlsx", "clasificacion") if view=="clas" else (f"RESUMEN_STATS_{sufijo}.xlsx", "stats") if view=="stats" else (f"CARTELERA_PROXIMOS_{sufijo}.xlsx", "fixture")
@@ -222,5 +237,8 @@ if st.session_state.liga_sel:
                 if 'ÚLTIMOS 5' in df.columns: df['ÚLTIMOS 5'] = df['ÚLTIMOS 5'].apply(formatear_last_5)
                 styler = df.style.hide(axis="index")
                 if 'PTS' in df.columns: styler = styler.set_properties(subset=['PTS'], **{'background-color': '#262730', 'font-weight': 'bold'})
-                # ENCAPSULADO CON SCROLL INTERNO
-                st.markdown(f'<div class="table-scroll-container">{styler.to_html(escape=False)}</div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="table-container">{styler.to_html(escape=False)}</div>', unsafe_allow_html=True)
+
+# Espaciador final para que no quede pegado al borde
+st.write("###")
+st.write("---")
