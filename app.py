@@ -87,13 +87,16 @@ def cargar_excel(ruta_archivo, tipo="general"):
     url = f"{BASE_URL}/{ruta_archivo}"
     try:
         df = pd.read_excel(url)
+        # Limpieza inicial de nans para evitar que "contaminen" la tabla
+        df = df.replace(np.nan, '', regex=True)
+
         if 'Squad' in df.columns:
             df['Squad'] = df['Squad'].apply(limpiar_nombre_equipo)
 
         if tipo == "stats":
             if len(df.columns) >= 17:
                 df = df.rename(columns={df.columns[16]: 'xG'})
-            df['xG_val'] = df['xG'].fillna(0)
+            df['xG_val'] = pd.to_numeric(df['xG'], errors='coerce').fillna(0)
             if 'xG' in df.columns: df['xG'] = df['xG'].apply(formatear_xg_badge)
             if 'Poss' in df.columns: df['Poss'] = df['Poss'].apply(html_barra_posesion)
             cols_ok = ['Squad', 'MP', 'Poss', 'Gls', 'Ast', 'CrdY', 'CrdR', 'xG', 'xG_val']
@@ -115,10 +118,11 @@ def cargar_excel(ruta_archivo, tipo="general"):
             drop_f = ['Day', 'Score', 'Referee', 'Match Report', 'Notes', 'Attendance', 'Wk']
             df = df.drop(columns=[c for c in drop_f if c in df.columns])
             df = df.rename(columns=TRADUCCIONES)
-            # 2) CORRECCIÓN DE NaN EN HORA
+            # Reemplazo seguro para HORA y FECHA
             if 'HORA' in df.columns:
-                df['HORA'] = df['HORA'].fillna('Por definir')
-                df['HORA'] = df['HORA'].replace('nan', 'Por definir')
+                df['HORA'] = df['HORA'].apply(lambda x: 'Por definir' if str(x).strip() == '' or str(x).lower() == 'nan' else x)
+            if 'FECHA' in df.columns:
+                df['FECHA'] = df['FECHA'].apply(lambda x: 'TBD' if str(x).strip() == '' or str(x).lower() == 'nan' else x)
         
         return df.dropna(how='all')
     except: return None
@@ -170,13 +174,11 @@ def procesar_cuotas(data, df_clas):
     return pd.DataFrame(rows)
 
 # ────────────────────────────────────────────────
-# ESTILOS CSS (MEJORADO PARA MÓVILES)
+# ESTILOS CSS
 # ────────────────────────────────────────────────
 st.markdown("""
 <style>
     .stApp { background-color: #0e1117; color: #e5e7eb; }
-    
-    /* 1) AJUSTE DE ANCHO DE TABLAS */
     .table-container { 
         width: 100% !important; 
         overflow-x: auto !important; 
@@ -184,26 +186,17 @@ st.markdown("""
         border-radius: 8px; 
         margin-bottom: 50px;
     }
-    
-    table { 
-        width: 100% !important; 
-        border-collapse: collapse; 
-        font-size: 0.9rem; /* Un poco más pequeño para que quepa más */
-    }
-    
-    /* Forzar que las columnas se ajusten al contenido en móviles */
+    table { width: 100% !important; border-collapse: collapse; }
     @media screen and (max-width: 768px) {
-        table { font-size: 0.75rem; }
-        td, th { padding: 6px !important; }
+        table { font-size: 0.8rem; }
+        td, th { padding: 8px !important; }
     }
-
     th { 
         position: sticky; top: 0; z-index: 100;
         background-color: #1f2937 !important; color: white !important; 
         padding: 12px; border: 1px solid #374151; 
     }
     td { padding: 12px; border: 1px solid #374151; text-align: left !important; }
-    
     td:not(:nth-child(2)) { text-align: center !important; }
 
     .h2h-card { background: linear-gradient(135deg, #1f2937 0%, #111827 100%); border: 1px solid #374151; border-radius: 12px; padding: 20px; margin-bottom: 25px; }
@@ -250,10 +243,10 @@ if st.session_state.liga_sel:
     st.markdown(f'<div class="header-container"><img src="{BANDERAS.get(liga, "")}" class="flag-img"><h1 class="header-title">{liga}</h1></div>', unsafe_allow_html=True)
     
     col1, col2, col3, col4 = st.columns(4)
-    if col1.button("Clasificación"): st.session_state.vista_activa = "clas" if st.session_state.vista_activa != "clas" else None
-    if col2.button("Stats Generales"): st.session_state.vista_activa = "stats" if st.session_state.vista_activa != "stats" else None
-    if col3.button("Ver Fixture"): st.session_state.vista_activa = "fix" if st.session_state.vista_activa != "fix" else None
-    if col4.button("Picks & Cuotas"): st.session_state.vista_activa = "odds" if st.session_state.vista_activa != "odds" else None
+    if col1.button("Clasificación"): st.session_state.vista_activa = "clas"
+    if col2.button("Stats Generales"): st.session_state.vista_activa = "stats"
+    if col3.button("Ver Fixture"): st.session_state.vista_activa = "fix"
+    if col4.button("Picks & Cuotas"): st.session_state.vista_activa = "odds"
 
     st.divider()
 
