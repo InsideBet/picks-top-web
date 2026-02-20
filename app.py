@@ -50,7 +50,7 @@ TRADUCCIONES = {
 }
 
 # ────────────────────────────────────────────────
-# FUNCIONES DE FORMATO
+# FUNCIONES DE FORMATO (NO SIMPLIFICADAS)
 # ────────────────────────────────────────────────
 
 def limpiar_nombre_equipo(nombre):
@@ -155,33 +155,34 @@ def procesar_cuotas(data):
     return pd.DataFrame(rows)
 
 # ────────────────────────────────────────────────
-# ESTILOS CSS (RE-ESTRUCTURACIÓN DE SCROLL)
+# ESTILOS CSS (PARCHE FINAL BRAVE/CHROME)
 # ────────────────────────────────────────────────
 st.markdown("""
 <style>
-    /* RESET DE CONTENEDORES DE STREAMLIT */
-    /* Forzamos al contenedor principal a permitir desbordamiento */
+    /* PARCHE NIVEL 2: FORZAR SCROLL DE NAVEGADOR */
+    html {
+        overflow-y: scroll !important; /* Fuerza la barra lateral siempre */
+    }
+
+    body, [data-testid="stAppViewContainer"], [data-testid="stMainViewContainer"] {
+        overflow: visible !important;
+        height: auto !important;
+        position: relative !important;
+    }
+
     .main .block-container {
         max-width: 95% !important;
         padding-top: 2rem !important;
         overflow: visible !important;
     }
-    
-    [data-testid="stAppViewContainer"] {
-        overflow: visible !important;
-    }
 
-    [data-testid="stMainViewContainer"] {
-        overflow: visible !important;
-    }
-
-    /* ESTILO DE TABLAS */
+    /* ESTILO DE TABLA */
     .stApp { background-color: #0e1117; color: #e5e7eb; }
     
     .table-container { 
         width: 100%; 
-        overflow-x: auto; /* Scroll horizontal si la tabla es muy ancha */
-        overflow-y: visible; /* IMPORTANTE: Dejamos que el scroll vertical lo maneje la web */
+        overflow-x: auto; 
+        overflow-y: visible !important;
         border: 1px solid #374151; 
         border-radius: 8px; 
         margin-bottom: 50px;
@@ -201,7 +202,7 @@ st.markdown("""
     
     td { padding: 12px; border: 1px solid #374151; text-align: center !important; }
     
-    /* OTROS ESTILOS */
+    /* ELEMENTOS VISUALES */
     .header-container { display: flex; align-items: center; justify-content: flex-start; gap: 15px; margin: 20px 0; padding-left: 10px; }
     .header-title { color: white !important; font-size: 2rem; font-weight: bold; margin: 0; }
     .flag-img { width: 45px; height: auto; border-radius: 4px; }
@@ -216,10 +217,13 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Logo Principal
+# Logo
 st.markdown('<div style="text-align:center; margin-bottom:20px;"><img src="https://i.postimg.cc/C516P7F5/33.png" width="300"></div>', unsafe_allow_html=True)
 
-# LÓGICA DE NAVEGACIÓN
+# ────────────────────────────────────────────────
+# LÓGICA DE ESTADO
+# ────────────────────────────────────────────────
+
 if "liga_sel" not in st.session_state: st.session_state.liga_sel = None
 if "vista_activa" not in st.session_state: st.session_state.vista_activa = None
 if "menu_op" not in st.session_state: st.session_state.menu_op = False
@@ -235,13 +239,14 @@ if st.session_state.menu_op:
         st.session_state.vista_activa = None
         st.rerun()
 
-# CUERPO DE LA APP
+# CUERPO
 if st.session_state.liga_sel:
     liga = st.session_state.liga_sel
     st.markdown(f'<div class="header-container"><img src="{BANDERAS.get(liga, "")}" class="flag-img"><h1 class="header-title">{liga}</h1></div>', unsafe_allow_html=True)
     
     col1, col2, col3, col4 = st.columns(4)
     
+    # Acordeón
     if col1.button("Clasificación"):
         st.session_state.vista_activa = "clas" if st.session_state.vista_activa != "clas" else None
     if col2.button("Stats Generales"):
@@ -256,7 +261,7 @@ if st.session_state.liga_sel:
     view = st.session_state.vista_activa
     if view:
         if view == "odds":
-            with st.spinner('Cargando mercado...'):
+            with st.spinner('Scrapeo de cuotas...'):
                 raw = obtener_cuotas_api(liga)
                 df_odds = procesar_cuotas(raw)
                 if df_odds is not None and not df_odds.empty:
