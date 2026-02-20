@@ -84,31 +84,31 @@ def html_barra_posesion(valor):
     except: return valor
 
 def grafico_picos_forma(valor, alineacion="left"):
-    """Genera un gráfico SVG de picos que ocupa el 100% del ancho disponible"""
+    """Genera un gráfico SVG de picos con puntos pequeños y elegantes"""
     if pd.isna(valor) or valor == "": return ""
     letras = list(str(valor).upper().replace(" ", ""))[:5]
     if not letras: return ""
     
-    mapeo_y = {'W': 4, 'D': 11, 'L': 18}
+    # Ajuste de coordenadas para un look más estilizado
+    mapeo_y = {'W': 5, 'D': 12, 'L': 19}
     colores_puntos = {'W': '#137031', 'D': '#b59410', 'L': '#821f1f'}
     
     puntos_coords = []
     puntos_svg = []
     
-    # x va de 5 a 95 para asegurar que los puntos de los extremos no se corten
     for i, l in enumerate(letras):
-        x = 5 + (i * 22.5) 
-        y = mapeo_y.get(l, 11)
+        x = 10 + (i * 20) 
+        y = mapeo_y.get(l, 12)
         puntos_coords.append(f"{x},{y}")
-        puntos_svg.append(f'<circle cx="{x}" cy="{y}" r="3.5" fill="{colores_puntos.get(l, "#4b5563")}" stroke="#0e1117" stroke-width="0.5" />')
+        # Radio reducido a 2.5 para elegancia y stroke fino
+        puntos_svg.append(f'<circle cx="{x}" cy="{y}" r="2.5" fill="{colores_puntos.get(l, "#4b5563")}" stroke="#0e1117" stroke-width="0.8" />')
     
     path_d = "M " + " L ".join(puntos_coords)
     
-    # Usamos preserveAspectRatio="none" y width="100%" para que estire al contenedor
     svg = f'''
-    <div style="width: 100%; height: 30px; display: flex; align-items: center;">
-        <svg width="100%" height="22" viewBox="0 0 100 22" preserveAspectRatio="none">
-            <path d="{path_d}" fill="none" stroke="#1ed7de" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.5" />
+    <div style="width: 100%; height: 30px; display: flex; align-items: center; justify-content: {'flex-start' if alineacion=='left' else 'flex-end'};">
+        <svg width="100px" height="24" viewBox="0 0 100 24" preserveAspectRatio="xMinYMid meet">
+            <path d="{path_d}" fill="none" stroke="#1ed7de" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" opacity="0.4" />
             {''.join(puntos_svg)}
         </svg>
     </div>
