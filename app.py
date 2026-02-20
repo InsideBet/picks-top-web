@@ -50,7 +50,7 @@ TRADUCCIONES = {
 }
 
 # ────────────────────────────────────────────────
-# FUNCIONES DE FORMATO
+# FUNCIONES DE FORMATO (Recuperadas y Protegidas)
 # ────────────────────────────────────────────────
 
 def limpiar_nombre_equipo(nombre):
@@ -78,10 +78,10 @@ def formatear_last_5(valor):
     if pd.isna(valor): return ""
     trad = {'W': 'G', 'L': 'P', 'D': 'E'}
     letras = list(str(valor).upper().replace(" ", ""))[:5]
-    html_str = '<div class="forma-container">'
+    html_str = '<div style="display: flex; gap: 4px; justify-content: center;">'
     for l in letras:
-        clase = "win" if l == 'W' else "loss" if l == 'L' else "draw" if l == 'D' else ""
-        html_str += f'<span class="forma-box {clase}">{trad.get(l, l)}</span>'
+        bg = "#137031" if l == 'W' else "#821f1f" if l == 'L' else "#82711f"
+        html_str += f'<span style="background-color: {bg}; color: white; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: bold; min-width: 18px; text-align: center;">{trad.get(l, l)}</span>'
     return html_str + '</div>'
 
 @st.cache_data(ttl=300)
@@ -183,47 +183,46 @@ def procesar_cuotas(data, df_clas):
     return pd.DataFrame(rows)
 
 # ────────────────────────────────────────────────
-# ESTILOS CSS
+# ESTILOS CSS (Aislando el Cian)
 # ────────────────────────────────────────────────
 st.markdown("""
 <style>
     .stApp { background-color: #0e1117; color: #e5e7eb; }
     
-    /* LOGO CENTRADO */
+    /* LOGO COMPLETAMENTE CENTRADO */
+    [data-testid="stHeader"] { background: rgba(0,0,0,0); }
     .main-logo-container {
         display: flex;
         justify-content: center;
         align-items: center;
         width: 100%;
-        margin-top: -30px;
-        padding-bottom: 20px;
+        margin: -40px 0 20px 0;
     }
     .main-logo-img {
         width: 50%;
-        max-width: 480px;
+        max-width: 500px;
         height: auto;
     }
 
-    /* BOTONES GLOBALES CIAN */
-    /* Botón Competencias y otros botones de acción */
-    div.stButton > button {
+    /* BOTONES CIAN (Sin romper el acordeón) */
+    /* Estilo para todos los botones de Streamlit */
+    button[kind="secondary"] {
         background-color: transparent !important;
         color: #1ed7de !important;
-        border: 2px solid #1ed7de !important;
+        border: 1px solid #1ed7de !important;
         font-weight: bold !important;
-        transition: 0.3s ease;
-        width: 100%;
+        border-radius: 8px !important;
+        transition: 0.3s !important;
     }
-    div.stButton > button:hover {
+    button[kind="secondary"]:hover {
         background-color: #1ed7de22 !important;
-        border-color: white !important;
+        border-color: #ffffff !important;
         color: white !important;
     }
 
-    /* Ajuste específico para el borde del selector (Input) al abrir el acordeón */
+    /* Selector de Ligas (Ajuste de borde cian) */
     div[data-baseweb="select"] > div {
         border-color: #1ed7de !important;
-        background-color: #161b22 !important;
     }
 
     /* TABLAS Y CONTENEDORES */
@@ -242,23 +241,8 @@ st.markdown("""
     }
     td { padding: 12px; border: 1px solid #374151; text-align: center !important; }
     
-    /* CARTAS H2H */
-    .h2h-card { 
-        background: linear-gradient(135deg, #1f2937 0%, #0d1117 100%); 
-        border: 1px solid #1ed7de55; 
-        border-radius: 12px; 
-        padding: 20px; 
-        margin-bottom: 25px;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-    }
-    .h2h-row { display: flex; justify-content: space-between; align-items: center; margin: 10px 0; border-bottom: 1px solid #2d3139; padding-bottom: 5px; }
-    .h2h-val { font-weight: bold; font-size: 1.1rem; color: #1ed7de; }
-    .h2h-label { color: #9ca3af; font-size: 0.9rem; text-transform: uppercase; }
-
-    /* OTROS ELEMENTOS */
     .bar-fill { background-color: #1ed7de; height: 100%; border-radius: 10px; }
-    .header-title { color: white !important; font-size: 2rem; font-weight: bold; margin: 0; }
-    .forma-box.win { background-color: #137031; }
+    .header-title { color: white !important; font-size: 2.2rem; font-weight: bold; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -275,34 +259,33 @@ st.markdown(f"""
     </div>
     """, unsafe_allow_html=True)
 
-# Estado del acordeón y navegación
+# Lógica de estados para el Acordeón
 if "liga_sel" not in st.session_state: st.session_state.liga_sel = None
 if "vista_activa" not in st.session_state: st.session_state.vista_activa = None
-if "menu_op" not in st.session_state: st.session_state.menu_op = False
 
-# Acordeón de Competencias
-if st.button("COMPETENCIAS"):
-    st.session_state.menu_op = not st.session_state.menu_op
-
-if st.session_state.menu_op:
-    sel = st.selectbox("Elija la Liga", ["Selecciona Liga/Competencia"] + LIGAS_LISTA, label_visibility="collapsed")
-    if sel != "Selecciona Liga/Competencia":
+# Componente expansivo nativo de Streamlit (Garantiza el funcionamiento del acordeón)
+with st.expander("⚽ COMPETENCIAS", expanded=False):
+    sel = st.selectbox("Selecciona una liga para analizar:", ["---"] + LIGAS_LISTA)
+    if sel != "---":
         st.session_state.liga_sel = sel
-        st.session_state.menu_op = False
-        st.session_state.vista_activa = None
-        st.rerun()
+        st.session_state.vista_activa = "clas" # Default al cambiar liga
 
-# Contenido de la Liga seleccionada
+# Contenido si hay liga seleccionada
 if st.session_state.liga_sel:
     liga = st.session_state.liga_sel
-    st.markdown(f'<div style="display:flex; align-items:center; margin-top:10px;"><img src="{BANDERAS.get(liga, "")}" style="width:40px; margin-right:15px;"><span class="header-title">{liga}</span></div>', unsafe_allow_html=True)
+    st.markdown(f'''
+        <div style="display:flex; align-items:center; margin: 20px 0;">
+            <img src="{BANDERAS.get(liga, "")}" style="width:45px; margin-right:20px;">
+            <span class="header-title">{liga}</span>
+        </div>
+    ''', unsafe_allow_html=True)
     
-    st.write("")
+    # Navegación de Vistas
     col1, col2, col3, col4 = st.columns(4)
-    if col1.button("Clasificación"): st.session_state.vista_activa = "clas"
-    if col2.button("Stats Generales"): st.session_state.vista_activa = "stats"
-    if col3.button("Ver Fixture"): st.session_state.vista_activa = "fix"
-    if col4.button("Picks & Cuotas"): st.session_state.vista_activa = "odds"
+    if col1.button("Clasificación", use_container_width=True): st.session_state.vista_activa = "clas"
+    if col2.button("Stats Generales", use_container_width=True): st.session_state.vista_activa = "stats"
+    if col3.button("Ver Fixture", use_container_width=True): st.session_state.vista_activa = "fix"
+    if col4.button("Picks & Cuotas", use_container_width=True): st.session_state.vista_activa = "odds"
 
     st.divider()
 
@@ -313,7 +296,7 @@ if st.session_state.liga_sel:
         df_stats_base = cargar_excel(f"RESUMEN_STATS_{sufijo}.xlsx", "stats")
 
         if view == "odds":
-            st.subheader("⚔️ Comparador H2H")
+            st.subheader("⚔️ Comparador H2H & Mercado")
             if df_clas_base is not None:
                 equipos = sorted(df_clas_base['EQUIPO'].unique())
                 col_h1, col_h2 = st.columns(2)
@@ -325,26 +308,27 @@ if st.session_state.liga_sel:
                     d_v = df_clas_base[df_clas_base['EQUIPO'] == eq_v].iloc[0]
                     
                     st.markdown(f"""
-                    <div class="h2h-card">
-                        <div class="h2h-row"><span class="h2h-val">{d_l['PTS']}</span><span class="h2h-label">Puntos</span><span class="h2h-val">{d_v['PTS']}</span></div>
-                        <div class="h2h-row"><span class="h2h-val">{d_l['G']}</span><span class="h2h-label">Victorias</span><span class="h2h-val">{d_v['G']}</span></div>
-                        <div class="h2h-row"><span class="h2h-val">{d_l['GF']}</span><span class="h2h-label">Goles F.</span><span class="h2h-val">{d_v['GF']}</span></div>
+                    <div style="background: #1f2937; padding: 20px; border-radius: 12px; border: 1px solid #1ed7de44;">
+                        <table style="width:100%; color: white;">
+                            <tr><th>{eq_l}</th><th>VS</th><th>{eq_v}</th></tr>
+                            <tr><td>{d_l['PTS']} PTS</td><td>Puntos</td><td>{d_v['PTS']} PTS</td></tr>
+                            <tr><td>{d_l['G']}</td><td>Victorias</td><td>{d_v['G']}</td></tr>
+                        </table>
                     </div>
                     """, unsafe_allow_html=True)
-                except: st.warning("Datos de comparación no disponibles.")
+                except: pass
 
-            with st.spinner('Cargando mercado...'):
+            with st.spinner('Actualizando Cuotas...'):
                 raw = obtener_cuotas_api(liga)
                 df_odds = procesar_cuotas(raw, df_clas_base)
                 if df_odds is not None and not df_odds.empty:
                     if df_stats_base is not None:
-                        def predecir_goles(r):
+                        def predecir(r):
                             try:
-                                xg_l = df_stats_base[df_stats_base['EQUIPO'] == r['LOCAL']]['xG_val'].values[0]
-                                xg_v = df_stats_base[df_stats_base['EQUIPO'] == r['VISITANTE']]['xG_val'].values[0]
-                                return "🔥 Over" if (float(xg_l) + float(xg_v)) > 2.7 else "🛡️ Under"
+                                sum_xg = df_stats_base[df_stats_base['EQUIPO'] == r['LOCAL']]['xG_val'].values[0] + df_stats_base[df_stats_base['EQUIPO'] == r['VISITANTE']]['xG_val'].values[0]
+                                return "🔥 Over" if sum_xg > 2.7 else "🛡️ Under"
                             except: return "---"
-                        df_odds['TENDENCIA'] = df_odds.apply(predecir_goles, axis=1)
+                        df_odds['TENDENCIA'] = df_odds.apply(predecir, axis=1)
 
                     def aplicar_estilo(row):
                         m = min(row['1'], row['X'], row['2'])
@@ -358,16 +342,25 @@ if st.session_state.liga_sel:
                     st.markdown(f'<div class="table-container">{html}</div>', unsafe_allow_html=True)
 
         else:
+            # Vistas de Tablas (Clasificación, Stats, Fixture)
             configs = {"clas": (f"CLASIFICACION_LIGA_{sufijo}.xlsx", "clasificacion"), 
                        "stats": (f"RESUMEN_STATS_{sufijo}.xlsx", "stats"), 
                        "fix": (f"CARTELERA_PROXIMOS_{sufijo}.xlsx", "fixture")}
             archivo, tipo = configs[view]
             df = cargar_excel(archivo, tipo=tipo)
+            
             if df is not None:
-                if 'ÚLTIMOS 5' in df.columns: df['ÚLTIMOS 5'] = df['ÚLTIMOS 5'].apply(formatear_last_5)
+                # REPARACIÓN DE COLUMNA "ÚLTIMOS 5"
+                col_forma = 'ÚLTIMOS 5' if 'ÚLTIMOS 5' in df.columns else 'Last 5'
+                if col_forma in df.columns:
+                    df[col_forma] = df[col_forma].apply(formatear_last_5)
+                
                 if 'xG_val' in df.columns: df = df.drop(columns=['xG_val'])
+                
                 styler = df.style.hide(axis="index")
-                if 'PTS' in df.columns: styler = styler.set_properties(subset=['PTS'], **{'background-color': '#1ed7de22', 'font-weight': 'bold', 'color': '#1ed7de'})
+                if 'PTS' in df.columns:
+                    styler = styler.set_properties(subset=['PTS'], **{'background-color': '#1ed7de22', 'font-weight': 'bold', 'color': '#1ed7de'})
+                
                 st.markdown(f'<div class="table-container">{styler.to_html(escape=False)}</div>', unsafe_allow_html=True)
 
 st.write("---")
