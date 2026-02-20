@@ -189,18 +189,16 @@ st.markdown("""
 <style>
     .stApp { background-color: #0e1117; color: #e5e7eb; }
     
-    /* LOGO CENTRADO */
+    /* LOGO REALMENTE CENTRADO */
     .main-logo-container {
-        display: flex;
-        justify-content: center;
-        align-items: center;
+        text-align: center;
         width: 100%;
         padding: 20px 0;
     }
     .main-logo-img {
         width: 50%;
         max-width: 500px;
-        height: auto;
+        margin: 0 auto;
     }
 
     /* TABLAS Y CONTENEDORES */
@@ -220,23 +218,23 @@ st.markdown("""
     }
     td { padding: 12px; border: 1px solid #374151; text-align: center !important; }
 
-    /* BOTONES UNIFICADOS A CIAN */
-    /* Botón Competencias */
-    div.stButton > button:first-child { 
+    /* BOTONES CIAN UNIFICADOS */
+    div.stButton > button { 
+        background-color: transparent !important; 
+        color: #1ed7de !important; 
+        border: 1px solid #1ed7de !important;
+        font-weight: bold !important;
+        transition: 0.3s;
+    }
+    div.stButton > button:hover {
+        background-color: #1ed7de22 !important;
+    }
+
+    /* BOTÓN COMPETENCIAS (CIAN SÓLIDO) */
+    .stButton > button[kind="secondary"]:first-child { 
         background-color: #1ed7de !important; 
         color: #0e1117 !important; 
         border: none !important;
-        font-weight: bold !important;
-    }
-
-    /* Botones Navegación */
-    [data-testid="stHorizontalBlock"] button {
-        background-color: transparent !important;
-        color: #1ed7de !important;
-        border: 1px solid #1ed7de !important;
-    }
-    [data-testid="stHorizontalBlock"] button:hover {
-        background-color: #1ed7de22 !important;
     }
 
     /* TRAZO CIAN SELECTOR */
@@ -244,13 +242,15 @@ st.markdown("""
         border: 1px solid #1ed7de !important;
     }
 
-    /* ALINEACION BANDERA */
+    /* ALINEACION TITULO Y BANDERA */
     .header-container {
         display: flex;
         align-items: center;
+        justify-content: flex-start;
         gap: 15px;
+        margin: 25px 0;
     }
-    .header-title { color: white !important; font-size: 2rem; font-weight: bold; margin: 0; }
+    .header-title { color: white !important; font-size: 2rem; font-weight: bold; margin: 0; line-height: 1; }
 
     .bar-fill { background-color: #1ed7de; height: 100%; border-radius: 10px; }
 </style>
@@ -260,12 +260,9 @@ st.markdown("""
 # ESTRUCTURA DE LA APP
 # ────────────────────────────────────────────────
 
-# Logo centrado
 st.markdown("""
     <div class="main-logo-container">
-        <a href="/" target="_self">
-            <img src="https://i.postimg.cc/SKPzCcyV/33.png" class="main-logo-img">
-        </a>
+        <img src="https://i.postimg.cc/SKPzCcyV/33.png" class="main-logo-img">
     </div>
     """, unsafe_allow_html=True)
 
@@ -273,8 +270,8 @@ if "liga_sel" not in st.session_state: st.session_state.liga_sel = None
 if "vista_activa" not in st.session_state: st.session_state.vista_activa = None
 if "menu_op" not in st.session_state: st.session_state.menu_op = False
 
-# Botón principal Cian
-if st.button("COMPETENCIAS"):
+# Botón principal
+if st.button("COMPETENCIAS", use_container_width=True):
     st.session_state.menu_op = not st.session_state.menu_op
 
 if st.session_state.menu_op:
@@ -294,20 +291,20 @@ if st.session_state.liga_sel:
         </div>
     ''', unsafe_allow_html=True)
     
-    st.write("")
     col1, col2, col3, col4 = st.columns(4)
-    # Acordeón corregido con rerun para cambio de vista
-    if col1.button("Clasificación"): 
-        st.session_state.vista_activa = "clas"
+    
+    # Lógica de Acordeón: Al pulsar el activo, se cierra (setea a None)
+    if col1.button("Clasificación", use_container_width=True): 
+        st.session_state.vista_activa = "clas" if st.session_state.vista_activa != "clas" else None
         st.rerun()
-    if col2.button("Stats Generales"): 
-        st.session_state.vista_activa = "stats"
+    if col2.button("Stats Generales", use_container_width=True): 
+        st.session_state.vista_activa = "stats" if st.session_state.vista_activa != "stats" else None
         st.rerun()
-    if col3.button("Ver Fixture"): 
-        st.session_state.vista_activa = "fix"
+    if col3.button("Ver Fixture", use_container_width=True): 
+        st.session_state.vista_activa = "fix" if st.session_state.vista_activa != "fix" else None
         st.rerun()
-    if col4.button("Picks & Cuotas"): 
-        st.session_state.vista_activa = "odds"
+    if col4.button("Picks & Cuotas", use_container_width=True): 
+        st.session_state.vista_activa = "odds" if st.session_state.vista_activa != "odds" else None
         st.rerun()
 
     st.divider()
@@ -332,38 +329,47 @@ if st.session_state.liga_sel:
                     
                     st.markdown(f"""
                     <div style="background: #1f2937; padding: 20px; border-radius: 12px; border: 1px solid #1ed7de44;">
-                        <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #2d3139; padding-bottom: 10px;">
+                        <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #2d3139; padding: 10px 0;">
                             <span style="font-weight: bold; color: #1ed7de;">{d_l['PTS']}</span>
-                            <span style="color: #9ca3af;">Puntos</span>
+                            <span style="color: #9ca3af;">PUNTOS</span>
                             <span style="font-weight: bold; color: #1ed7de;">{d_v['PTS']}</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #2d3139; padding: 10px 0;">
+                            <span style="font-weight: bold; color: white;">{d_l['G']}</span>
+                            <span style="color: #9ca3af;">VICTORIAS</span>
+                            <span style="font-weight: bold; color: white;">{d_v['G']}</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; padding: 10px 0;">
+                            <span style="font-weight: bold; color: white;">{d_l['GF']}</span>
+                            <span style="color: #9ca3af;">GOLES FAVOR</span>
+                            <span style="font-weight: bold; color: white;">{d_v['GF']}</span>
                         </div>
                     </div>
                     """, unsafe_allow_html=True)
                 except: st.warning("Datos de comparación no disponibles.")
 
-            with st.spinner('Cargando mercado...'):
-                raw = obtener_cuotas_api(liga)
-                df_odds = procesar_cuotas(raw, df_clas_base)
-                if df_odds is not None and not df_odds.empty:
-                    if df_stats_base is not None:
-                        def predecir_goles(r):
-                            try:
-                                xg_l = df_stats_base[df_stats_base['EQUIPO'] == r['LOCAL']]['xG_val'].values[0]
-                                xg_v = df_stats_base[df_stats_base['EQUIPO'] == r['VISITANTE']]['xG_val'].values[0]
-                                return "🔥 Over" if (float(xg_l) + float(xg_v)) > 2.7 else "🛡️ Under"
-                            except: return "---"
-                        df_odds['TENDENCIA'] = df_odds.apply(predecir_goles, axis=1)
+            raw = obtener_cuotas_api(liga)
+            df_odds = procesar_cuotas(raw, df_clas_base)
+            if df_odds is not None and not df_odds.empty:
+                if df_stats_base is not None:
+                    def predecir_goles(r):
+                        try:
+                            xg_l = df_stats_base[df_stats_base['EQUIPO'] == r['LOCAL']]['xG_val'].values[0]
+                            xg_v = df_stats_base[df_stats_base['EQUIPO'] == r['VISITANTE']]['xG_val'].values[0]
+                            return "🔥 Over" if (float(xg_l) + float(xg_v)) > 2.7 else "🛡️ Under"
+                        except: return "---"
+                    df_odds['TENDENCIA'] = df_odds.apply(predecir_goles, axis=1)
 
-                    def aplicar_estilo(row):
-                        m = min(row['1'], row['X'], row['2'])
-                        row['1'] = badge_cuota(row['1'], row['1']==m, row['VAL_H'])
-                        row['X'] = badge_cuota(row['X'], row['X']==m)
-                        row['2'] = badge_cuota(row['2'], row['2']==m)
-                        return row
-                    
-                    styler_df = df_odds.apply(aplicar_estilo, axis=1)
-                    html = styler_df[['FECHA','LOCAL','VISITANTE','1','X','2','TENDENCIA']].style.hide(axis="index").to_html(escape=False)
-                    st.markdown(f'<div class="table-container">{html}</div>', unsafe_allow_html=True)
+                def aplicar_estilo(row):
+                    m = min(row['1'], row['X'], row['2'])
+                    row['1'] = badge_cuota(row['1'], row['1']==m, row['VAL_H'])
+                    row['X'] = badge_cuota(row['X'], row['X']==m)
+                    row['2'] = badge_cuota(row['2'], row['2']==m)
+                    return row
+                
+                styler_df = df_odds.apply(aplicar_estilo, axis=1)
+                html = styler_df[['FECHA','LOCAL','VISITANTE','1','X','2','TENDENCIA']].style.hide(axis="index").to_html(escape=False)
+                st.markdown(f'<div class="table-container">{html}</div>', unsafe_allow_html=True)
 
         else:
             configs = {"clas": (f"CLASIFICACION_LIGA_{sufijo}.xlsx", "clasificacion"), 
@@ -375,7 +381,8 @@ if st.session_state.liga_sel:
                 if 'ÚLTIMOS 5' in df.columns: df['ÚLTIMOS 5'] = df['ÚLTIMOS 5'].apply(formatear_last_5)
                 if 'xG_val' in df.columns: df = df.drop(columns=['xG_val'])
                 styler = df.style.hide(axis="index")
-                if 'PTS' in df.columns: styler = styler.set_properties(subset=['PTS'], **{'background-color': '#1ed7de22', 'font-weight': 'bold', 'color': '#1ed7de'})
+                if 'PTS' in df.columns: 
+                    styler = styler.set_properties(subset=['PTS'], **{'background-color': '#1ed7de22', 'font-weight': 'bold', 'color': '#1ed7de'})
                 st.markdown(f'<div class="table-container">{styler.to_html(escape=False)}</div>', unsafe_allow_html=True)
 
 st.write("---")
