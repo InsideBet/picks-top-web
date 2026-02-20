@@ -22,7 +22,7 @@ LIGAS_LISTA = ["Champions League", "Premier League", "La Liga", "Serie A", "Bund
 
 MAPEO_ARCHIVOS = {
     "Premier League": "Premier_League", "La Liga": "La_Liga", "Serie A": "Serie_A",
-    "Bundesliga": "Bundesliga", "Ligue_1": "Ligue_1", "Primeira Liga": "Primeira_Liga",
+    "Bundesliga": "Bundesliga", "Ligue 1": "Ligue_1", "Primeira Liga": "Primeira_Liga",
     "Eredivisie": "Eredivisie", "Champions League": "Champions_League"
 }
 
@@ -56,8 +56,16 @@ TRADUCCIONES = {
 def limpiar_nombre_equipo(nombre):
     if pd.isna(nombre) or str(nombre).lower() == 'nan': return ""
     txt = str(nombre).strip()
+    
+    # 1. Eliminar prefijos de 2 o 3 letras al inicio (ej: "be Club Brugge", "eng Newcastle")
+    # Busca 2 o 3 letras seguidas de un espacio al principio de la cadena
     txt = re.sub(r'^[a-z]{2,3}\s+', '', txt, flags=re.IGNORECASE)
+    
+    # 2. Eliminar sufijos de 2 o 3 letras al final (ej: "Inter it", "Real Madrid es")
+    # Busca un espacio seguido de 2 o 3 letras al final de la cadena
     txt = re.sub(r'\s+[a-z]{2,3}$', '', txt, flags=re.IGNORECASE)
+    
+    # 3. Limpieza de seguridad: eliminar espacios extra
     return txt.strip()
 
 def formatear_xg_badge(val):
@@ -89,6 +97,8 @@ def cargar_excel(ruta_archivo, tipo="general"):
     url = f"{BASE_URL}/{ruta_archivo}"
     try:
         df = pd.read_excel(url)
+        
+        # Filtro de seguridad inicial para filas vacías
         if 'Home' in df.columns and 'Away' in df.columns:
             df = df.dropna(subset=['Home', 'Away'], how='all')
 
@@ -123,11 +133,14 @@ def cargar_excel(ruta_archivo, tipo="general"):
             drop_f = ['Round', 'Day', 'Score', 'Referee', 'Match Report', 'Notes', 'Attendance', 'Wk']
             df = df.drop(columns=[c for c in drop_f if c in df.columns])
             df = df.rename(columns=TRADUCCIONES)
+            
             if 'LOCAL' in df.columns:
                 df['LOCAL'] = df['LOCAL'].apply(limpiar_nombre_equipo)
             if 'VISITANTE' in df.columns:
                 df['VISITANTE'] = df['VISITANTE'].apply(limpiar_nombre_equipo)
+            
             df = df[df['LOCAL'] != ""]
+            
             if 'FECHA' in df.columns: 
                 df['FECHA'] = df['FECHA'].apply(lambda x: str(x).split(' ')[0] if pd.notna(x) else "TBD")
             if 'HORA' in df.columns: 
@@ -137,7 +150,7 @@ def cargar_excel(ruta_archivo, tipo="general"):
     except: return None
 
 # ────────────────────────────────────────────────
-# LÓGICA DE CUOTAS Y MEJORAS SMART
+# LÓGICA DE CUOTAS
 # ────────────────────────────────────────────────
 
 def obtener_cuotas_api(liga_nombre):
@@ -150,24 +163,11 @@ def obtener_cuotas_api(liga_nombre):
         return response.json()
     except: return None
 
-def badge_cuota(val, es_minimo=False, tiene_valor=False, termometro=0):
+def badge_cuota(val, es_minimo=False, tiene_valor=False):
     color_bg = "#b59410" if tiene_valor else ("#137031" if es_minimo else "#2d3139")
     color_text = "white" if tiene_valor else ("#00ff88" if es_minimo else "#ced4da")
     label = " ⭐" if tiene_valor else ""
-    # Mini barra de termómetro de valor
-    term_html = ""
-    if tiene_valor:
-        ancho = min(termometro * 2, 100) # Escalado
-        term_html = f'<div style="width:100%; background:#2d3139; height:3px; margin-top:2px; border-radius:2px;"><div style="width:{ancho}%; background:#ffd700; height:100%;"></div></div>'
-    
-    return f'''
-    <div style="display: flex; flex-direction: column; align-items: center;">
-        <span style="background-color: {color_bg}; color: {color_text}; padding: 5px 12px; border-radius: 6px; font-weight: bold; font-size: 13px; min-width: 60px; text-align: center; border: 1px solid #4b5563;">
-            {val:.2f}{label}
-        </span>
-        {term_html}
-    </div>
-    '''
+    return f'<div style="display: flex; justify-content: center;"><span style="background-color: {color_bg}; color: {color_text}; padding: 5px 12px; border-radius: 6px; font-weight: bold; font-size: 13px; min-width: 60px; text-align: center; border: 1px solid #4b5563;">{val:.2f}{label}</span></div>'
 
 def procesar_cuotas(data, df_clas):
     if not data or not isinstance(data, list): return None
@@ -186,16 +186,13 @@ def procesar_cuotas(data, df_clas):
                 elif o['name'] == away: a = float(o['price'])
                 else: d = float(o['price'])
         
-        val_h, desfase = False, 0
+        val_h = False
         if home in puntos_dict and away in puntos_dict:
             pts_h, pts_a = puntos_dict[home], puntos_dict[away]
             prob_est = (pts_h + 5) / (pts_h + pts_a + 10)
-            cuota_esperada = 1 / prob_est
-            if h > (cuota_esperada * 1.15): 
-                val_h = True
-                desfase = int(((h / cuota_esperada) - 1) * 100)
+            if h > ((1/prob_est) * 1.15): val_h = True
             
-        rows.append({"FECHA": commence, "LOCAL": home, "VISITANTE": away, "1": h, "X": d, "2": a, "VAL_H": val_h, "TERM": desfase})
+        rows.append({"FECHA": commence, "LOCAL": home, "VISITANTE": away, "1": h, "X": d, "2": a, "VAL_H": val_h})
     return pd.DataFrame(rows)
 
 # ────────────────────────────────────────────────
@@ -204,12 +201,37 @@ def procesar_cuotas(data, df_clas):
 st.markdown("""
 <style>
     .stApp { background-color: #0e1117; color: #e5e7eb; }
-    .table-container { width: 100%; overflow-x: auto; border: 1px solid #374151; border-radius: 8px; margin-bottom: 50px; }
+    .table-container { 
+        width: 100%; 
+        overflow-x: auto; 
+        border: 1px solid #374151; 
+        border-radius: 8px; 
+        margin-bottom: 50px;
+    }
     table { width: 100%; border-collapse: collapse; }
-    th { position: sticky; top: 0; z-index: 100; background-color: #1f2937 !important; color: white !important; padding: 12px; border: 1px solid #374151; }
+    th { 
+        position: sticky; top: 0; z-index: 100;
+        background-color: #1f2937 !important; color: white !important; 
+        padding: 12px; border: 1px solid #374151; 
+    }
     td { padding: 12px; border: 1px solid #374151; text-align: center !important; }
-    .fatiga-tag { color: #ff4b4b; font-size: 0.75rem; font-weight: bold; display: block; margin-top: 2px; }
-    .escenario-tag { font-size: 0.8rem; font-weight: 500; padding: 2px 6px; border-radius: 4px; background: #2d3139; }
+    
+    .h2h-card { background: linear-gradient(135deg, #1f2937 0%, #111827 100%); border: 1px solid #374151; border-radius: 12px; padding: 20px; margin-bottom: 25px; }
+    .h2h-row { display: flex; justify-content: space-between; align-items: center; margin: 10px 0; border-bottom: 1px solid #2d3139; padding-bottom: 5px; }
+    .h2h-val { font-weight: bold; font-size: 1.1rem; color: #00ff88; }
+    .h2h-label { color: #9ca3af; font-size: 0.9rem; text-transform: uppercase; }
+
+    .header-container { display: flex; align-items: center; gap: 15px; margin: 20px 0; }
+    .header-title { color: white !important; font-size: 2rem; font-weight: bold; margin: 0; }
+    .flag-img { width: 45px; border-radius: 4px; }
+    .bar-container { display: flex; align-items: center; gap: 8px; width: 140px; margin: 0 auto; }
+    .bar-bg { background-color: #2d3139; border-radius: 10px; flex-grow: 1; height: 7px; overflow: hidden; }
+    .bar-fill { background-color: #ff4b4b; height: 100%; border-radius: 10px; }
+    .bar-text { font-size: 12px; font-weight: bold; min-width: 32px; text-align: right; }
+    .forma-container { display: flex; justify-content: center; gap: 4px; }
+    .forma-box { width: 22px; height: 22px; line-height: 22px; text-align: center; border-radius: 4px; font-weight: bold; font-size: 11px; color: white; }
+    .win { background-color: #137031; } .loss { background-color: #821f1f; } .draw { background-color: #82711f; }
+    div.stButton > button { background-color: #ff1800 !important; color: white !important; font-weight: bold !important; border-radius: 8px; height: 45px; width: 100%; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -250,46 +272,48 @@ if st.session_state.liga_sel:
         sufijo = MAPEO_ARCHIVOS.get(liga)
         df_clas_base = cargar_excel(f"CLASIFICACION_LIGA_{sufijo}.xlsx", "clasificacion")
         df_stats_base = cargar_excel(f"RESUMEN_STATS_{sufijo}.xlsx", "stats")
-        df_champions = cargar_excel(f"CLASIFICACION_LIGA_Champions_League.xlsx", "clasificacion") if liga != "Champions League" else None
 
         if view == "odds":
-            with st.spinner('Calculando Modelos Smart...'):
+            st.subheader("⚔️ Comparador H2H")
+            if df_clas_base is not None:
+                equipos = sorted(df_clas_base['EQUIPO'].unique())
+                col_h1, col_h2 = st.columns(2)
+                eq_l = col_h1.selectbox("Local", equipos, index=0)
+                eq_v = col_h2.selectbox("Visitante", equipos, index=1)
+                
+                d_l = df_clas_base[df_clas_base['EQUIPO'] == eq_l].iloc[0]
+                d_v = df_clas_base[df_clas_base['EQUIPO'] == eq_v].iloc[0]
+                
+                st.markdown(f"""
+                <div class="h2h-card">
+                    <div class="h2h-row"><span class="h2h-val">{d_l['PTS']}</span><span class="h2h-label">Puntos</span><span class="h2h-val">{d_v['PTS']}</span></div>
+                    <div class="h2h-row"><span class="h2h-val">{d_l['G']}</span><span class="h2h-label">Victorias</span><span class="h2h-val">{d_v['G']}</span></div>
+                    <div class="h2h-row"><span class="h2h-val">{d_l['GF']}</span><span class="h2h-label">Goles F.</span><span class="h2h-val">{d_v['GF']}</span></div>
+                </div>
+                """, unsafe_allow_html=True)
+
+            with st.spinner('Cargando mercado...'):
                 raw = obtener_cuotas_api(liga)
                 df_odds = procesar_cuotas(raw, df_clas_base)
                 if df_odds is not None and not df_odds.empty:
-                    
-                    def aplicar_mejoras(r):
-                        # 1. Escenario xG
-                        escenario = "---"
-                        try:
-                            xg_l = float(df_stats_base[df_stats_base['EQUIPO'] == r['LOCAL']]['xG_val'].values[0])
-                            xg_v = float(df_stats_base[df_stats_base['EQUIPO'] == r['VISITANTE']]['xG_val'].values[0])
-                            if xg_l > 1.7 and xg_v < 1.0: escenario = "🎯 Ataque vs Defensa"
-                            elif xg_l > 1.6 and xg_v > 1.6: escenario = "🥊 Intercambio"
-                            elif xg_l < 1.1 and xg_v < 1.1: escenario = "🛡️ Partido Cerrado"
-                            else: escenario = "📊 Proyección Media"
-                        except: pass
-                        r['ESCENARIO'] = f'<span class="escenario-tag">{escenario}</span>'
+                    if df_stats_base is not None:
+                        def predecir_goles(r):
+                            try:
+                                xg_l = df_stats_base[df_stats_base['EQUIPO'] == r['LOCAL']]['xG_val'].values[0]
+                                xg_v = df_stats_base[df_stats_base['EQUIPO'] == r['VISITANTE']]['xG_val'].values[0]
+                                return "🔥 Over" if (float(xg_l) + float(xg_v)) > 2.7 else "🛡️ Under"
+                            except: return "---"
+                        df_odds['TENDENCIA'] = df_odds.apply(predecir_goles, axis=1)
 
-                        # 2. Fatiga Champions
-                        aviso_l, aviso_v = "", ""
-                        if df_champions is not None:
-                            if r['LOCAL'] in df_champions['EQUIPO'].values: aviso_l = '<span class="fatiga-tag">⚠️ Fatiga UCL</span>'
-                            if r['VISITANTE'] in df_champions['EQUIPO'].values: aviso_v = '<span class="fatiga-tag">⚠️ Fatiga UCL</span>'
-                        
-                        r['LOCAL'] = f"{r['LOCAL']}{aviso_l}"
-                        r['VISITANTE'] = f"{r['VISITANTE']}{aviso_v}"
-
-                        # 3. Estilo Cuotas + Termómetro
-                        m = min(r['1'], r['X'], r['2'])
-                        r['1'] = badge_cuota(r['1'], r['1']==m, r['VAL_H'], r['TERM'])
-                        r['X'] = badge_cuota(r['X'], r['X']==m)
-                        r['2'] = badge_cuota(r['2'], r['2']==m)
-                        return r
+                    def aplicar_estilo(row):
+                        m = min(row['1'], row['X'], row['2'])
+                        row['1'] = badge_cuota(row['1'], row['1']==m, row['VAL_H'])
+                        row['X'] = badge_cuota(row['X'], row['X']==m)
+                        row['2'] = badge_cuota(row['2'], row['2']==m)
+                        return row
                     
-                    df_final = df_odds.apply(aplicar_mejoras, axis=1)
-                    cols_mostrar = ['FECHA','LOCAL','VISITANTE','1','X','2','ESCENARIO']
-                    html = df_final[cols_mostrar].style.hide(axis="index").to_html(escape=False)
+                    styler_df = df_odds.apply(aplicar_estilo, axis=1)
+                    html = styler_df[['FECHA','LOCAL','VISITANTE','1','X','2','TENDENCIA']].style.hide(axis="index").to_html(escape=False)
                     st.markdown(f'<div class="table-container">{html}</div>', unsafe_allow_html=True)
 
         else:
