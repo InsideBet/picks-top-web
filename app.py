@@ -9,6 +9,7 @@ import requests
 # ────────────────────────────────────────────────
 st.set_page_config(page_title="InsideBet", layout="wide")
 
+# Intentar obtener API Key
 try:
     API_KEY = st.secrets["odds_api_key"]
 except:
@@ -50,7 +51,7 @@ TRADUCCIONES = {
 }
 
 # ────────────────────────────────────────────────
-# FUNCIONES DE FORMATO (NO SIMPLIFICADAS)
+# FUNCIONES DE FORMATO
 # ────────────────────────────────────────────────
 
 def limpiar_nombre_equipo(nombre):
@@ -155,64 +156,53 @@ def procesar_cuotas(data):
     return pd.DataFrame(rows)
 
 # ────────────────────────────────────────────────
-# ESTILOS CSS (PARCHE FINAL BRAVE/CHROME)
+# ESTILOS CSS (ESTRUCTURA VISIBLE + SCROLL)
 # ────────────────────────────────────────────────
 st.markdown("""
 <style>
-    /* PARCHE NIVEL 2: FORZAR SCROLL DE NAVEGADOR */
-    html {
-        overflow-y: scroll !important; /* Fuerza la barra lateral siempre */
-    }
-
-    body, [data-testid="stAppViewContainer"], [data-testid="stMainViewContainer"] {
-        overflow: visible !important;
-        height: auto !important;
-        position: relative !important;
-    }
-
-    .main .block-container {
-        max-width: 95% !important;
-        padding-top: 2rem !important;
-        overflow: visible !important;
-    }
-
-    /* ESTILO DE TABLA */
+    /* Estilo de la App */
     .stApp { background-color: #0e1117; color: #e5e7eb; }
+
+    /* Parche Brave: Asegura scroll sin romper la visibilidad */
+    html { overflow-y: scroll !important; }
     
+    [data-testid="stAppViewContainer"] {
+        overflow: visible !important;
+    }
+
+    /* Contenedor de tabla */
     .table-container { 
         width: 100%; 
         overflow-x: auto; 
-        overflow-y: visible !important;
         border: 1px solid #374151; 
         border-radius: 8px; 
-        margin-bottom: 50px;
+        margin-bottom: 30px;
     }
     
-    table { width: 100%; border-collapse: collapse; }
-
     th { 
-        position: sticky; 
-        top: 0;
-        z-index: 100;
-        background-color: #1f2937 !important; 
-        color: white !important; 
-        padding: 12px; 
-        border: 1px solid #374151; 
+        position: sticky; top: 0; z-index: 10;
+        background-color: #1f2937 !important; color: white !important; 
+        padding: 12px; border: 1px solid #374151; 
     }
     
     td { padding: 12px; border: 1px solid #374151; text-align: center !important; }
     
-    /* ELEMENTOS VISUALES */
-    .header-container { display: flex; align-items: center; justify-content: flex-start; gap: 15px; margin: 20px 0; padding-left: 10px; }
+    /* Otros estilos */
+    .header-container { display: flex; align-items: center; gap: 15px; margin: 20px 0; }
     .header-title { color: white !important; font-size: 2rem; font-weight: bold; margin: 0; }
-    .flag-img { width: 45px; height: auto; border-radius: 4px; }
-    .bar-container { display: flex; align-items: center; justify-content: flex-start; gap: 8px; width: 140px; margin: 0 auto; }
+    .flag-img { width: 45px; border-radius: 4px; }
+    
+    .bar-container { display: flex; align-items: center; gap: 8px; width: 140px; margin: 0 auto; }
     .bar-bg { background-color: #2d3139; border-radius: 10px; flex-grow: 1; height: 7px; overflow: hidden; }
-    .bar-fill { background-color: #ff4b4b; height: 100%; border-radius: 10px; }
-    .bar-text { font-size: 12px; font-weight: bold; min-width: 32px; text-align: right; }
+    .bar-fill { background-color: #ff4b4b; height: 100%; }
+    .bar-text { font-size: 12px; font-weight: bold; }
+
     .forma-container { display: flex; justify-content: center; gap: 4px; }
-    .forma-box { width: 22px; height: 22px; line-height: 22px; text-align: center; border-radius: 4px; font-weight: bold; font-size: 11px; color: white; }
-    .win { background-color: #137031; } .loss { background-color: #821f1f; } .draw { background-color: #82711f; }
+    .forma-box { width: 22px; height: 22px; line-height: 22px; text-align: center; border-radius: 4px; font-weight: bold; font-size: 11px; }
+    .win { background-color: #137031; color: white; } 
+    .loss { background-color: #821f1f; color: white; } 
+    .draw { background-color: #82711f; color: white; }
+    
     div.stButton > button { background-color: #ff1800 !important; color: white !important; font-weight: bold !important; border-radius: 8px; height: 45px; width: 100%; }
 </style>
 """, unsafe_allow_html=True)
@@ -221,13 +211,14 @@ st.markdown("""
 st.markdown('<div style="text-align:center; margin-bottom:20px;"><img src="https://i.postimg.cc/C516P7F5/33.png" width="300"></div>', unsafe_allow_html=True)
 
 # ────────────────────────────────────────────────
-# LÓGICA DE ESTADO
+# LÓGICA DE NAVEGACIÓN
 # ────────────────────────────────────────────────
 
 if "liga_sel" not in st.session_state: st.session_state.liga_sel = None
 if "vista_activa" not in st.session_state: st.session_state.vista_activa = None
 if "menu_op" not in st.session_state: st.session_state.menu_op = False
 
+# Botón Competencias
 if st.button("COMPETENCIAS"):
     st.session_state.menu_op = not st.session_state.menu_op
 
@@ -239,22 +230,16 @@ if st.session_state.menu_op:
         st.session_state.vista_activa = None
         st.rerun()
 
-# CUERPO
+# CUERPO DE LA APP
 if st.session_state.liga_sel:
     liga = st.session_state.liga_sel
     st.markdown(f'<div class="header-container"><img src="{BANDERAS.get(liga, "")}" class="flag-img"><h1 class="header-title">{liga}</h1></div>', unsafe_allow_html=True)
     
-    col1, col2, col3, col4 = st.columns(4)
-    
-    # Acordeón
-    if col1.button("Clasificación"):
-        st.session_state.vista_activa = "clas" if st.session_state.vista_activa != "clas" else None
-    if col2.button("Stats Generales"):
-        st.session_state.vista_activa = "stats" if st.session_state.vista_activa != "stats" else None
-    if col3.button("Ver Fixture"):
-        st.session_state.vista_activa = "fix" if st.session_state.vista_activa != "fix" else None
-    if col4.button("Picks & Cuotas"):
-        st.session_state.vista_activa = "odds" if st.session_state.vista_activa != "odds" else None
+    c1, c2, c3, c4 = st.columns(4)
+    if c1.button("Clasificación"): st.session_state.vista_activa = "clas" if st.session_state.vista_activa != "clas" else None
+    if c2.button("Stats Generales"): st.session_state.vista_activa = "stats" if st.session_state.vista_activa != "stats" else None
+    if c3.button("Ver Fixture"): st.session_state.vista_activa = "fix" if st.session_state.vista_activa != "fix" else None
+    if c4.button("Picks & Cuotas"): st.session_state.vista_activa = "odds" if st.session_state.vista_activa != "odds" else None
 
     st.divider()
 
