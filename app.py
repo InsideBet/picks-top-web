@@ -84,32 +84,31 @@ def html_barra_posesion(valor):
     except: return valor
 
 def grafico_picos_forma(valor, alineacion="left"):
-    """Genera un gráfico SVG de picos estirado con colores dinámicos por resultado"""
+    """Genera un gráfico SVG de picos que ocupa el 100% del ancho disponible"""
     if pd.isna(valor) or valor == "": return ""
     letras = list(str(valor).upper().replace(" ", ""))[:5]
     if not letras: return ""
     
-    # Mapeo de Posición Y e hilos de color
-    mapeo_y = {'W': 3, 'D': 10, 'L': 17}
+    mapeo_y = {'W': 4, 'D': 11, 'L': 18}
     colores_puntos = {'W': '#137031', 'D': '#b59410', 'L': '#821f1f'}
     
     puntos_coords = []
     puntos_svg = []
     
-    # Calculamos puntos para que ocupen el 100% del ancho del SVG (0 a 100)
+    # x va de 5 a 95 para asegurar que los puntos de los extremos no se corten
     for i, l in enumerate(letras):
-        x = (i * 24) + 2  # Distribución a lo ancho
-        y = mapeo_y.get(l, 10)
+        x = 5 + (i * 22.5) 
+        y = mapeo_y.get(l, 11)
         puntos_coords.append(f"{x},{y}")
         puntos_svg.append(f'<circle cx="{x}" cy="{y}" r="3.5" fill="{colores_puntos.get(l, "#4b5563")}" stroke="#0e1117" stroke-width="0.5" />')
     
     path_d = "M " + " L ".join(puntos_coords)
-    justify = "flex-start" if alineacion == "left" else "flex-end"
     
+    # Usamos preserveAspectRatio="none" y width="100%" para que estire al contenedor
     svg = f'''
-    <div style="display: flex; justify-content: {justify}; width: 100%;">
-        <svg width="100%" height="22" viewBox="0 0 100 22" preserveAspectRatio="none" style="max-width: 150px;">
-            <path d="{path_d}" fill="none" stroke="#1ed7de" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.6" />
+    <div style="width: 100%; height: 30px; display: flex; align-items: center;">
+        <svg width="100%" height="22" viewBox="0 0 100 22" preserveAspectRatio="none">
+            <path d="{path_d}" fill="none" stroke="#1ed7de" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.5" />
             {''.join(puntos_svg)}
         </svg>
     </div>
@@ -301,34 +300,34 @@ if st.session_state.liga_sel:
                     st.markdown(f"""
                     <div style="background: #1f2937; padding: 20px; border-radius: 12px; border: 1px solid #1ed7de44;">
                         <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #2d3139; padding: 10px 0;">
-                            <span style="font-weight: bold; color: #1ed7de; width: 20%; text-align: left;">{d_l['PTS']}</span>
+                            <span style="font-weight: bold; color: #1ed7de; width: 10%; text-align: left;">{d_l['PTS']}</span>
                             <span style="color: #9ca3af; font-size: 0.8rem; font-weight: bold;">PUNTOS</span>
-                            <span style="font-weight: bold; color: #1ed7de; width: 20%; text-align: right;">{d_v['PTS']}</span>
+                            <span style="font-weight: bold; color: #1ed7de; width: 10%; text-align: right;">{d_v['PTS']}</span>
                         </div>
                         <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #2d3139; padding: 10px 0;">
-                            <span style="font-weight: bold; color: white; width: 20%; text-align: left;">{d_l['G']}</span>
+                            <span style="font-weight: bold; color: white; width: 10%; text-align: left;">{d_l['G']}</span>
                             <span style="color: #9ca3af; font-size: 0.8rem; font-weight: bold;">VICTORIAS</span>
-                            <span style="font-weight: bold; color: white; width: 20%; text-align: right;">{d_v['G']}</span>
+                            <span style="font-weight: bold; color: white; width: 10%; text-align: right;">{d_v['G']}</span>
                         </div>
                         <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #2d3139; padding: 10px 0;">
-                            <span style="font-weight: bold; color: white; width: 20%; text-align: left;">{d_l['GF']}</span>
+                            <span style="font-weight: bold; color: white; width: 10%; text-align: left;">{d_l['GF']}</span>
                             <span style="color: #9ca3af; font-size: 0.8rem; font-weight: bold;">GOLES FAVOR</span>
-                            <span style="font-weight: bold; color: white; width: 20%; text-align: right;">{d_v['GF']}</span>
+                            <span style="font-weight: bold; color: white; width: 10%; text-align: right;">{d_v['GF']}</span>
                         </div>
                         <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #2d3139; padding: 10px 0;">
-                            <span style="font-weight: bold; color: white; width: 20%; text-align: left;">{xg_l_val}</span>
+                            <span style="font-weight: bold; color: white; width: 10%; text-align: left;">{xg_l_val}</span>
                             <span style="color: #9ca3af; font-size: 0.8rem; font-weight: bold;">xG GENERADO</span>
-                            <span style="font-weight: bold; color: white; width: 20%; text-align: right;">{xg_v_val}</span>
+                            <span style="font-weight: bold; color: white; width: 10%; text-align: right;">{xg_v_val}</span>
                         </div>
                         <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #2d3139; padding: 10px 0;">
-                            <span style="font-weight: bold; color: white; width: 20%; text-align: left;">{p_l}</span>
+                            <span style="font-weight: bold; color: white; width: 10%; text-align: left;">{p_l}</span>
                             <span style="color: #9ca3af; font-size: 0.8rem; font-weight: bold;">POSESIÓN</span>
-                            <span style="font-weight: bold; color: white; width: 20%; text-align: right;">{p_v}</span>
+                            <span style="font-weight: bold; color: white; width: 10%; text-align: right;">{p_v}</span>
                         </div>
                         <div style="margin-top: 20px; display: flex; justify-content: space-between; align-items: center;">
-                            <div style="width: 42%;">{grafico_picos_forma(d_l['ÚLTIMOS 5'], "left")}</div>
-                            <span style="color: #9ca3af; font-size: 0.8rem; font-weight: bold;">FORMA</span>
-                            <div style="width: 42%;">{grafico_picos_forma(d_v['ÚLTIMOS 5'], "right")}</div>
+                            <div style="flex: 1; text-align: left;">{grafico_picos_forma(d_l['ÚLTIMOS 5'], "left")}</div>
+                            <span style="color: #9ca3af; font-size: 0.8rem; font-weight: bold; margin: 0 20px;">FORMA</span>
+                            <div style="flex: 1; text-align: right;">{grafico_picos_forma(d_v['ÚLTIMOS 5'], "right")}</div>
                         </div>
                     </div>
                     """, unsafe_allow_html=True)
