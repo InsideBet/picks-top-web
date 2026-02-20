@@ -235,7 +235,12 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-st.markdown('<div style="text-align:center; margin-bottom:20px;"><img src="https://i.postimg.cc/hJKrngzD/33.png" width="400"></div>', unsafe_allow_html=True)
+# Logo centrado y responsive
+st.markdown("""
+    <div style="display: flex; justify-content: center; padding: 20px 0;">
+        <img src="https://i.postimg.cc/hJKrngzD/33.png" style="width: 100%; max-width: 600px; height: auto;">
+    </div>
+    """, unsafe_allow_html=True)
 
 # ────────────────────────────────────────────────
 # LÓGICA DE NAVEGACIÓN
