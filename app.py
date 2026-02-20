@@ -269,10 +269,10 @@ st.markdown("""
     .header-container { display: flex; align-items: center; justify-content: flex-start; gap: 15px; margin: 25px 0; }
     .header-title { color: white !important; font-size: 2rem; font-weight: bold; margin: 0; line-height: 1; }
     
-    /* Estilo Leyenda */
-    .leyenda-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-top: 10px; background: #1f2937; padding: 15px; border-radius: 8px; border: 1px solid #4b5563; }
-    .leyenda-item { display: flex; align-items: center; gap: 10px; font-size: 0.85rem; color: #9ca3af; }
-    .color-box { width: 15px; height: 15px; border-radius: 3px; }
+    /* Estilo Leyenda Unificado */
+    .leyenda-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-top: 10px; background: #161b22; padding: 15px; border-radius: 8px; border: 1px solid #1ed7de44; }
+    .leyenda-item { display: flex; align-items: center; gap: 10px; font-size: 0.85rem; color: #e5e7eb; }
+    .color-box { width: 14px; height: 14px; border-radius: 3px; flex-shrink: 0; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -398,22 +398,24 @@ if st.session_state.liga_sel:
                 html = styler_df[['FECHA','LOCAL','VISITANTE','1','X','2','TENDENCIA']].style.hide(axis="index").to_html(escape=False)
                 st.markdown(f'<div class="table-container">{html}</div>', unsafe_allow_html=True)
                 
-                # SECCIÓN LEYENDA (NUEVO)
+                # SECCIÓN LEYENDA (COLORES AJUSTADOS)
                 st.markdown("""
                 <div class="leyenda-grid">
                     <div class="leyenda-item">
                         <div class="color-box" style="background: #b59410;"></div>
-                        <span><b>⭐ Value Bet:</b> Cuota con valor estadístico (Probabilidad > Casa).</span>
+                        <span><b>Value Bet (⭐):</b> Cuota con valor estadístico.</span>
                     </div>
                     <div class="leyenda-item">
                         <div class="color-box" style="background: #137031;"></div>
-                        <span><b>Favorito:</b> La cuota más baja (mayor probabilidad de éxito).</span>
+                        <span><b>Favorito:</b> Cuota más probable de la casa.</span>
                     </div>
                     <div class="leyenda-item">
-                        <span>🔥 <b>Over:</b> Tendencia a +2.5 goles basada en xG acumulado.</span>
+                        <span style="color: #1ed7de; font-weight: bold;">🔥 Over:</span>
+                        <span>Tendencia a +2.5 goles.</span>
                     </div>
                     <div class="leyenda-item">
-                        <span>🛡️ <b>Under:</b> Tendencia a pocos goles basada en xG acumulado.</span>
+                        <span style="color: #9ca3af; font-weight: bold;">🛡️ Under:</span>
+                        <span>Tendencia a -2.5 goles.</span>
                     </div>
                 </div>
                 """, unsafe_allow_html=True)
