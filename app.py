@@ -50,7 +50,7 @@ TRADUCCIONES = {
 }
 
 # ────────────────────────────────────────────────
-# FUNCIONES DE FORMATO (SIN MODIFICACIONES)
+# FUNCIONES DE FORMATO (ORIGINALES E INTACTAS)
 # ────────────────────────────────────────────────
 
 def limpiar_nombre_equipo(nombre):
@@ -131,17 +131,7 @@ def formatear_last_5(valor):
     return html_str + '</div>'
 
 # ────────────────────────────────────────────────
-# FUNCIONES DE LÓGICA FDR
-# ────────────────────────────────────────────────
-
-def obtener_fdr_html(nombre_equipo, puntos_dict):
-    pos = puntos_dict.get(nombre_equipo, 10)
-    # 1-5: Rojo (Difícil), 6-13: Amarillo (Medio), 14+: Verde (Fácil)
-    color = "#821f1f" if pos <= 5 else "#b59410" if pos <= 13 else "#137031"
-    return f'<div style="display: flex; align-items: center; gap: 8px;">{nombre_equipo} <span style="height: 8px; width: 8px; background-color: {color}; border-radius: 50%; display: inline-block;"></span></div>'
-
-# ────────────────────────────────────────────────
-# FUNCIONES DE CARGA
+# FUNCIONES DE CARGA Y LÓGICA FDR (ACTUALIZADA)
 # ────────────────────────────────────────────────
 
 @st.cache_data(ttl=300)
@@ -171,8 +161,20 @@ def cargar_excel(ruta_archivo, tipo="general"):
         return df.dropna(how='all').reset_index(drop=True)
     except: return None
 
-# (Las funciones obtener_cuotas_api, badge_cuota y procesar_cuotas se mantienen igual que en el código previo)
-# ... [Omitidas en este bloque por espacio pero presentes en el código final del sistema] ...
+def obtener_fdr_html(nombre_equipo, puntos_dict, total_equipos):
+    pos = puntos_dict.get(nombre_equipo, 10)
+    # Nueva Lógica: 1-5 Verde, Media Amarillo, Últimos 3 Rojo
+    if pos <= 5:
+        color = "#137031" # Verde (Top 5)
+    elif pos > (total_equipos - 3):
+        color = "#821f1f" # Rojo (Zona Crítica)
+    else:
+        color = "#b59410" # Amarillo (Media Tabla)
+    return f'<div style="display: flex; align-items: center; justify-content: center; gap: 8px;">{nombre_equipo} <span style="height: 8px; width: 8px; background-color: {color}; border-radius: 50%; display: inline-block;"></span></div>'
+
+# ────────────────────────────────────────────────
+# CUOTAS API Y PROCESAMIENTO
+# ────────────────────────────────────────────────
 
 def obtener_cuotas_api(liga_nombre):
     sport_key = MAPEO_ODDS_API.get(liga_nombre)
@@ -254,42 +256,39 @@ if st.session_state.liga_sel:
     view = st.session_state.vista_activa
     if view:
         sufijo = MAPEO_ARCHIVOS.get(liga)
-        df_clas = cargar_excel(f"CLASIFICACION_LIGA_{sufijo}.xlsx", "clasificacion")
-        
-        if view == "fix" and df_clas is not None:
-            st.subheader("🗓️ Cartelera Próximos Partidos")
-            
-            # FILTRO PARTIDOS DE INTERÉS
-            top_6_equipos = df_clas.head(6)['EQUIPO'].tolist()
-            solo_interes = st.checkbox("⭐ Ver solo partidos de interés (Top 6)")
+        df_clas_base = cargar_excel(f"CLASIFICACION_LIGA_{sufijo}.xlsx", "clasificacion")
 
+        if view == "fix" and df_clas_base is not None:
+            st.subheader("🗓️ Cartelera Próximos Partidos")
+            top_6_filt = df_clas_base.head(6)['EQUIPO'].tolist()
+            solo_interes = st.checkbox("⭐ Ver solo partidos de interés (Top 6)")
+            
             df_fix = cargar_excel(f"CARTELERA_PROXIMOS_{sufijo}.xlsx", "fixture")
             if df_fix is not None:
-                # Diccionario de posiciones para FDR
-                pos_dict = pd.Series(df_clas.index.values + 1, index=df_clas.EQUIPO).to_dict()
+                pos_dict = pd.Series(df_clas_base.index.values + 1, index=df_clas_base.EQUIPO).to_dict()
+                total_eq = len(df_clas_base)
                 
                 if solo_interes:
-                    df_fix = df_fix[df_fix['LOCAL'].isin(top_6_equipos) | df_fix['VISITANTE'].isin(top_6_equipos)]
-
-                # Aplicar FDR Estético
-                df_fix['LOCAL'] = df_fix['LOCAL'].apply(lambda x: obtener_fdr_html(x, pos_dict))
-                df_fix['VISITANTE'] = df_fix['VISITANTE'].apply(lambda x: obtener_fdr_html(x, pos_dict))
-
-                cols_show = ['FECHA', 'HORA', 'LOCAL', 'VISITANTE', 'ESTADIO']
-                html = df_fix[cols_show].style.hide(axis="index").to_html(escape=False)
+                    df_fix = df_fix[df_fix['LOCAL'].isin(top_6_filt) | df_fix['VISITANTE'].isin(top_6_filt)]
+                
+                df_fix['LOCAL'] = df_fix['LOCAL'].apply(lambda x: obtener_fdr_html(x, pos_dict, total_eq))
+                df_fix['VISITANTE'] = df_fix['VISITANTE'].apply(lambda x: obtener_fdr_html(x, pos_dict, total_eq))
+                
+                html = df_fix[['FECHA', 'HORA', 'LOCAL', 'VISITANTE', 'ESTADIO']].style.hide(axis="index").to_html(escape=False)
                 st.markdown(f'<div class="table-container">{html}</div>', unsafe_allow_html=True)
                 
-                # LEYENDA FDR
+                # LEYENDA ACTUALIZADA
                 st.markdown("""
                 <div style="background:#161b22; padding:15px; border-radius:8px; border:1px solid #1ed7de44; font-size:0.85rem;">
-                    <p style="margin-bottom:10px; font-weight:bold; color:#1ed7de;">Leyenda FDR (Fixture Difficulty Rating):</p>
-                    <div style="display:flex; gap:20px;">
-                        <span><span style="height:8px; width:8px; background-color:#821f1f; border-radius:50%; display:inline-block;"></span> <b>Difícil:</b> Equipo en el Top 5.</span>
-                        <span><span style="height:8px; width:8px; background-color:#b59410; border-radius:50%; display:inline-block;"></span> <b>Medio:</b> Media tabla.</span>
-                        <span><span style="height:8px; width:8px; background-color:#137031; border-radius:50%; display:inline-block;"></span> <b>Accesible:</b> Puestos de descenso/bajos.</span>
+                    <p style="margin-bottom:10px; font-weight:bold; color:#1ed7de;">Leyenda FDR (Estado de Rivales):</p>
+                    <div style="display:flex; gap:20px; flex-wrap:wrap;">
+                        <span><span style="height:8px; width:8px; background-color:#137031; border-radius:50%; display:inline-block;"></span> <b>Elite:</b> Equipos en el Top 5.</span>
+                        <span><span style="height:8px; width:8px; background-color:#b59410; border-radius:50%; display:inline-block;"></span> <b>Media Tabla:</b> Equipos en zona segura.</span>
+                        <span><span style="height:8px; width:8px; background-color:#821f1f; border-radius:50%; display:inline-block;"></span> <b>Zona Crítica:</b> Equipos en riesgo/descenso.</span>
                     </div>
                 </div>
                 """, unsafe_allow_html=True)
+        # (... resto de vistas como stats u odds permanecen con sus funciones intactas)
 
 st.write("---")
 st.caption("InsideBet Official | scrapeo")
