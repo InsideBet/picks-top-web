@@ -84,7 +84,7 @@ def html_barra_posesion(valor):
     except: return valor
 
 def grafico_picos_forma(valor, alineacion="left"):
-    """Genera un gráfico SVG de picos que ocupa el 100% con círculos pequeños"""
+    """Genera un gráfico SVG con círculos perfectamente redondos y alineación correcta"""
     if pd.isna(valor) or valor == "": return ""
     letras = list(str(valor).upper().replace(" ", ""))[:5]
     if not letras: return ""
@@ -95,20 +95,20 @@ def grafico_picos_forma(valor, alineacion="left"):
     puntos_coords = []
     puntos_svg = []
     
-    # Mantenemos el escalado al 100% del contenedor
+    # Usamos un ancho fijo de 120px para el viewBox para evitar que los círculos se vuelvan óvalos
     for i, l in enumerate(letras):
-        x = 5 + (i * 22.5) 
+        x = 10 + (i * 25) 
         y = mapeo_y.get(l, 11)
         puntos_coords.append(f"{x},{y}")
-        # Aquí la clave: r="2" hace el círculo más pequeño y elegante
-        puntos_svg.append(f'<circle cx="{x}" cy="{y}" r="2.2" fill="{colores_puntos.get(l, "#4b5563")}" stroke="#0e1117" stroke-width="0.5" />')
+        puntos_svg.append(f'<circle cx="{x}" cy="{y}" r="3" fill="{colores_puntos.get(l, "#4b5563")}" stroke="#0e1117" stroke-width="0.5" />')
     
     path_d = "M " + " L ".join(puntos_coords)
     
+    # preserveAspectRatio="xMidYMid meet" asegura que los círculos se mantengan redondos
     svg = f'''
-    <div style="width: 100%; height: 30px; display: flex; align-items: center;">
-        <svg width="100%" height="22" viewBox="0 0 100 22" preserveAspectRatio="none">
-            <path d="{path_d}" fill="none" stroke="#1ed7de" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" opacity="0.5" />
+    <div style="width: 100%; height: 30px; display: flex; align-items: center; justify-content: {'flex-start' if alineacion=='left' else 'flex-end'};">
+        <svg width="130" height="22" viewBox="0 0 130 22" preserveAspectRatio="xMidYMid meet">
+            <path d="{path_d}" fill="none" stroke="#1ed7de" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" opacity="0.4" />
             {''.join(puntos_svg)}
         </svg>
     </div>
