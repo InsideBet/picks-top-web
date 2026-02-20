@@ -84,7 +84,6 @@ def html_barra_posesion(valor):
     except: return valor
 
 def grafico_picos_forma(valor, alineacion="left"):
-    """Genera un gráfico SVG con círculos perfectamente redondos y alineación correcta"""
     if pd.isna(valor) or valor == "": return ""
     letras = list(str(valor).upper().replace(" ", ""))[:5]
     if not letras: return ""
@@ -95,7 +94,6 @@ def grafico_picos_forma(valor, alineacion="left"):
     puntos_coords = []
     puntos_svg = []
     
-    # Usamos un ancho fijo de 120px para el viewBox para evitar que los círculos se vuelvan óvalos
     for i, l in enumerate(letras):
         x = 10 + (i * 25) 
         y = mapeo_y.get(l, 11)
@@ -104,7 +102,6 @@ def grafico_picos_forma(valor, alineacion="left"):
     
     path_d = "M " + " L ".join(puntos_coords)
     
-    # preserveAspectRatio="xMidYMid meet" asegura que los círculos se mantengan redondos
     svg = f'''
     <div style="width: 100%; height: 30px; display: flex; align-items: center; justify-content: {'flex-start' if alineacion=='left' else 'flex-end'};">
         <svg width="130" height="22" viewBox="0 0 130 22" preserveAspectRatio="xMidYMid meet">
@@ -114,6 +111,40 @@ def grafico_picos_forma(valor, alineacion="left"):
     </div>
     '''
     return svg
+
+def generar_radar_svg(val_l, val_v, labels):
+    """Genera un radar comparativo ligero en SVG"""
+    size = 200
+    center = size / 2
+    radius = 70
+    
+    def get_coords(value, angle, max_val=100):
+        r = (value / max_val) * radius
+        x = center + r * np.cos(angle - np.pi/2)
+        y = center + r * np.sin(angle - np.pi/2)
+        return f"{x},{y}"
+
+    angles = np.linspace(0, 2*np.pi, len(labels), endpoint=False)
+    
+    # Grid de fondo
+    grid = ""
+    for r_f in [0.25, 0.5, 0.75, 1.0]:
+        pts = [f"{center + (radius*r_f)*np.cos(a-np.pi/2)},{center + (radius*r_f)*np.sin(a-np.pi/2)}" for a in angles]
+        grid += f'<polygon points="{" ".join(pts)}" fill="none" stroke="#4b5563" stroke-width="0.5" stroke-dasharray="2,2" />'
+
+    # Polígonos
+    pts_l = [get_coords(v, a) for v, a in zip(val_l, angles)]
+    pts_v = [get_coords(v, a) for v, a in zip(val_v, angles)]
+    
+    radar = f'''
+    <svg width="100%" height="{size}" viewBox="0 0 {size} {size}">
+        {grid}
+        <polygon points="{" ".join(pts_l)}" fill="#1ed7de22" stroke="#1ed7de" stroke-width="2" />
+        <polygon points="{" ".join(pts_v)}" fill="#b5941022" stroke="#b59410" stroke-width="2" />
+        {''.join([f'<text x="{center + (radius+20)*np.cos(a-np.pi/2)}" y="{center + (radius+20)*np.sin(a-np.pi/2)}" fill="#9ca3af" font-size="9" text-anchor="middle">{l}</text>' for l, a in zip(labels, angles)])}
+    </svg>
+    '''
+    return radar
 
 def formatear_last_5(valor):
     if pd.isna(valor) or valor == "": return ""
@@ -178,7 +209,9 @@ def cargar_excel(ruta_archivo, tipo="general"):
                 df['HORA'] = df['HORA'].fillna("Por definir")
         
         return df.dropna(how='all').reset_index(drop=True)
-    except: return None
+    except Exception as e: 
+        st.error(f"Error cargando {ruta_archivo}")
+        return None
 
 def obtener_cuotas_api(liga_nombre):
     sport_key = MAPEO_ODDS_API.get(liga_nombre)
@@ -275,8 +308,10 @@ if st.session_state.liga_sel:
     view = st.session_state.vista_activa
     if view:
         sufijo = MAPEO_ARCHIVOS.get(liga)
-        df_clas_base = cargar_excel(f"CLASIFICACION_LIGA_{sufijo}.xlsx", "clasificacion")
-        df_stats_base = cargar_excel(f"RESUMEN_STATS_{sufijo}.xlsx", "stats")
+        
+        with st.spinner("Actualizando datos..."):
+            df_clas_base = cargar_excel(f"CLASIFICACION_LIGA_{sufijo}.xlsx", "clasificacion")
+            df_stats_base = cargar_excel(f"RESUMEN_STATS_{sufijo}.xlsx", "stats")
 
         if view == "odds":
             st.subheader("⚔️ Comparador H2H")
@@ -292,45 +327,53 @@ if st.session_state.liga_sel:
                     s_l = df_stats_base[df_stats_base['EQUIPO'] == eq_l].iloc[0]
                     s_v = df_stats_base[df_stats_base['EQUIPO'] == eq_v].iloc[0]
                     
-                    p_l = f"{s_l['Poss_num']}%"
-                    p_v = f"{s_v['Poss_num']}%"
-                    xg_l_val = str(s_l['xG']).split('+')[-1].split('<')[0]
-                    xg_v_val = str(s_v['xG']).split('+')[-1].split('<')[0]
+                    p_l_val = float(s_l['Poss_num'])
+                    p_v_val = float(s_v['Poss_num'])
+                    xg_l_num = float(s_l['xG_val'])
+                    xg_v_num = float(s_v['xG_val'])
+                    
+                    # Radar de comparación
+                    radar_labels = ["PTS", "POSS", "GF", "xG", "VICT"]
+                    # Normalización simple para radar (0-100)
+                    radar_l = [min(d_l['PTS']*1.5, 100), p_l_val, min(d_l['GF']*1.2, 100), min(xg_l_num*20, 100), min(d_l['G']*5, 100)]
+                    radar_v = [min(d_v['PTS']*1.5, 100), p_v_val, min(d_v['GF']*1.2, 100), min(xg_v_num*20, 100), min(d_v['G']*5, 100)]
+                    
+                    col_rad, col_stats = st.columns([1, 2])
+                    
+                    with col_rad:
+                        st.markdown(generar_radar_svg(radar_l, radar_v, radar_labels), unsafe_allow_html=True)
+                        st.markdown(f'<div style="text-align:center; font-size:10px;"><span style="color:#1ed7de">■ {eq_l}</span> <span style="color:#b59410">■ {eq_v}</span></div>', unsafe_allow_html=True)
 
-                    st.markdown(f"""
-                    <div style="background: #1f2937; padding: 20px; border-radius: 12px; border: 1px solid #1ed7de44;">
-                        <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #2d3139; padding: 10px 0;">
-                            <span style="font-weight: bold; color: #1ed7de; width: 10%; text-align: left;">{d_l['PTS']}</span>
-                            <span style="color: #9ca3af; font-size: 0.8rem; font-weight: bold;">PUNTOS</span>
-                            <span style="font-weight: bold; color: #1ed7de; width: 10%; text-align: right;">{d_v['PTS']}</span>
+                    with col_stats:
+                        st.markdown(f"""
+                        <div style="background: #1f2937; padding: 20px; border-radius: 12px; border: 1px solid #1ed7de44;">
+                            <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #2d3139; padding: 10px 0;">
+                                <span style="font-weight: bold; color: #1ed7de; width: 10%; text-align: left;">{d_l['PTS']}</span>
+                                <span style="color: #9ca3af; font-size: 0.8rem; font-weight: bold;">PUNTOS</span>
+                                <span style="font-weight: bold; color: #1ed7de; width: 10%; text-align: right;">{d_v['PTS']}</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #2d3139; padding: 10px 0;">
+                                <span style="font-weight: bold; color: white; width: 10%; text-align: left;">{d_l['G']}</span>
+                                <span style="color: #9ca3af; font-size: 0.8rem; font-weight: bold;">VICTORIAS</span>
+                                <span style="font-weight: bold; color: white; width: 10%; text-align: right;">{d_v['G']}</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #2d3139; padding: 10px 0;">
+                                <span style="font-weight: bold; color: white; width: 10%; text-align: left;">{d_l['GF']}</span>
+                                <span style="color: #9ca3af; font-size: 0.8rem; font-weight: bold;">GOLES FAVOR</span>
+                                <span style="font-weight: bold; color: white; width: 10%; text-align: right;">{d_v['GF']}</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #2d3139; padding: 10px 0;">
+                                <span style="font-weight: bold; color: white; width: 10%; text-align: left;">{xg_l_num:.1f}</span>
+                                <span style="color: #9ca3af; font-size: 0.8rem; font-weight: bold;">xG GENERADO</span>
+                                <span style="font-weight: bold; color: white; width: 10%; text-align: right;">{xg_v_num:.1f}</span>
+                            </div>
+                            <div style="margin-top: 20px; display: flex; justify-content: space-between; align-items: center;">
+                                <div style="flex: 1; text-align: left;">{grafico_picos_forma(d_l['ÚLTIMOS 5'], "left")}</div>
+                                <span style="color: #9ca3af; font-size: 0.8rem; font-weight: bold; margin: 0 20px;">FORMA</span>
+                                <div style="flex: 1; text-align: right;">{grafico_picos_forma(d_v['ÚLTIMOS 5'], "right")}</div>
+                            </div>
                         </div>
-                        <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #2d3139; padding: 10px 0;">
-                            <span style="font-weight: bold; color: white; width: 10%; text-align: left;">{d_l['G']}</span>
-                            <span style="color: #9ca3af; font-size: 0.8rem; font-weight: bold;">VICTORIAS</span>
-                            <span style="font-weight: bold; color: white; width: 10%; text-align: right;">{d_v['G']}</span>
-                        </div>
-                        <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #2d3139; padding: 10px 0;">
-                            <span style="font-weight: bold; color: white; width: 10%; text-align: left;">{d_l['GF']}</span>
-                            <span style="color: #9ca3af; font-size: 0.8rem; font-weight: bold;">GOLES FAVOR</span>
-                            <span style="font-weight: bold; color: white; width: 10%; text-align: right;">{d_v['GF']}</span>
-                        </div>
-                        <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #2d3139; padding: 10px 0;">
-                            <span style="font-weight: bold; color: white; width: 10%; text-align: left;">{xg_l_val}</span>
-                            <span style="color: #9ca3af; font-size: 0.8rem; font-weight: bold;">xG GENERADO</span>
-                            <span style="font-weight: bold; color: white; width: 10%; text-align: right;">{xg_v_val}</span>
-                        </div>
-                        <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #2d3139; padding: 10px 0;">
-                            <span style="font-weight: bold; color: white; width: 10%; text-align: left;">{p_l}</span>
-                            <span style="color: #9ca3af; font-size: 0.8rem; font-weight: bold;">POSESIÓN</span>
-                            <span style="font-weight: bold; color: white; width: 10%; text-align: right;">{p_v}</span>
-                        </div>
-                        <div style="margin-top: 20px; display: flex; justify-content: space-between; align-items: center;">
-                            <div style="flex: 1; text-align: left;">{grafico_picos_forma(d_l['ÚLTIMOS 5'], "left")}</div>
-                            <span style="color: #9ca3af; font-size: 0.8rem; font-weight: bold; margin: 0 20px;">FORMA</span>
-                            <div style="flex: 1; text-align: right;">{grafico_picos_forma(d_v['ÚLTIMOS 5'], "right")}</div>
-                        </div>
-                    </div>
-                    """, unsafe_allow_html=True)
+                        """, unsafe_allow_html=True)
                 except: st.warning("Datos de comparación no disponibles.")
 
             raw = obtener_cuotas_api(liga)
@@ -364,6 +407,12 @@ if st.session_state.liga_sel:
                 if 'ÚLTIMOS 5' in df.columns: df['ÚLTIMOS 5'] = df['ÚLTIMOS 5'].apply(formatear_last_5)
                 cols_to_drop = ['xG_val', 'Poss_num']
                 df_view = df.drop(columns=[c for c in cols_to_drop if c in df.columns])
+                
+                # Barra de búsqueda para tablas
+                busqueda = st.text_input("🔍 Filtrar por equipo...", "").strip().lower()
+                if busqueda and 'EQUIPO' in df_view.columns:
+                    df_view = df_view[df_view['EQUIPO'].str.lower().str.contains(busqueda)]
+
                 styler = df_view.style.hide(axis="index")
                 if 'PTS' in df_view.columns: 
                     styler = styler.set_properties(subset=['PTS'], **{'background-color': '#1ed7de22', 'font-weight': 'bold', 'color': '#1ed7de'})
