@@ -238,7 +238,7 @@ st.markdown("""
 # Reemplaza la línea del logo por esta:
 st.markdown("""
     <div style="display: flex; justify-content: center; margin-top: -30px; margin-bottom: 10px;">
-        <img src=https://i.postimg.cc/hJKrngzD/33.png style="width: 80%; max-width: 900px; height: auto;">
+        <img src="https://i.postimg.cc/SKPzCcyV/33.png" style="width: 80%; max-width: 900px; height: auto;">
     </div>
     """, unsafe_allow_html=True)
 
