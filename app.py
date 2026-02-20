@@ -50,7 +50,7 @@ TRADUCCIONES = {
 }
 
 # ────────────────────────────────────────────────
-# FUNCIONES DE FORMATO
+# FUNCIONES DE FORMATO (ORIGINALES)
 # ────────────────────────────────────────────────
 
 def limpiar_nombre_equipo(nombre):
@@ -155,62 +155,49 @@ def procesar_cuotas(data):
     return pd.DataFrame(rows)
 
 # ────────────────────────────────────────────────
-# ESTILOS CSS (AJUSTE BRAVE V3)
+# ESTILOS CSS (REVERSIÓN Y COMPATIBILIDAD BRAVE)
 # ────────────────────────────────────────────────
 st.markdown("""
 <style>
-    /* 1. Resetear el contenedor base para que NO tenga altura bloqueada */
-    [data-testid="stAppViewContainer"] {
-        height: auto !important;
-        overflow: visible !important;
-    }
-
-    /* 2. Forzar al contenedor de la web a estirarse según el contenido */
-    [data-testid="stMainViewContainer"] {
-        height: auto !important;
-        overflow: visible !important;
-    }
-
-    /* 3. Estilo General */
+    /* Volvemos a una estructura estándar que Brave no bloquee */
     .stApp { background-color: #0e1117; color: #e5e7eb; }
-    
+
+    /* Ajuste para que la tabla sea scrolleable pero SIN altura fija pequeña */
     .table-container { 
         width: 100%; 
         overflow-x: auto; 
         border: 1px solid #374151; 
         border-radius: 8px; 
         margin-bottom: 30px;
+        background-color: #1a1c23;
     }
     
+    /* Sticky header para no perderse al bajar */
     th { 
-        position: sticky; top: 0; z-index: 10;
+        position: sticky; top: -1px; z-index: 10;
         background-color: #1f2937 !important; color: white !important; 
         padding: 12px; border: 1px solid #374151; 
     }
     
     td { padding: 12px; border: 1px solid #374151; text-align: center !important; }
     
-    /* Otros estilos */
+    /* Estética de componentes */
     .header-container { display: flex; align-items: center; gap: 15px; margin: 20px 0; }
     .header-title { color: white !important; font-size: 2rem; font-weight: bold; margin: 0; }
     .flag-img { width: 45px; border-radius: 4px; }
-    
     .bar-container { display: flex; align-items: center; gap: 8px; width: 140px; margin: 0 auto; }
     .bar-bg { background-color: #2d3139; border-radius: 10px; flex-grow: 1; height: 7px; overflow: hidden; }
     .bar-fill { background-color: #ff4b4b; height: 100%; }
-    .bar-text { font-size: 12px; font-weight: bold; }
-
     .forma-container { display: flex; justify-content: center; gap: 4px; }
     .forma-box { width: 22px; height: 22px; line-height: 22px; text-align: center; border-radius: 4px; font-weight: bold; font-size: 11px; }
     .win { background-color: #137031; color: white; } 
     .loss { background-color: #821f1f; color: white; } 
     .draw { background-color: #82711f; color: white; }
-    
     div.stButton > button { background-color: #ff1800 !important; color: white !important; font-weight: bold !important; border-radius: 8px; height: 45px; width: 100%; }
 </style>
 """, unsafe_allow_html=True)
 
-# Logo
+# Logo Principal
 st.markdown('<div style="text-align:center; margin-bottom:20px;"><img src="https://i.postimg.cc/C516P7F5/33.png" width="300"></div>', unsafe_allow_html=True)
 
 # LÓGICA DE NAVEGACIÓN
@@ -229,7 +216,7 @@ if st.session_state.menu_op:
         st.session_state.vista_activa = None
         st.rerun()
 
-# CUERPO
+# CUERPO DE LA APP
 if st.session_state.liga_sel:
     liga = st.session_state.liga_sel
     st.markdown(f'<div class="header-container"><img src="{BANDERAS.get(liga, "")}" class="flag-img"><h1 class="header-title">{liga}</h1></div>', unsafe_allow_html=True)
@@ -244,27 +231,33 @@ if st.session_state.liga_sel:
 
     view = st.session_state.vista_activa
     if view:
-        if view == "odds":
-            with st.spinner('Scrapeo de cuotas...'):
-                raw = obtener_cuotas_api(liga)
-                df_odds = procesar_cuotas(raw)
-                if df_odds is not None and not df_odds.empty:
-                    def aplicar_b(row):
-                        m = min(row['1'], row['X'], row['2'])
-                        row['1'], row['X'], row['2'] = badge_cuota(row['1'], row['1']==m), badge_cuota(row['X'], row['X']==m), badge_cuota(row['2'], row['2']==m)
-                        return row
-                    html = df_odds.apply(aplicar_b, axis=1).style.hide(axis="index").to_html(escape=False)
-                    st.markdown(f'<div class="table-container">{html}</div>', unsafe_allow_html=True)
-        else:
-            sufijo = MAPEO_ARCHIVOS.get(liga)
-            configs = {"clas": (f"CLASIFICACION_LIGA_{sufijo}.xlsx", "clasificacion"), "stats": (f"RESUMEN_STATS_{sufijo}.xlsx", "stats"), "fix": (f"CARTELERA_PROXIMOS_{sufijo}.xlsx", "fixture")}
-            archivo, tipo = configs[view]
-            df = cargar_excel(archivo, tipo=tipo)
-            
-            if df is not None:
-                if 'ÚLTIMOS 5' in df.columns:
-                    df['ÚLTIMOS 5'] = df['ÚLTIMOS 5'].apply(formatear_last_5)
-                styler = df.style.hide(axis="index")
-                if 'PTS' in df.columns:
-                    styler = styler.set_properties(subset=['PTS'], **{'background-color': '#262730', 'font-weight': 'bold'})
-                st.markdown(f'<div class="table-container">{styler.to_html(escape=False)}</div>', unsafe_allow_html=True)
+        # AQUÍ USAMOS ST.CONTAINER PARA "FORZAR" EL ESPACIO EN BRAVE
+        with st.container():
+            if view == "odds":
+                with st.spinner('Scrapeo de cuotas...'):
+                    raw = obtener_cuotas_api(liga)
+                    df_odds = procesar_cuotas(raw)
+                    if df_odds is not None and not df_odds.empty:
+                        def aplicar_b(row):
+                            m = min(row['1'], row['X'], row['2'])
+                            row['1'], row['X'], row['2'] = badge_cuota(row['1'], row['1']==m), badge_cuota(row['X'], row['X']==m), badge_cuota(row['2'], row['2']==m)
+                            return row
+                        html = df_odds.apply(aplicar_b, axis=1).style.hide(axis="index").to_html(escape=False)
+                        st.markdown(f'<div class="table-container">{html}</div>', unsafe_allow_html=True)
+            else:
+                sufijo = MAPEO_ARCHIVOS.get(liga)
+                configs = {"clas": (f"CLASIFICACION_LIGA_{sufijo}.xlsx", "clasificacion"), "stats": (f"RESUMEN_STATS_{sufijo}.xlsx", "stats"), "fix": (f"CARTELERA_PROXIMOS_{sufijo}.xlsx", "fixture")}
+                archivo, tipo = configs[view]
+                df = cargar_excel(archivo, tipo=tipo)
+                
+                if df is not None:
+                    if 'ÚLTIMOS 5' in df.columns:
+                        df['ÚLTIMOS 5'] = df['ÚLTIMOS 5'].apply(formatear_last_5)
+                    styler = df.style.hide(axis="index")
+                    if 'PTS' in df.columns:
+                        styler = styler.set_properties(subset=['PTS'], **{'background-color': '#262730', 'font-weight': 'bold'})
+                    st.markdown(f'<div class="table-container">{styler.to_html(escape=False)}</div>', unsafe_allow_html=True)
+        
+        # TRUCO FINAL: Un espacio vacío al final para que Brave "sienta" que hay contenido abajo
+        st.write("")
+        st.write("")
