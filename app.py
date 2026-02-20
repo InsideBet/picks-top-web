@@ -55,10 +55,11 @@ TRADUCCIONES = {
 
 def limpiar_nombre_equipo(nombre):
     if pd.isna(nombre) or str(nombre).lower() == 'nan': return ""
-    # Regex mejorada: Quita códigos de 2 letras al inicio o al final (it, es, eng, fr, be, etc)
     txt = str(nombre)
-    txt = re.sub(r'^[a-z]{2}\s+', '', txt) # Quita al inicio: "be Club Brugge" -> "Club Brugge"
-    txt = re.sub(r'\s+[a-z]{2,3}$', '', txt) # Quita al final: "Inter it" -> "Inter" o "Newcastle eng" -> "Newcastle"
+    # 1. Quitar prefijos de 2 letras (ej: "be Club Brugge", "gr Olympiacos")
+    txt = re.sub(r'^[a-z]{2}\s+', '', txt)
+    # 2. Quitar sufijos de 2 o 3 letras (ej: "Atlético Madrid es", "Newcastle eng", "Inter it")
+    txt = re.sub(r'\s+[a-z]{2,3}$', '', txt)
     return txt.strip()
 
 def formatear_xg_badge(val):
@@ -91,7 +92,7 @@ def cargar_excel(ruta_archivo, tipo="general"):
     try:
         df = pd.read_excel(url)
         
-        # LIMPIEZA INICIAL: Quitar filas donde Local y Visitante sean nulos
+        # Filtro de seguridad inicial
         if 'Home' in df.columns and 'Away' in df.columns:
             df = df.dropna(subset=['Home', 'Away'], how='all')
 
@@ -113,6 +114,9 @@ def cargar_excel(ruta_archivo, tipo="general"):
             drop_c = ['Notes', 'Goalkeeper', 'Top Team Scorer', 'Attendance', 'Pts/MP', 'Pts/PJ']
             df = df.drop(columns=[c for c in drop_c if c in df.columns])
             df = df.rename(columns=TRADUCCIONES)
+            # Aseguramos que no queden equipos vacíos por el nan de origen
+            if 'EQUIPO' in df.columns:
+                df = df[df['EQUIPO'] != ""]
             cols = list(df.columns)
             if 'EQUIPO' in cols and 'PTS' in cols:
                 cols.remove('PTS')
@@ -121,23 +125,18 @@ def cargar_excel(ruta_archivo, tipo="general"):
                 df = df[cols]
                 
         elif tipo == "fixture":
-            # 1. Quitamos Round y basura
             drop_f = ['Round', 'Day', 'Score', 'Referee', 'Match Report', 'Notes', 'Attendance', 'Wk']
             df = df.drop(columns=[c for c in drop_f if c in df.columns])
-            
-            # 2. Renombramos
             df = df.rename(columns=TRADUCCIONES)
             
-            # 3. Limpiamos nombres de equipos quitando paises
             if 'LOCAL' in df.columns:
                 df['LOCAL'] = df['LOCAL'].apply(limpiar_nombre_equipo)
             if 'VISITANTE' in df.columns:
                 df['VISITANTE'] = df['VISITANTE'].apply(limpiar_nombre_equipo)
             
-            # 4. Quitamos filas que después de limpiar quedaron vacías (las filas 'nan')
+            # Quitar filas basura
             df = df[df['LOCAL'] != ""]
             
-            # 5. Formato de Fecha y Hora
             if 'FECHA' in df.columns: 
                 df['FECHA'] = df['FECHA'].apply(lambda x: str(x).split(' ')[0] if pd.notna(x) else "TBD")
             if 'HORA' in df.columns: 
@@ -147,7 +146,7 @@ def cargar_excel(ruta_archivo, tipo="general"):
     except: return None
 
 # ────────────────────────────────────────────────
-# LÓGICA DE CUOTAS (Se mantiene igual)
+# LÓGICA DE CUOTAS
 # ────────────────────────────────────────────────
 
 def obtener_cuotas_api(liga_nombre):
