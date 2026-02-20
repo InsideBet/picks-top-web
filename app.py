@@ -265,8 +265,11 @@ st.markdown("""
     table { width: 100%; border-collapse: collapse; }
     th { position: sticky; top: 0; z-index: 100; background-color: #1f2937 !important; color: #1ed7de !important; padding: 12px; border: 1px solid #374151; }
     td { padding: 12px; border: 1px solid #374151; text-align: center !important; }
-    div.stButton > button { background-color: transparent !important; color: #1ed7de !important; border: 1px solid #1ed7de !important; font-weight: bold !important; transition: 0.3s; }
-    div.stButton > button:hover { background-color: #1ed7de22 !important; }
+    
+    /* Restauración total de personalización de botones */
+    div.stButton > button { background-color: transparent !important; color: #1ed7de !important; border: 1px solid #1ed7de !important; font-weight: bold !important; transition: 0.3s; width: 100%; }
+    div.stButton > button:hover { background-color: #1ed7de22 !important; border: 1px solid #1ed7de !important; }
+    
     .header-container { display: flex; align-items: center; justify-content: flex-start; gap: 15px; margin: 25px 0; }
     .header-title { color: white !important; font-size: 2rem; font-weight: bold; margin: 0; line-height: 1; }
     .leyenda-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-top: 10px; background: #161b22; padding: 15px; border-radius: 8px; border: 1px solid #1ed7de44; }
@@ -280,12 +283,12 @@ st.markdown("""
 # ────────────────────────────────────────────────
 st.markdown('<div class="main-logo-container"><img src="https://i.postimg.cc/SKPzCcyV/33.png" class="main-logo-img"></div>', unsafe_allow_html=True)
 
-# Session States para el menú y los nuevos botones (Acordeones)
 if "liga_sel" not in st.session_state: st.session_state.liga_sel = None
 if "vista_activa" not in st.session_state: st.session_state.vista_activa = None
 if "menu_op" not in st.session_state: st.session_state.menu_op = False
-if "h2h_visible" not in st.session_state: st.session_state.h2h_visible = False
-if "confianza_visible" not in st.session_state: st.session_state.confianza_visible = False
+# States para sub-secciones de Picks
+if "h2h_op" not in st.session_state: st.session_state.h2h_op = False
+if "conf_op" not in st.session_state: st.session_state.conf_op = False
 
 if st.button("COMPETENCIAS", use_container_width=True):
     st.session_state.menu_op = not st.session_state.menu_op
@@ -303,136 +306,83 @@ if st.session_state.liga_sel:
     st.markdown(f'<div class="header-container"><img src="{BANDERAS.get(liga, "")}" style="width:40px; height:auto;"><span class="header-title">{liga}</span></div>', unsafe_allow_html=True)
     
     col1, col2, col3, col4 = st.columns(4)
-    if col1.button("Clasificación", use_container_width=True): st.session_state.vista_activa = "clas"; st.rerun()
-    if col2.button("Stats Generales", use_container_width=True): st.session_state.vista_activa = "stats"; st.rerun()
-    if col3.button("Ver Fixture", use_container_width=True): st.session_state.vista_activa = "fix"; st.rerun()
-    if col4.button("Picks & Cuotas", use_container_width=True): st.session_state.vista_activa = "odds"; st.rerun()
+    # Lógica de acordeón para botones principales
+    if col1.button("Clasificación", use_container_width=True): 
+        st.session_state.vista_activa = "clas" if st.session_state.vista_activa != "clas" else None
+        st.rerun()
+    if col2.button("Stats Generales", use_container_width=True): 
+        st.session_state.vista_activa = "stats" if st.session_state.vista_activa != "stats" else None
+        st.rerun()
+    if col3.button("Ver Fixture", use_container_width=True): 
+        st.session_state.vista_activa = "fix" if st.session_state.vista_activa != "fix" else None
+        st.rerun()
+    if col4.button("Picks & Cuotas", use_container_width=True): 
+        st.session_state.vista_activa = "odds" if st.session_state.vista_activa != "odds" else None
+        st.rerun()
 
     st.divider()
 
     view = st.session_state.vista_activa
     if view:
         sufijo = MAPEO_ARCHIVOS.get(liga)
-        
-        with st.spinner("Actualizando datos..."):
-            df_clas_base = cargar_excel(f"CLASIFICACION_LIGA_{sufijo}.xlsx", "clasificacion")
-            df_stats_base = cargar_excel(f"RESUMEN_STATS_{sufijo}.xlsx", "stats")
+        df_clas_base = cargar_excel(f"CLASIFICACION_LIGA_{sufijo}.xlsx", "clasificacion")
+        df_stats_base = cargar_excel(f"RESUMEN_STATS_{sufijo}.xlsx", "stats")
 
         if view == "odds":
-            
-            # --- NUEVO BOTÓN: COMPARADOR H2H ---
+            # 1. BOTÓN COMPARADOR H2H (ESTILO CIAN + ACORDEÓN)
             if st.button("⚔️ COMPARADOR H2H", use_container_width=True):
-                st.session_state.h2h_visible = not st.session_state.h2h_visible
-            
-            if st.session_state.h2h_visible:
-                st.subheader("⚔️ Comparador H2H")
-                if df_clas_base is not None and df_stats_base is not None:
-                    equipos = sorted(df_clas_base['EQUIPO'].unique())
-                    f1, f2, f3 = st.columns([2, 2, 1])
-                    eq_l = f1.selectbox("Equipo Local", equipos, index=0)
-                    eq_v = f2.selectbox("Equipo Visitante", equipos, index=min(1, len(equipos)-1))
-                    tipo_filtro = f3.selectbox("Filtro Stats", ["Global", "Local vs Visitante"])
+                st.session_state.h2h_op = not st.session_state.h2h_op
+
+            if st.session_state.h2h_op and df_clas_base is not None and df_stats_base is not None:
+                equipos = sorted(df_clas_base['EQUIPO'].unique())
+                f1, f2, f3 = st.columns([2, 2, 1])
+                eq_l = f1.selectbox("Equipo Local", equipos, index=0)
+                eq_v = f2.selectbox("Equipo Visitante", equipos, index=min(1, len(equipos)-1))
+                tipo_filtro = f3.selectbox("Filtro Stats", ["Global", "Local vs Visitante"])
+                
+                try:
+                    d_l, d_v = df_clas_base[df_clas_base['EQUIPO'] == eq_l].iloc[0], df_clas_base[df_clas_base['EQUIPO'] == eq_v].iloc[0]
+                    s_l, s_v = df_stats_base[df_stats_base['EQUIPO'] == eq_l].iloc[0], df_stats_base[df_stats_base['EQUIPO'] == eq_v].iloc[0]
+                    radar_labels = ["PTS", "POSS", "GF", "xG", "VICT"]
+                    radar_l = [min(d_l['PTS']*1.5, 100), float(s_l['Poss_num']), min(d_l['GF']*1.2, 100), min(float(s_l['xG_val'])*20, 100), min(d_l['G']*5, 100)]
+                    radar_v = [min(d_v['PTS']*1.5, 100), float(s_v['Poss_num']), min(d_v['GF']*1.2, 100), min(float(s_v['xG_val'])*20, 100), min(d_v['G']*5, 100)]
                     
-                    try:
-                        d_l = df_clas_base[df_clas_base['EQUIPO'] == eq_l].iloc[0]
-                        d_v = df_clas_base[df_clas_base['EQUIPO'] == eq_v].iloc[0]
-                        s_l = df_stats_base[df_stats_base['EQUIPO'] == eq_l].iloc[0]
-                        s_v = df_stats_base[df_stats_base['EQUIPO'] == eq_v].iloc[0]
-                        
-                        p_l_val = float(s_l['Poss_num'])
-                        p_v_val = float(s_v['Poss_num'])
-                        xg_l_num = float(s_l['xG_val'])
-                        xg_v_num = float(s_v['xG_val'])
-                        
-                        radar_labels = ["PTS", "POSS", "GF", "xG", "VICT"]
-                        radar_l = [min(d_l['PTS']*1.5, 100), p_l_val, min(d_l['GF']*1.2, 100), min(xg_l_num*20, 100), min(d_l['G']*5, 100)]
-                        radar_v = [min(d_v['PTS']*1.5, 100), p_v_val, min(d_v['GF']*1.2, 100), min(xg_v_num*20, 100), min(d_v['G']*5, 100)]
-                        
-                        col_rad, col_stats = st.columns([1, 2])
-                        with col_rad:
-                            st.markdown(generar_radar_svg(radar_l, radar_v, radar_labels), unsafe_allow_html=True)
-                            st.markdown(f'<div style="text-align:center; font-size:10px;"><span style="color:#1ed7de">■ {eq_l}</span> <span style="color:#b59410">■ {eq_v}</span></div>', unsafe_allow_html=True)
-
-                        with col_stats:
-                            st.markdown(f"""
-                            <div style="background: #1f2937; padding: 20px; border-radius: 12px; border: 1px solid #1ed7de44;">
-                                <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #2d3139; padding: 10px 0;">
-                                    <span style="font-weight: bold; color: #1ed7de; width: 10%; text-align: left;">{d_l['PTS']}</span>
-                                    <span style="color: #9ca3af; font-size: 0.8rem; font-weight: bold;">PUNTOS {"(GLOBAL)" if tipo_filtro=="Global" else "(LOCAL)"}</span>
-                                    <span style="font-weight: bold; color: #1ed7de; width: 10%; text-align: right;">{d_v['PTS']}</span>
-                                </div>
-                                <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #2d3139; padding: 10px 0;">
-                                    <span style="font-weight: bold; color: white; width: 10%; text-align: left;">{d_l['G']}</span>
-                                    <span style="color: #9ca3af; font-size: 0.8rem; font-weight: bold;">VICTORIAS</span>
-                                    <span style="font-weight: bold; color: white; width: 10%; text-align: right;">{d_v['G']}</span>
-                                </div>
-                                <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #2d3139; padding: 10px 0;">
-                                    <span style="font-weight: bold; color: white; width: 10%; text-align: left;">{d_l['GF']}</span>
-                                    <span style="color: #9ca3af; font-size: 0.8rem; font-weight: bold;">GOLES FAVOR</span>
-                                    <span style="font-weight: bold; color: white; width: 10%; text-align: right;">{d_v['GF']}</span>
-                                </div>
-                                <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #2d3139; padding: 10px 0;">
-                                    <span style="font-weight: bold; color: white; width: 10%; text-align: left;">{xg_l_num:.1f}</span>
-                                    <span style="color: #9ca3af; font-size: 0.8rem; font-weight: bold;">xG GENERADO</span>
-                                    <span style="font-weight: bold; color: white; width: 10%; text-align: right;">{xg_v_num:.1f}</span>
-                                </div>
-                                <div style="margin-top: 20px; display: flex; justify-content: space-between; align-items: center;">
-                                    <div style="flex: 1; text-align: left;">{grafico_picos_forma(d_l['ÚLTIMOS 5'], "left")}</div>
-                                    <span style="color: #9ca3af; font-size: 0.8rem; font-weight: bold; margin: 0 20px;">FORMA</span>
-                                    <div style="flex: 1; text-align: right;">{grafico_picos_forma(d_v['ÚLTIMOS 5'], "right")}</div>
-                                </div>
-                            </div>
-                            """, unsafe_allow_html=True)
-                    except: st.warning("Datos de comparación no disponibles.")
+                    c1, c2 = st.columns([1, 2])
+                    with c1:
+                        st.markdown(generar_radar_svg(radar_l, radar_v, radar_labels), unsafe_allow_html=True)
+                        st.markdown(f'<div style="text-align:center; font-size:10px;"><span style="color:#1ed7de">■ {eq_l}</span> <span style="color:#b59410">■ {eq_v}</span></div>', unsafe_allow_html=True)
+                    with c2:
+                        st.markdown(f"""<div style="background:#1f2937; padding:15px; border-radius:12px; border:1px solid #1ed7de44;"><div style="display:flex; justify-content:space-between; border-bottom:1px solid #2d3139; padding:8px 0;"><span style="color:#1ed7de; font-weight:bold;">{d_l['PTS']}</span><span style="color:#9ca3af; font-size:0.8rem;">PUNTOS</span><span style="color:#1ed7de; font-weight:bold;">{d_v['PTS']}</span></div><div style="display:flex; justify-content:space-between; border-bottom:1px solid #2d3139; padding:8px 0;"><span>{d_l['G']}</span><span style="color:#9ca3af; font-size:0.8rem;">VICTORIAS</span><span>{d_v['G']}</span></div><div style="display:flex; justify-content:space-between; border-bottom:1px solid #2d3139; padding:8px 0;"><span>{s_l['xG_val']:.1f}</span><span style="color:#9ca3af; font-size:0.8rem;">xG</span><span>{s_v['xG_val']:.1f}</span></div><div style="margin-top:15px; display:flex; justify-content:space-between;">{grafico_picos_forma(d_l['ÚLTIMOS 5'], "left")}<span style="color:#9ca3af; font-size:0.8rem;">FORMA</span>{grafico_picos_forma(d_v['ÚLTIMOS 5'], "right")}</div></div>""", unsafe_allow_html=True)
+                except: st.warning("Faltan datos para la comparativa.")
                 st.divider()
 
-            # --- NUEVO BOTÓN: ÍNDICE DE CONFIANZA ---
+            # 2. BOTÓN ÍNDICE DE CONFIANZA (ESTILO CIAN + BORDE CIAN)
             if st.button("🎯 ÍNDICE DE CONFIANZA", use_container_width=True):
-                st.session_state.confianza_visible = not st.session_state.confianza_visible
+                st.session_state.conf_op = not st.session_state.conf_op
 
-            if st.session_state.confianza_visible:
-                if df_clas_base is not None and df_stats_base is not None:
-                    st.info("Algoritmo Smart Pick: Analizando xG, Tendencias y Probabilidades.")
-                    equipos = sorted(df_clas_base['EQUIPO'].unique())
-                    eq_sel = st.selectbox("Selecciona equipo para análisis detallado", equipos)
-                    try:
-                        st_row = df_stats_base[df_stats_base['EQUIPO']==eq_sel].iloc[0]
-                        cl_row = df_clas_base[df_clas_base['EQUIPO']==eq_sel].iloc[0]
-                        
-                        # Cálculo del índice (Original completo)
-                        val_xg = float(st_row['xG_val'])
-                        val_pts = float(cl_row['PTS']) / (float(cl_row['PJ']) if cl_row['PJ'] > 0 else 1)
-                        racha = str(cl_row['ÚLTIMOS 5']).upper().count('W')
-                        
-                        score = (val_xg * 0.4) + (val_pts * 15) + (racha * 5)
-                        final_perc = min(int(score * 2), 100)
-                        fuegos = "🔥" * (final_perc // 20)
-                        
-                        st.markdown(f"""
-                        <div style="background:#161b22; padding:25px; border-radius:12px; border:1px solid #b59410; margin-bottom:20px;">
-                            <h3 style="color:#b59410; margin-top:0;">{eq_sel} - Confidence Report</h3>
-                            <div style="display:flex; align-items:center; gap:20px; margin:20px 0;">
-                                <div style="flex:1; background:#2d3139; height:15px; border-radius:8px; overflow:hidden;">
-                                    <div style="width:{final_perc}%; background:linear-gradient(90deg, #1ed7de, #b59410); height:100%;"></div>
-                                </div>
-                                <span style="font-size:1.5rem; font-weight:bold; color:#1ed7de;">{final_perc}%</span>
+            if st.session_state.conf_op and df_clas_base is not None and df_stats_base is not None:
+                equipos = sorted(df_clas_base['EQUIPO'].unique())
+                eq_sel = st.selectbox("Selecciona equipo", equipos)
+                try:
+                    s_r, c_r = df_stats_base[df_stats_base['EQUIPO']==eq_sel].iloc[0], df_clas_base[df_clas_base['EQUIPO']==eq_sel].iloc[0]
+                    score = (float(s_r['xG_val']) * 0.4) + (float(c_r['PTS'])/(c_r['PJ'] or 1) * 15) + (str(c_r['ÚLTIMOS 5']).count('W') * 5)
+                    perc = min(int(score * 2), 100)
+                    st.markdown(f"""
+                    <div style="background:#161b22; padding:20px; border-radius:12px; border:1px solid #1ed7de;">
+                        <h4 style="color:#1ed7de; margin-top:0;">{eq_sel} - Reporte de Confianza</h4>
+                        <div style="display:flex; align-items:center; gap:15px; margin:15px 0;">
+                            <div style="flex:1; background:#2d3139; height:12px; border-radius:6px; overflow:hidden;">
+                                <div style="width:{perc}%; background:#1ed7de; height:100%;"></div>
                             </div>
-                            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px;">
-                                <div>
-                                    <p style="color:#9ca3af; margin:0;">Nivel de Confianza:</p>
-                                    <p style="font-size:1.2rem; margin:5px 0;">{fuegos if fuegos else "🌑"}</p>
-                                </div>
-                                <div>
-                                    <p style="color:#9ca3af; margin:0;">Factor Clave:</p>
-                                    <p style="font-size:1rem; margin:5px 0; color:white;">Dominio de xG acumulado: {val_xg:.1f}</p>
-                                </div>
-                            </div>
+                            <span style="font-weight:bold; color:#1ed7de;">{perc}%</span>
                         </div>
-                        """, unsafe_allow_html=True)
-                    except: st.error("No se pudo generar el reporte de confianza para este equipo.")
+                        <p style="font-size:0.9rem; color:#9ca3af; margin:0;"><b>Factor xG:</b> {s_r['xG_val']:.1f} | <b>Puntos/PJ:</b> {(c_r['PTS']/c_r['PJ']):.2f}</p>
+                    </div>
+                    """, unsafe_allow_html=True)
+                except: st.error("No se pudo calcular.")
                 st.divider()
 
-            # --- TABLA DE CUOTAS (SIEMPRE FUERA) ---
+            # 3. TABLA DE CUOTAS (SIEMPRE FUERA)
             st.subheader("📊 Picks & Cuotas")
             raw = obtener_cuotas_api(liga)
             df_odds = procesar_cuotas(raw, df_clas_base)
@@ -456,44 +406,20 @@ if st.session_state.liga_sel:
                 styler_df = df_odds.apply(aplicar_estilo, axis=1)
                 html = styler_df[['FECHA','LOCAL','VISITANTE','1','X','2','TENDENCIA']].style.hide(axis="index").to_html(escape=False)
                 st.markdown(f'<div class="table-container">{html}</div>', unsafe_allow_html=True)
-                
-                st.markdown("""
-                <div class="leyenda-grid">
-                    <div class="leyenda-item">
-                        <div class="color-box" style="background: #b59410;"></div>
-                        <span><b>Value Bet (⭐):</b> Cuota con valor estadístico.</span>
-                    </div>
-                    <div class="leyenda-item">
-                        <div class="color-box" style="background: #137031;"></div>
-                        <span><b>Favorito:</b> Cuota más probable de la casa.</span>
-                    </div>
-                    <div class="leyenda-item">
-                        <span style="color: #1ed7de; font-weight: bold;">🔥 Over:</span>
-                        <span>Tendencia a +2.5 goles.</span>
-                    </div>
-                    <div class="leyenda-item">
-                        <span style="color: #9ca3af; font-weight: bold;">🛡️ Under:</span>
-                        <span>Tendencia a -2.5 goles.</span>
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
+                st.markdown("""<div class="leyenda-grid"><div class="leyenda-item"><div class="color-box" style="background:#b59410;"></div><span><b>Value Bet (⭐):</b> Valor Estadístico.</span></div><div class="leyenda-item"><div class="color-box" style="background:#137031;"></div><span><b>Favorito:</b> Más probable.</span></div><div class="leyenda-item"><span style="color:#1ed7de; font-weight:bold;">🔥 Over:</span><span>+2.5 Goles.</span></div><div class="leyenda-item"><span style="color:#9ca3af; font-weight:bold;">🛡️ Under:</span><span>-2.5 Goles.</span></div></div>""", unsafe_allow_html=True)
 
         else:
-            configs = {"clas": (f"CLASIFICACION_LIGA_{sufijo}.xlsx", "clasificacion"), 
-                       "stats": (f"RESUMEN_STATS_{sufijo}.xlsx", "stats"), 
-                       "fix": (f"CARTELERA_PROXIMOS_{sufijo}.xlsx", "fixture")}
+            configs = {"clas": (f"CLASIFICACION_LIGA_{sufijo}.xlsx", "clasificacion"), "stats": (f"RESUMEN_STATS_{sufijo}.xlsx", "stats"), "fix": (f"CARTELERA_PROXIMOS_{sufijo}.xlsx", "fixture")}
             archivo, tipo = configs[view]
             df = cargar_excel(archivo, tipo=tipo)
             if df is not None:
                 if 'ÚLTIMOS 5' in df.columns: df['ÚLTIMOS 5'] = df['ÚLTIMOS 5'].apply(formatear_last_5)
                 cols_to_drop = ['xG_val', 'Poss_num']
                 df_view = df.drop(columns=[c for c in cols_to_drop if c in df.columns])
-                busqueda = st.text_input("🔍 Filtrar por equipo...", "").strip().lower()
-                if busqueda and 'EQUIPO' in df_view.columns:
-                    df_view = df_view[df_view['EQUIPO'].str.lower().str.contains(busqueda)]
+                busqueda = st.text_input("🔍 Filtrar equipo...", "").strip().lower()
+                if busqueda and 'EQUIPO' in df_view.columns: df_view = df_view[df_view['EQUIPO'].str.lower().str.contains(busqueda)]
                 styler = df_view.style.hide(axis="index")
-                if 'PTS' in df_view.columns: 
-                    styler = styler.set_properties(subset=['PTS'], **{'background-color': '#1ed7de22', 'font-weight': 'bold', 'color': '#1ed7de'})
+                if 'PTS' in df_view.columns: styler = styler.set_properties(subset=['PTS'], **{'background-color': '#1ed7de22', 'font-weight': 'bold', 'color': '#1ed7de'})
                 st.markdown(f'<div class="table-container">{styler.to_html(escape=False)}</div>', unsafe_allow_html=True)
 
 st.write("---")
