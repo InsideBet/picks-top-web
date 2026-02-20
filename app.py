@@ -78,10 +78,10 @@ def formatear_last_5(valor):
     if pd.isna(valor): return ""
     trad = {'W': 'G', 'L': 'P', 'D': 'E'}
     letras = list(str(valor).upper().replace(" ", ""))[:5]
-    html_str = '<div style="display: flex; gap: 4px; justify-content: center;">'
+    html_str = '<div class="forma-container">'
     for l in letras:
-        bg = "#137031" if l == 'W' else "#821f1f" if l == 'L' else "#82711f"
-        html_str += f'<span style="background-color: {bg}; color: white; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: bold; min-width: 18px; text-align: center;">{trad.get(l, l)}</span>'
+        clase = "win" if l == 'W' else "loss" if l == 'L' else "draw" if l == 'D' else ""
+        html_str += f'<span class="forma-box {clase}">{trad.get(l, l)}</span>'
     return html_str + '</div>'
 
 @st.cache_data(ttl=300)
@@ -98,14 +98,17 @@ def cargar_excel(ruta_archivo, tipo="general"):
             if len(df.columns) >= 17:
                 df = df.rename(columns={df.columns[16]: 'xG'})
             df['xG_val'] = df['xG'].fillna(0)
-            # No formateamos xG ni Poss aquí para poder usarlos en el H2H con números reales
-            df = df.rename(columns=TRADUCCIONES)
-            cols_ok = ['EQUIPO', 'PJ', 'POSESIÓN', 'GOLES', 'AST', 'AMARILLAS', 'ROJAS', 'xG', 'xG_val']
+            if 'xG' in df.columns: df['xG'] = df['xG'].apply(formatear_xg_badge)
+            if 'Poss' in df.columns: df['Poss'] = df['Poss'].apply(html_barra_posesion)
+            cols_ok = ['Squad', 'MP', 'Poss', 'Gls', 'Ast', 'CrdY', 'CrdR', 'xG', 'xG_val']
             df = df[[c for c in cols_ok if c in df.columns]]
+            df = df.rename(columns=TRADUCCIONES)
         
         elif tipo == "clasificacion":
             if 'Squad' in df.columns:
                 df['Squad'] = df['Squad'].apply(limpiar_nombre_equipo)
+            drop_c = ['Notes', 'Goalkeeper', 'Top Team Scorer', 'Attendance', 'Pts/MP', 'Pts/PJ']
+            df = df.drop(columns=[c for c in drop_c if c in df.columns])
             df = df.rename(columns=TRADUCCIONES)
             if 'EQUIPO' in df.columns:
                 df = df[df['EQUIPO'] != ""]
@@ -117,12 +120,18 @@ def cargar_excel(ruta_archivo, tipo="general"):
                 df = df[cols]
                 
         elif tipo == "fixture":
+            drop_f = ['Round', 'Day', 'Score', 'Referee', 'Match Report', 'Notes', 'Attendance', 'Wk']
+            df = df.drop(columns=[c for c in drop_f if c in df.columns])
             df = df.rename(columns=TRADUCCIONES)
             if 'LOCAL' in df.columns:
                 df['LOCAL'] = df['LOCAL'].apply(limpiar_nombre_equipo)
             if 'VISITANTE' in df.columns:
                 df['VISITANTE'] = df['VISITANTE'].apply(limpiar_nombre_equipo)
-            df = df[df.get('LOCAL', '') != ""]
+            df = df[df['LOCAL'] != ""]
+            if 'FECHA' in df.columns: 
+                df['FECHA'] = df['FECHA'].apply(lambda x: str(x).split(' ')[0] if pd.notna(x) else "TBD")
+            if 'HORA' in df.columns: 
+                df['HORA'] = df['HORA'].fillna("Por definir")
         
         return df.dropna(how='all').reset_index(drop=True)
     except: return None
@@ -151,6 +160,7 @@ def procesar_cuotas(data, df_clas):
     if not data or not isinstance(data, list): return None
     rows = []
     puntos_dict = pd.Series(df_clas.PTS.values, index=df_clas.EQUIPO).to_dict() if df_clas is not None else {}
+    
     for match in data:
         home, away = match.get('home_team'), match.get('away_team')
         commence = pd.to_datetime(match.get('commence_time')).strftime('%d/%m %H:%M')
@@ -162,11 +172,13 @@ def procesar_cuotas(data, df_clas):
                 if o['name'] == home: h = float(o['price'])
                 elif o['name'] == away: a = float(o['price'])
                 else: d = float(o['price'])
+        
         val_h = False
         if home in puntos_dict and away in puntos_dict:
             pts_h, pts_a = puntos_dict[home], puntos_dict[away]
             prob_est = (pts_h + 5) / (pts_h + pts_a + 10)
             if h > ((1/prob_est) * 1.15): val_h = True
+            
         rows.append({"FECHA": commence, "LOCAL": home, "VISITANTE": away, "1": h, "X": d, "2": a, "VAL_H": val_h})
     return pd.DataFrame(rows)
 
@@ -177,141 +189,194 @@ st.markdown("""
 <style>
     .stApp { background-color: #0e1117; color: #e5e7eb; }
     
-    /* LOGO CENTRADO */
-    .logo-center-wrapper {
-        display: flex; justify-content: center; align-items: center;
-        width: 100%; padding: 20px 0; margin-top: -30px;
+    /* LOGO CENTRADO Y AJUSTADO */
+    .main-logo-container {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        width: 100%;
+        padding: 10px 0;
+        margin-top: -20px;
     }
-    .logo-center-wrapper img { width: 100%; max-width: 500px; height: auto; }
+    .main-logo-link {
+        display: flex;
+        justify-content: center;
+        width: 100%;
+        text-decoration: none;
+    }
+    .main-logo-img {
+        width: 50%;
+        max-width: 500px;
+        height: auto;
+        transition: transform 0.3s ease;
+    }
+    .main-logo-img:hover {
+        transform: scale(1.03);
+        filter: brightness(1.2);
+    }
 
-    /* BOTÓN COMPETENCIAS CIAN */
-    div.stButton > button:first-child {
-        background-color: #1ed7de !important;
-        color: #000 !important;
+    /* TABLAS Y CONTENEDORES */
+    .table-container { 
+        width: 100%; 
+        overflow-x: auto; 
+        border: 1px solid #1ed7de44; 
+        border-radius: 8px; 
+        margin-bottom: 50px;
+        background-color: #161b22;
+    }
+    table { width: 100%; border-collapse: collapse; }
+    th { 
+        position: sticky; top: 0; z-index: 100;
+        background-color: #1f2937 !important; color: #1ed7de !important; 
+        padding: 12px; border: 1px solid #374151; 
+    }
+    td { padding: 12px; border: 1px solid #374151; text-align: center !important; }
+    
+    /* CARTAS H2H */
+    .h2h-card { 
+        background: linear-gradient(135deg, #1f2937 0%, #0d1117 100%); 
+        border: 1px solid #1ed7de55; 
+        border-radius: 12px; 
+        padding: 20px; 
+        margin-bottom: 25px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+    }
+    .h2h-row { display: flex; justify-content: space-between; align-items: center; margin: 10px 0; border-bottom: 1px solid #2d3139; padding-bottom: 5px; }
+    .h2h-val { font-weight: bold; font-size: 1.1rem; color: #1ed7de; }
+    .h2h-label { color: #9ca3af; font-size: 0.9rem; text-transform: uppercase; }
+
+    /* BOTONES */
+    /* Botón Competencias (Rojo) */
+    div.stButton > button:first-child { 
+        background-color: #ff1800 !important; 
+        color: white !important; 
         border: none !important;
-        font-weight: bold !important;
-        width: 200px !important;
-        height: 45px !important;
-        border-radius: 8px !important;
     }
 
-    /* BOTONES NAVEGACIÓN */
-    [data-testid="stHorizontalBlock"] button {
+    /* Botones de Navegación (Tono Logo) */
+    div.stHeader + div [data-testid="stHorizontalBlock"] button {
         background-color: transparent !important;
         color: #1ed7de !important;
         border: 1px solid #1ed7de !important;
+        transition: 0.3s;
+    }
+    div.stHeader + div [data-testid="stHorizontalBlock"] button:hover {
+        background-color: #1ed7de22 !important;
+        border-color: white !important;
     }
 
-    /* TABLAS Y COMPARADOR */
-    .table-container { 
-        width: 100%; border: 1px solid #1ed7de44; 
-        border-radius: 8px; background-color: #161b22; overflow: hidden;
-    }
-    .h2h-card {
-        background: #1f2937; padding: 20px; border-radius: 12px;
-        border-left: 5px solid #1ed7de; margin-bottom: 20px;
-    }
-    .h2h-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #374151; }
-    .h2h-label { color: #9ca3af; font-size: 13px; text-transform: uppercase; }
-    .h2h-val { font-weight: bold; color: white; }
-    
+    /* OTROS ELEMENTOS */
     .bar-fill { background-color: #1ed7de; height: 100%; border-radius: 10px; }
+    .header-title { color: white !important; font-size: 2rem; font-weight: bold; margin: 0; }
+    .forma-box.win { background-color: #137031; }
 </style>
 """, unsafe_allow_html=True)
 
 # ────────────────────────────────────────────────
-# ESTRUCTURA
+# ESTRUCTURA DE LA APP
 # ────────────────────────────────────────────────
 
-st.markdown('<div class="logo-center-wrapper"><img src="https://i.postimg.cc/SKPzCcyV/33.png"></div>', unsafe_allow_html=True)
+# Logo Clickable y Centrado
+st.markdown("""
+    <div class="main-logo-container">
+        <a href="/" target="_self" class="main-logo-link">
+            <img src="https://i.postimg.cc/SKPzCcyV/33.png" class="main-logo-img">
+        </a>
+    </div>
+    """, unsafe_allow_html=True)
 
 if "liga_sel" not in st.session_state: st.session_state.liga_sel = None
-if "vista_activa" not in st.session_state: st.session_state.vista_activa = "clas"
+if "vista_activa" not in st.session_state: st.session_state.vista_activa = None
 if "menu_op" not in st.session_state: st.session_state.menu_op = False
 
+# Botón principal
 if st.button("COMPETENCIAS"):
     st.session_state.menu_op = not st.session_state.menu_op
 
 if st.session_state.menu_op:
-    sel = st.selectbox("Ligas", ["---"] + LIGAS_LISTA, label_visibility="collapsed")
-    if sel != "---":
+    sel = st.selectbox("Ligas", ["Selecciona Liga/Competencia"] + LIGAS_LISTA, label_visibility="collapsed")
+    if sel != "Selecciona Liga/Competencia":
         st.session_state.liga_sel = sel
         st.session_state.menu_op = False
+        st.session_state.vista_activa = None
         st.rerun()
 
 if st.session_state.liga_sel:
     liga = st.session_state.liga_sel
-    st.markdown(f'<h1 style="color:white; font-size:24px;"><img src="{BANDERAS.get(liga)}" width="35"> {liga}</h1>', unsafe_allow_html=True)
+    st.markdown(f'<div class="header-container"><img src="{BANDERAS.get(liga, "")}" style="width:40px; margin-right:15px; vertical-align:middle;"><span class="header-title">{liga}</span></div>', unsafe_allow_html=True)
     
-    c1, c2, c3, c4 = st.columns(4)
-    if c1.button("Clasificación", key="v1"): st.session_state.vista_activa = "clas"
-    if c2.button("Stats Generales", key="v2"): st.session_state.vista_activa = "stats"
-    if c3.button("Ver Fixture", key="v3"): st.session_state.vista_activa = "fix"
-    if c4.button("Picks & Cuotas", key="v4"): st.session_state.vista_activa = "odds"
+    st.write("")
+    col1, col2, col3, col4 = st.columns(4)
+    if col1.button("Clasificación"): st.session_state.vista_activa = "clas"
+    if col2.button("Stats Generales"): st.session_state.vista_activa = "stats"
+    if col3.button("Ver Fixture"): st.session_state.vista_activa = "fix"
+    if col4.button("Picks & Cuotas"): st.session_state.vista_activa = "odds"
 
     st.divider()
-    sufijo = MAPEO_ARCHIVOS.get(liga)
-    df_clas = cargar_excel(f"CLASIFICACION_LIGA_{sufijo}.xlsx", "clasificacion")
-    df_stats = cargar_excel(f"RESUMEN_STATS_{sufijo}.xlsx", "stats")
 
-    if st.session_state.vista_activa == "odds":
-        st.subheader("⚔️ Análisis H2H Pro")
-        if df_clas is not None and df_stats is not None:
-            col_sel1, col_sel2 = st.columns(2)
-            eq1 = col_sel1.selectbox("Local", sorted(df_clas['EQUIPO'].unique()), index=0)
-            eq2 = col_sel2.selectbox("Visitante", sorted(df_clas['EQUIPO'].unique()), index=1)
-            
-            # EXTRACCIÓN DE DATA COMPLETA PARA H2H
-            try:
-                s1 = df_stats[df_stats['EQUIPO'] == eq1].iloc[0]
-                s2 = df_stats[df_stats['EQUIPO'] == eq2].iloc[0]
-                c1_data = df_clas[df_clas['EQUIPO'] == eq1].iloc[0]
-                c2_data = df_clas[df_clas['EQUIPO'] == eq2].iloc[0]
+    view = st.session_state.vista_activa
+    if view:
+        sufijo = MAPEO_ARCHIVOS.get(liga)
+        df_clas_base = cargar_excel(f"CLASIFICACION_LIGA_{sufijo}.xlsx", "clasificacion")
+        df_stats_base = cargar_excel(f"RESUMEN_STATS_{sufijo}.xlsx", "stats")
 
-                st.markdown(f"""
-                <div class="h2h-card">
-                    <div style="display:grid; grid-template-columns: 1fr 100px 1fr; text-align:center; font-size:18px; font-weight:bold; margin-bottom:15px;">
-                        <div style="color:#1ed7de;">{eq1}</div><div>VS</div><div style="color:#1ed7de;">{eq2}</div>
+        if view == "odds":
+            st.subheader("⚔️ Comparador H2H")
+            if df_clas_base is not None:
+                equipos = sorted(df_clas_base['EQUIPO'].unique())
+                col_h1, col_h2 = st.columns(2)
+                eq_l = col_h1.selectbox("Local", equipos, index=0)
+                eq_v = col_h2.selectbox("Visitante", equipos, index=1)
+                
+                try:
+                    d_l = df_clas_base[df_clas_base['EQUIPO'] == eq_l].iloc[0]
+                    d_v = df_clas_base[df_clas_base['EQUIPO'] == eq_v].iloc[0]
+                    
+                    st.markdown(f"""
+                    <div class="h2h-card">
+                        <div class="h2h-row"><span class="h2h-val">{d_l['PTS']}</span><span class="h2h-label">Puntos</span><span class="h2h-val">{d_v['PTS']}</span></div>
+                        <div class="h2h-row"><span class="h2h-val">{d_l['G']}</span><span class="h2h-label">Victorias</span><span class="h2h-val">{d_v['G']}</span></div>
+                        <div class="h2h-row"><span class="h2h-val">{d_l['GF']}</span><span class="h2h-label">Goles F.</span><span class="h2h-val">{d_v['GF']}</span></div>
                     </div>
-                    <div class="h2h-row"><span class="h2h-val">{c1_data['PTS']}</span><span class="h2h-label">Puntos Totales</span><span class="h2h-val">{c2_data['PTS']}</span></div>
-                    <div class="h2h-row"><span class="h2h-val">{s1['GOLES']/s1['PJ']:.2f}</span><span class="h2h-label">Goles por Partido</span><span class="h2h-val">{s2['GOLES']/s2['PJ']:.2f}</span></div>
-                    <div class="h2h-row"><span class="h2h-val">{s1['xG_val']:.2f}</span><span class="h2h-label">xG (Calidad Ataque)</span><span class="h2h-val">{s2['xG_val']:.2f}</span></div>
-                    <div class="h2h-row"><span class="h2h-val">{s1['POSESIÓN']}</span><span class="h2h-label">Posesión Media</span><span class="h2h-val">{s2['POSESIÓN']}</span></div>
-                    <div class="h2h-row"><span class="h2h-val">{s1['AMARILLAS']}</span><span class="h2h-label">Tarjetas Amarillas</span><span class="h2h-val">{s2['AMARILLAS']}</span></div>
-                </div>
-                """, unsafe_allow_html=True)
-            except: st.warning("Datos de comparación no disponibles para estos equipos.")
+                    """, unsafe_allow_html=True)
+                except: st.warning("Datos de comparación no disponibles.")
 
-        with st.spinner("Obteniendo cuotas..."):
-            raw = obtener_cuotas_api(liga)
-            df_o = procesar_cuotas(raw, df_clas)
-            if df_o is not None and not df_o.empty:
-                def aplicar_estilo_odds(row):
-                    m = min(row['1'], row['X'], row['2'])
-                    row['1'] = badge_cuota(row['1'], row['1']==m, row['VAL_H'])
-                    row['X'] = badge_cuota(row['X'], row['X']==m)
-                    row['2'] = badge_cuota(row['2'], row['2']==m)
-                    return row
-                res_odds = df_o.apply(aplicar_estilo_odds, axis=1)
-                st.markdown(f'<div class="table-container">{res_odds[["FECHA","LOCAL","VISITANTE","1","X","2"]].style.hide(axis="index").to_html(escape=False)}</div>', unsafe_allow_html=True)
+            with st.spinner('Cargando mercado...'):
+                raw = obtener_cuotas_api(liga)
+                df_odds = procesar_cuotas(raw, df_clas_base)
+                if df_odds is not None and not df_odds.empty:
+                    if df_stats_base is not None:
+                        def predecir_goles(r):
+                            try:
+                                xg_l = df_stats_base[df_stats_base['EQUIPO'] == r['LOCAL']]['xG_val'].values[0]
+                                xg_v = df_stats_base[df_stats_base['EQUIPO'] == r['VISITANTE']]['xG_val'].values[0]
+                                return "🔥 Over" if (float(xg_l) + float(xg_v)) > 2.7 else "🛡️ Under"
+                            except: return "---"
+                        df_odds['TENDENCIA'] = df_odds.apply(predecir_goles, axis=1)
 
-    else:
-        # Vistas de Tablas Normales
-        tipo_map = {"clas": "clasificacion", "stats": "stats", "fix": "fixture"}
-        file_map = {"clas": f"CLASIFICACION_LIGA_{sufijo}.xlsx", "stats": f"RESUMEN_STATS_{sufijo}.xlsx", "fix": f"CARTELERA_PROXIMOS_{sufijo}.xlsx"}
-        
-        df = cargar_excel(file_map[st.session_state.vista_activa], tipo_map[st.session_state.vista_activa])
-        if df is not None:
-            # Post-procesado para visualización
-            if 'ÚLTIMOS 5' in df.columns: df['ÚLTIMOS 5'] = df['ÚLTIMOS 5'].apply(formatear_last_5)
-            if 'POSESIÓN' in df.columns: df['POSESIÓN'] = df['POSESIÓN'].apply(html_barra_posesion)
-            if 'xG' in df.columns: df['xG'] = df['xG'].apply(formatear_xg_badge)
-            if 'xG_val' in df.columns: df = df.drop(columns=['xG_val'])
-            
-            styler = df.style.hide(axis="index")
-            if 'PTS' in df.columns:
-                styler = styler.set_properties(subset=['PTS'], **{'background-color': '#1ed7de22', 'color': '#1ed7de', 'font-weight': 'bold'})
-            st.markdown(f'<div class="table-container">{styler.to_html(escape=False)}</div>', unsafe_allow_html=True)
+                    def aplicar_estilo(row):
+                        m = min(row['1'], row['X'], row['2'])
+                        row['1'] = badge_cuota(row['1'], row['1']==m, row['VAL_H'])
+                        row['X'] = badge_cuota(row['X'], row['X']==m)
+                        row['2'] = badge_cuota(row['2'], row['2']==m)
+                        return row
+                    
+                    styler_df = df_odds.apply(aplicar_estilo, axis=1)
+                    html = styler_df[['FECHA','LOCAL','VISITANTE','1','X','2','TENDENCIA']].style.hide(axis="index").to_html(escape=False)
+                    st.markdown(f'<div class="table-container">{html}</div>', unsafe_allow_html=True)
+
+        else:
+            configs = {"clas": (f"CLASIFICACION_LIGA_{sufijo}.xlsx", "clasificacion"), 
+                       "stats": (f"RESUMEN_STATS_{sufijo}.xlsx", "stats"), 
+                       "fix": (f"CARTELERA_PROXIMOS_{sufijo}.xlsx", "fixture")}
+            archivo, tipo = configs[view]
+            df = cargar_excel(archivo, tipo=tipo)
+            if df is not None:
+                if 'ÚLTIMOS 5' in df.columns: df['ÚLTIMOS 5'] = df['ÚLTIMOS 5'].apply(formatear_last_5)
+                if 'xG_val' in df.columns: df = df.drop(columns=['xG_val'])
+                styler = df.style.hide(axis="index")
+                if 'PTS' in df.columns: styler = styler.set_properties(subset=['PTS'], **{'background-color': '#1ed7de22', 'font-weight': 'bold', 'color': '#1ed7de'})
+                st.markdown(f'<div class="table-container">{styler.to_html(escape=False)}</div>', unsafe_allow_html=True)
 
 st.write("---")
-st.caption("InsideBet Official | scrapeo")
+st.caption("InsideBet Official | Sistema de análisis futbolístico")
