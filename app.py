@@ -55,7 +55,10 @@ TRADUCCIONES = {
 
 def limpiar_nombre_equipo(nombre):
     if pd.isna(nombre): return nombre
-    return re.sub(r'^[a-z]+\s+', '', str(nombre))
+    # Limpia códigos de país al final (ej: "Inter it", "Real Madrid es")
+    nombre = re.sub(r'\s+[a-z]{2}$', '', str(nombre))
+    # Limpia códigos de país al inicio (ej: "it Inter", "es Real Madrid")
+    return re.sub(r'^[a-z]{2}\s+', '', nombre)
 
 def formatear_xg_badge(val):
     try:
@@ -86,14 +89,16 @@ def cargar_excel(ruta_archivo, tipo="general"):
     url = f"{BASE_URL}/{ruta_archivo}"
     try:
         df = pd.read_excel(url)
-        col_equipo = 'Squad' if 'Squad' in df.columns else 'EQUIPO'
-        if col_equipo in df.columns:
-            df[col_equipo] = df[col_equipo].apply(limpiar_nombre_equipo)
-
+        
+        # Lógica de limpieza de nulos y nombres para todas las tablas
+        df = df.fillna('')
+        
         if tipo == "stats":
+            if 'Squad' in df.columns:
+                df['Squad'] = df['Squad'].apply(limpiar_nombre_equipo)
             if len(df.columns) >= 17:
                 df = df.rename(columns={df.columns[16]: 'xG'})
-            df['xG_val'] = df['xG'].fillna(0)
+            df['xG_val'] = pd.to_numeric(df['xG'], errors='coerce').fillna(0)
             if 'xG' in df.columns: df['xG'] = df['xG'].apply(formatear_xg_badge)
             if 'Poss' in df.columns: df['Poss'] = df['Poss'].apply(html_barra_posesion)
             cols_ok = ['Squad', 'MP', 'Poss', 'Gls', 'Ast', 'CrdY', 'CrdR', 'xG', 'xG_val']
@@ -101,6 +106,8 @@ def cargar_excel(ruta_archivo, tipo="general"):
             df = df.rename(columns=TRADUCCIONES)
         
         elif tipo == "clasificacion":
+            if 'Squad' in df.columns:
+                df['Squad'] = df['Squad'].apply(limpiar_nombre_equipo)
             drop_c = ['Notes', 'Goalkeeper', 'Top Team Scorer', 'Attendance', 'Pts/MP', 'Pts/PJ']
             df = df.drop(columns=[c for c in drop_c if c in df.columns])
             df = df.rename(columns=TRADUCCIONES)
@@ -112,11 +119,25 @@ def cargar_excel(ruta_archivo, tipo="general"):
                 df = df[cols]
                 
         elif tipo == "fixture":
-            drop_f = ['Day', 'Score', 'Referee', 'Match Report', 'Notes', 'Attendance', 'Wk']
+            # Eliminar Round y columnas innecesarias
+            drop_f = ['Round', 'Day', 'Score', 'Referee', 'Match Report', 'Notes', 'Attendance', 'Wk']
             df = df.drop(columns=[c for c in drop_f if c in df.columns])
+            
+            # Limpiar nombres de equipos en Local y Visitante
+            if 'Home' in df.columns:
+                df['Home'] = df['Home'].apply(limpiar_nombre_equipo)
+            if 'Away' in df.columns:
+                df['Away'] = df['Away'].apply(limpiar_nombre_equipo)
+                
             df = df.rename(columns=TRADUCCIONES)
+            
+            # Limpiar específicamente NaN en HORA y FECHA que a veces persisten como strings
+            if 'HORA' in df.columns:
+                df['HORA'] = df['HORA'].astype(str).replace(['nan', 'NaN', ''], 'Por definir')
+            if 'FECHA' in df.columns:
+                df['FECHA'] = df['FECHA'].astype(str).replace(['nan', 'NaN', ''], 'TBD')
         
-        return df.dropna(how='all')
+        return df.dropna(how='all').reset_index(drop=True)
     except: return None
 
 # ────────────────────────────────────────────────
@@ -286,7 +307,6 @@ if st.session_state.liga_sel:
                     html = styler_df[['FECHA','LOCAL','VISITANTE','1','X','2','TENDENCIA']].style.hide(axis="index").to_html(escape=False)
                     st.markdown(f'<div class="table-container">{html}</div>', unsafe_allow_html=True)
 
-                    # LEYENDA SECCIÓN CUOTAS
                     st.markdown("""
                     <div style="background-color: #1a1c23; border: 1px solid #374151; border-radius: 8px; padding: 15px; margin-top: -20px; margin-bottom: 30px;">
                         <h4 style="margin-top:0; color:#ced4da; font-size: 1rem; border-bottom: 1px solid #374151; padding-bottom: 5px;">Guía de Análisis InsideBet:</h4>
@@ -320,7 +340,6 @@ if st.session_state.liga_sel:
                 if 'PTS' in df.columns: styler = styler.set_properties(subset=['PTS'], **{'background-color': '#262730', 'font-weight': 'bold'})
                 st.markdown(f'<div class="table-container">{styler.to_html(escape=False)}</div>', unsafe_allow_html=True)
 
-                # LEYENDA SECCIÓN STATS GENERALES
                 if view == "stats":
                     st.markdown("""
                     <div style="background-color: #1a1c23; border: 1px solid #374151; border-radius: 8px; padding: 15px; margin-top: -20px; margin-bottom: 30px;">
