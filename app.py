@@ -9,7 +9,6 @@ import requests
 # ────────────────────────────────────────────────
 st.set_page_config(page_title="InsideBet", layout="wide")
 
-# Intentar obtener API Key
 try:
     API_KEY = st.secrets["odds_api_key"]
 except:
@@ -156,21 +155,25 @@ def procesar_cuotas(data):
     return pd.DataFrame(rows)
 
 # ────────────────────────────────────────────────
-# ESTILOS CSS (ESTRUCTURA VISIBLE + SCROLL)
+# ESTILOS CSS (AJUSTE BRAVE V3)
 # ────────────────────────────────────────────────
 st.markdown("""
 <style>
-    /* Estilo de la App */
-    .stApp { background-color: #0e1117; color: #e5e7eb; }
-
-    /* Parche Brave: Asegura scroll sin romper la visibilidad */
-    html { overflow-y: scroll !important; }
-    
+    /* 1. Resetear el contenedor base para que NO tenga altura bloqueada */
     [data-testid="stAppViewContainer"] {
+        height: auto !important;
         overflow: visible !important;
     }
 
-    /* Contenedor de tabla */
+    /* 2. Forzar al contenedor de la web a estirarse según el contenido */
+    [data-testid="stMainViewContainer"] {
+        height: auto !important;
+        overflow: visible !important;
+    }
+
+    /* 3. Estilo General */
+    .stApp { background-color: #0e1117; color: #e5e7eb; }
+    
     .table-container { 
         width: 100%; 
         overflow-x: auto; 
@@ -210,15 +213,11 @@ st.markdown("""
 # Logo
 st.markdown('<div style="text-align:center; margin-bottom:20px;"><img src="https://i.postimg.cc/C516P7F5/33.png" width="300"></div>', unsafe_allow_html=True)
 
-# ────────────────────────────────────────────────
 # LÓGICA DE NAVEGACIÓN
-# ────────────────────────────────────────────────
-
 if "liga_sel" not in st.session_state: st.session_state.liga_sel = None
 if "vista_activa" not in st.session_state: st.session_state.vista_activa = None
 if "menu_op" not in st.session_state: st.session_state.menu_op = False
 
-# Botón Competencias
 if st.button("COMPETENCIAS"):
     st.session_state.menu_op = not st.session_state.menu_op
 
@@ -230,7 +229,7 @@ if st.session_state.menu_op:
         st.session_state.vista_activa = None
         st.rerun()
 
-# CUERPO DE LA APP
+# CUERPO
 if st.session_state.liga_sel:
     liga = st.session_state.liga_sel
     st.markdown(f'<div class="header-container"><img src="{BANDERAS.get(liga, "")}" class="flag-img"><h1 class="header-title">{liga}</h1></div>', unsafe_allow_html=True)
