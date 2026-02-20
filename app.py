@@ -4,7 +4,7 @@ import numpy as np
 import re
 import requests
 
-# 1. CONFIGURACIÓN BÁSICA (Sin trucos raros de CSS iniciales)
+# 1. CONFIGURACIÓN DE PÁGINA
 st.set_page_config(page_title="InsideBet", layout="wide")
 
 try:
@@ -47,7 +47,7 @@ TRADUCCIONES = {
     'CrdY': 'AMARILLAS', 'CrdR': 'ROJAS', 'xG': 'xG'
 }
 
-# 2. FUNCIONES DE FORMATO
+# 2. FUNCIONES DE FORMATO (SIN CAMBIOS)
 def limpiar_nombre_equipo(nombre):
     if pd.isna(nombre): return nombre
     return re.sub(r'^[a-z]+\s+', '', str(nombre))
@@ -102,7 +102,7 @@ def cargar_excel(ruta_archivo, tipo="general"):
         return df.dropna(how='all')
     except: return None
 
-# 3. CUOTAS
+# 3. LÓGICA DE CUOTAS
 def obtener_cuotas_api(liga_nombre):
     sport_key = MAPEO_ODDS_API.get(liga_nombre)
     if not sport_key or not API_KEY: return None
@@ -134,13 +134,31 @@ def procesar_cuotas(data):
         rows.append({"FECHA": commence, "LOCAL": home, "VISITANTE": away, "1": h, "X": d, "2": a})
     return pd.DataFrame(rows)
 
-# 4. CSS MINIMALISTA (ESTE NO BLOQUEA NADA)
+# 4. CSS PARA SCROLL INTERNO (SOLUCIÓN BRAVE)
 st.markdown("""
 <style>
     .stApp { background-color: #0e1117; color: #e5e7eb; }
-    .table-container { width: 100%; overflow-x: auto; border: 1px solid #374151; border-radius: 8px; margin-bottom: 20px; }
-    th { background-color: #1f2937 !important; color: white !important; padding: 12px; border: 1px solid #374151; text-align: center !important; }
+    
+    /* ESTA ES LA CLAVE: Altura fija y scroll obligatorio para la tabla */
+    .table-scroll-container { 
+        width: 100%; 
+        max-height: 650px; /* Altura máxima para que Brave no bloquee */
+        overflow-y: auto !important; 
+        overflow-x: auto !important;
+        border: 1px solid #374151; 
+        border-radius: 8px; 
+        margin-bottom: 20px;
+        background-color: #1a1c23;
+    }
+    
+    table { width: 100%; border-collapse: collapse; }
+    th { 
+        position: sticky; top: 0; z-index: 100;
+        background-color: #1f2937 !important; color: white !important; 
+        padding: 12px; border: 1px solid #374151; 
+    }
     td { padding: 12px; border: 1px solid #374151; text-align: center !important; }
+    
     .header-container { display: flex; align-items: center; gap: 15px; margin: 15px 0; }
     .header-title { color: white !important; font-size: 1.8rem; font-weight: bold; margin: 0; }
     .flag-img { width: 40px; border-radius: 4px; }
@@ -149,12 +167,14 @@ st.markdown("""
     .bar-fill { background-color: #ff4b4b; height: 100%; }
     .forma-container { display: flex; justify-content: center; gap: 4px; }
     .forma-box { width: 22px; height: 22px; line-height: 22px; text-align: center; border-radius: 4px; font-weight: bold; font-size: 11px; }
-    .win { background-color: #137031; color: white; } .loss { background-color: #821f1f; color: white; } .draw { background-color: #82711f; color: white; }
+    .win { background-color: #137031; color: white; } 
+    .loss { background-color: #821f1f; color: white; } 
+    .draw { background-color: #82711f; color: white; }
     div.stButton > button { background-color: #ff1800 !important; color: white !important; font-weight: bold !important; border-radius: 8px; height: 45px; width: 100%; }
 </style>
 """, unsafe_allow_html=True)
 
-# 5. CONTENIDO
+# 5. CONTENIDO PRINCIPAL
 st.markdown('<div style="text-align:center; margin-bottom:20px;"><img src="https://i.postimg.cc/C516P7F5/33.png" width="250"></div>', unsafe_allow_html=True)
 
 if "liga_sel" not in st.session_state: st.session_state.liga_sel = None
@@ -192,7 +212,8 @@ if st.session_state.liga_sel:
                         row['1'], row['X'], row['2'] = badge_cuota(row['1'], row['1']==m), badge_cuota(row['X'], row['X']==m), badge_cuota(row['2'], row['2']==m)
                         return row
                     html = df_odds.apply(aplicar_b, axis=1).style.hide(axis="index").to_html(escape=False)
-                    st.markdown(f'<div class="table-container">{html}</div>', unsafe_allow_html=True)
+                    # ENCAPSULADO CON SCROLL INTERNO
+                    st.markdown(f'<div class="table-scroll-container">{html}</div>', unsafe_allow_html=True)
         else:
             sufijo = MAPEO_ARCHIVOS.get(liga)
             archivo, tipo = (f"CLASIFICACION_LIGA_{sufijo}.xlsx", "clasificacion") if view=="clas" else (f"RESUMEN_STATS_{sufijo}.xlsx", "stats") if view=="stats" else (f"CARTELERA_PROXIMOS_{sufijo}.xlsx", "fixture")
@@ -201,8 +222,5 @@ if st.session_state.liga_sel:
                 if 'ÚLTIMOS 5' in df.columns: df['ÚLTIMOS 5'] = df['ÚLTIMOS 5'].apply(formatear_last_5)
                 styler = df.style.hide(axis="index")
                 if 'PTS' in df.columns: styler = styler.set_properties(subset=['PTS'], **{'background-color': '#262730', 'font-weight': 'bold'})
-                st.markdown(f'<div class="table-container">{styler.to_html(escape=False)}</div>', unsafe_allow_html=True)
-
-# 6. ANCLAJE DE SEGURIDAD (Esto fuerza a Brave a reconocer que hay contenido abajo)
-st.write("---")
-st.caption("InsideBet - Datos actualizados")
+                # ENCAPSULADO CON SCROLL INTERNO
+                st.markdown(f'<div class="table-scroll-container">{styler.to_html(escape=False)}</div>', unsafe_allow_html=True)
