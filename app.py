@@ -248,8 +248,8 @@ if st.button("COMPETENCIAS"):
     st.session_state.menu_op = not st.session_state.menu_op
 
 if st.session_state.menu_op:
-    sel = st.selectbox("Ligas", ["-- Selecciona --"] + LIGAS_LISTA, label_visibility="collapsed")
-    if sel != "-- Selecciona --":
+    sel = st.selectbox("Ligas", ["Selecciona Liga/Competencia"] + LIGAS_LISTA, label_visibility="collapsed")
+    if sel != "Selecciona Liga/Competencia":
         st.session_state.liga_sel = sel
         st.session_state.menu_op = False
         st.session_state.vista_activa = None
