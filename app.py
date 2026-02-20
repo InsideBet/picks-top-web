@@ -189,30 +189,41 @@ st.markdown("""
 <style>
     .stApp { background-color: #0e1117; color: #e5e7eb; }
     
-    /* LOGO CENTRADO Y AJUSTADO */
+    /* LOGO CENTRADO */
     .main-logo-container {
         display: flex;
         justify-content: center;
         align-items: center;
         width: 100%;
-        padding: 10px 0;
-        margin-top: -20px;
-    }
-    .main-logo-link {
-        display: flex;
-        justify-content: center;
-        width: 100%;
-        text-decoration: none;
+        margin-top: -30px;
+        padding-bottom: 20px;
     }
     .main-logo-img {
         width: 50%;
-        max-width: 500px;
+        max-width: 480px;
         height: auto;
-        transition: transform 0.3s ease;
     }
-    .main-logo-img:hover {
-        transform: scale(1.03);
-        filter: brightness(1.2);
+
+    /* BOTONES GLOBALES CIAN */
+    /* Botón Competencias y otros botones de acción */
+    div.stButton > button {
+        background-color: transparent !important;
+        color: #1ed7de !important;
+        border: 2px solid #1ed7de !important;
+        font-weight: bold !important;
+        transition: 0.3s ease;
+        width: 100%;
+    }
+    div.stButton > button:hover {
+        background-color: #1ed7de22 !important;
+        border-color: white !important;
+        color: white !important;
+    }
+
+    /* Ajuste específico para el borde del selector (Input) al abrir el acordeón */
+    div[data-baseweb="select"] > div {
+        border-color: #1ed7de !important;
+        background-color: #161b22 !important;
     }
 
     /* TABLAS Y CONTENEDORES */
@@ -224,7 +235,6 @@ st.markdown("""
         margin-bottom: 50px;
         background-color: #161b22;
     }
-    table { width: 100%; border-collapse: collapse; }
     th { 
         position: sticky; top: 0; z-index: 100;
         background-color: #1f2937 !important; color: #1ed7de !important; 
@@ -245,26 +255,6 @@ st.markdown("""
     .h2h-val { font-weight: bold; font-size: 1.1rem; color: #1ed7de; }
     .h2h-label { color: #9ca3af; font-size: 0.9rem; text-transform: uppercase; }
 
-    /* BOTONES */
-    /* Botón Competencias (Rojo) */
-    div.stButton > button:first-child { 
-        background-color: #ff1800 !important; 
-        color: white !important; 
-        border: none !important;
-    }
-
-    /* Botones de Navegación (Tono Logo) */
-    div.stHeader + div [data-testid="stHorizontalBlock"] button {
-        background-color: transparent !important;
-        color: #1ed7de !important;
-        border: 1px solid #1ed7de !important;
-        transition: 0.3s;
-    }
-    div.stHeader + div [data-testid="stHorizontalBlock"] button:hover {
-        background-color: #1ed7de22 !important;
-        border-color: white !important;
-    }
-
     /* OTROS ELEMENTOS */
     .bar-fill { background-color: #1ed7de; height: 100%; border-radius: 10px; }
     .header-title { color: white !important; font-size: 2rem; font-weight: bold; margin: 0; }
@@ -276,34 +266,36 @@ st.markdown("""
 # ESTRUCTURA DE LA APP
 # ────────────────────────────────────────────────
 
-# Logo Clickable y Centrado
-st.markdown("""
+# Logo Centrado
+st.markdown(f"""
     <div class="main-logo-container">
-        <a href="/" target="_self" class="main-logo-link">
+        <a href="/" target="_self">
             <img src="https://i.postimg.cc/SKPzCcyV/33.png" class="main-logo-img">
         </a>
     </div>
     """, unsafe_allow_html=True)
 
+# Estado del acordeón y navegación
 if "liga_sel" not in st.session_state: st.session_state.liga_sel = None
 if "vista_activa" not in st.session_state: st.session_state.vista_activa = None
 if "menu_op" not in st.session_state: st.session_state.menu_op = False
 
-# Botón principal
+# Acordeón de Competencias
 if st.button("COMPETENCIAS"):
     st.session_state.menu_op = not st.session_state.menu_op
 
 if st.session_state.menu_op:
-    sel = st.selectbox("Ligas", ["Selecciona Liga/Competencia"] + LIGAS_LISTA, label_visibility="collapsed")
+    sel = st.selectbox("Elija la Liga", ["Selecciona Liga/Competencia"] + LIGAS_LISTA, label_visibility="collapsed")
     if sel != "Selecciona Liga/Competencia":
         st.session_state.liga_sel = sel
         st.session_state.menu_op = False
         st.session_state.vista_activa = None
         st.rerun()
 
+# Contenido de la Liga seleccionada
 if st.session_state.liga_sel:
     liga = st.session_state.liga_sel
-    st.markdown(f'<div class="header-container"><img src="{BANDERAS.get(liga, "")}" style="width:40px; margin-right:15px; vertical-align:middle;"><span class="header-title">{liga}</span></div>', unsafe_allow_html=True)
+    st.markdown(f'<div style="display:flex; align-items:center; margin-top:10px;"><img src="{BANDERAS.get(liga, "")}" style="width:40px; margin-right:15px;"><span class="header-title">{liga}</span></div>', unsafe_allow_html=True)
     
     st.write("")
     col1, col2, col3, col4 = st.columns(4)
