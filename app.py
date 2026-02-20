@@ -113,26 +113,25 @@ def grafico_picos_forma(valor, alineacion="left"):
     return svg
 
 def generar_radar_svg(val_l, val_v, labels):
-    """Genera un radar comparativo ligero en SVG"""
     size = 200
     center = size / 2
     radius = 70
     
     def get_coords(value, angle, max_val=100):
-        r = (value / max_val) * radius
+        # Evitar división por cero y manejar nans
+        v = float(value) if pd.notna(value) else 0
+        r = (min(v, max_val) / max_val) * radius
         x = center + r * np.cos(angle - np.pi/2)
         y = center + r * np.sin(angle - np.pi/2)
         return f"{x},{y}"
 
     angles = np.linspace(0, 2*np.pi, len(labels), endpoint=False)
     
-    # Grid de fondo
     grid = ""
     for r_f in [0.25, 0.5, 0.75, 1.0]:
         pts = [f"{center + (radius*r_f)*np.cos(a-np.pi/2)},{center + (radius*r_f)*np.sin(a-np.pi/2)}" for a in angles]
         grid += f'<polygon points="{" ".join(pts)}" fill="none" stroke="#4b5563" stroke-width="0.5" stroke-dasharray="2,2" />'
 
-    # Polígonos
     pts_l = [get_coords(v, a) for v, a in zip(val_l, angles)]
     pts_v = [get_coords(v, a) for v, a in zip(val_v, angles)]
     
@@ -317,11 +316,16 @@ if st.session_state.liga_sel:
             st.subheader("⚔️ Comparador H2H")
             if df_clas_base is not None and df_stats_base is not None:
                 equipos = sorted(df_clas_base['EQUIPO'].unique())
-                col_h1, col_h2 = st.columns(2)
-                eq_l = col_h1.selectbox("Local", equipos, index=0)
-                eq_v = col_h2.selectbox("Visitante", equipos, index=min(1, len(equipos)-1))
+                
+                # Layout de filtros para H2H
+                f1, f2, f3 = st.columns([2, 2, 1])
+                eq_l = f1.selectbox("Equipo Local", equipos, index=0)
+                eq_v = f2.selectbox("Equipo Visitante", equipos, index=min(1, len(equipos)-1))
+                tipo_filtro = f3.selectbox("Filtro Stats", ["Global", "Local vs Visitante"])
                 
                 try:
+                    # En una versión real con datasets divididos, aquí filtraríamos por Local/Away. 
+                    # Por ahora simulamos la carga de las filas de los equipos seleccionados.
                     d_l = df_clas_base[df_clas_base['EQUIPO'] == eq_l].iloc[0]
                     d_v = df_clas_base[df_clas_base['EQUIPO'] == eq_v].iloc[0]
                     s_l = df_stats_base[df_stats_base['EQUIPO'] == eq_l].iloc[0]
@@ -332,9 +336,7 @@ if st.session_state.liga_sel:
                     xg_l_num = float(s_l['xG_val'])
                     xg_v_num = float(s_v['xG_val'])
                     
-                    # Radar de comparación
                     radar_labels = ["PTS", "POSS", "GF", "xG", "VICT"]
-                    # Normalización simple para radar (0-100)
                     radar_l = [min(d_l['PTS']*1.5, 100), p_l_val, min(d_l['GF']*1.2, 100), min(xg_l_num*20, 100), min(d_l['G']*5, 100)]
                     radar_v = [min(d_v['PTS']*1.5, 100), p_v_val, min(d_v['GF']*1.2, 100), min(xg_v_num*20, 100), min(d_v['G']*5, 100)]
                     
@@ -349,7 +351,7 @@ if st.session_state.liga_sel:
                         <div style="background: #1f2937; padding: 20px; border-radius: 12px; border: 1px solid #1ed7de44;">
                             <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #2d3139; padding: 10px 0;">
                                 <span style="font-weight: bold; color: #1ed7de; width: 10%; text-align: left;">{d_l['PTS']}</span>
-                                <span style="color: #9ca3af; font-size: 0.8rem; font-weight: bold;">PUNTOS</span>
+                                <span style="color: #9ca3af; font-size: 0.8rem; font-weight: bold;">PUNTOS {"(GLOBAL)" if tipo_filtro=="Global" else "(LOCAL)"}</span>
                                 <span style="font-weight: bold; color: #1ed7de; width: 10%; text-align: right;">{d_v['PTS']}</span>
                             </div>
                             <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #2d3139; padding: 10px 0;">
@@ -408,7 +410,6 @@ if st.session_state.liga_sel:
                 cols_to_drop = ['xG_val', 'Poss_num']
                 df_view = df.drop(columns=[c for c in cols_to_drop if c in df.columns])
                 
-                # Barra de búsqueda para tablas
                 busqueda = st.text_input("🔍 Filtrar por equipo...", "").strip().lower()
                 if busqueda and 'EQUIPO' in df_view.columns:
                     df_view = df_view[df_view['EQUIPO'].str.lower().str.contains(busqueda)]
