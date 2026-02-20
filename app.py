@@ -55,11 +55,17 @@ TRADUCCIONES = {
 
 def limpiar_nombre_equipo(nombre):
     if pd.isna(nombre) or str(nombre).lower() == 'nan': return ""
-    txt = str(nombre)
-    # 1. Quitar prefijos de 2 letras (ej: "be Club Brugge", "gr Olympiacos")
-    txt = re.sub(r'^[a-z]{2}\s+', '', txt)
-    # 2. Quitar sufijos de 2 o 3 letras (ej: "Atlético Madrid es", "Newcastle eng", "Inter it")
-    txt = re.sub(r'\s+[a-z]{2,3}$', '', txt)
+    txt = str(nombre).strip()
+    
+    # 1. Eliminar prefijos de 2 o 3 letras al inicio (ej: "be Club Brugge", "eng Newcastle")
+    # Busca 2 o 3 letras seguidas de un espacio al principio de la cadena
+    txt = re.sub(r'^[a-z]{2,3}\s+', '', txt, flags=re.IGNORECASE)
+    
+    # 2. Eliminar sufijos de 2 o 3 letras al final (ej: "Inter it", "Real Madrid es")
+    # Busca un espacio seguido de 2 o 3 letras al final de la cadena
+    txt = re.sub(r'\s+[a-z]{2,3}$', '', txt, flags=re.IGNORECASE)
+    
+    # 3. Limpieza de seguridad: eliminar espacios extra
     return txt.strip()
 
 def formatear_xg_badge(val):
@@ -92,7 +98,7 @@ def cargar_excel(ruta_archivo, tipo="general"):
     try:
         df = pd.read_excel(url)
         
-        # Filtro de seguridad inicial
+        # Filtro de seguridad inicial para filas vacías
         if 'Home' in df.columns and 'Away' in df.columns:
             df = df.dropna(subset=['Home', 'Away'], how='all')
 
@@ -114,7 +120,6 @@ def cargar_excel(ruta_archivo, tipo="general"):
             drop_c = ['Notes', 'Goalkeeper', 'Top Team Scorer', 'Attendance', 'Pts/MP', 'Pts/PJ']
             df = df.drop(columns=[c for c in drop_c if c in df.columns])
             df = df.rename(columns=TRADUCCIONES)
-            # Aseguramos que no queden equipos vacíos por el nan de origen
             if 'EQUIPO' in df.columns:
                 df = df[df['EQUIPO'] != ""]
             cols = list(df.columns)
@@ -134,7 +139,6 @@ def cargar_excel(ruta_archivo, tipo="general"):
             if 'VISITANTE' in df.columns:
                 df['VISITANTE'] = df['VISITANTE'].apply(limpiar_nombre_equipo)
             
-            # Quitar filas basura
             df = df[df['LOCAL'] != ""]
             
             if 'FECHA' in df.columns: 
