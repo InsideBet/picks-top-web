@@ -235,11 +235,40 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Reemplaza la línea del logo por esta:
-st.markdown("""
-    <div style="display: flex; justify-content: center; margin-top: -30px; margin-bottom: 10px;">
-        <img src="https://i.postimg.cc/SKPzCcyV/33.png" style="width: 80%; max-width: 900px; height: auto;">
-    </div>
+# ────────────────────────────────────────────────
+# LOGO CON FUNCIÓN DE REDIRECCIÓN (HOME)
+# ────────────────────────────────────────────────
+# Usamos columnas para centrar un botón invisible o usar el logo como disparador
+col_logo, _ = st.columns([10, 0.1]) # Estructura para centrado
+
+with col_logo:
+    # Creamos un contenedor que al ser clickeado limpie el estado
+    if st.button("🔄 Reset", key="home_btn", help="Volver al inicio", use_container_width=True):
+        st.session_state.liga_sel = None
+        st.session_state.vista_activa = None
+        st.session_state.menu_op = False
+        st.rerun()
+
+    # Inyectamos el estilo del logo justo debajo para que el botón de arriba 
+    # (que acabamos de crear) sea en realidad la imagen.
+    st.markdown(f"""
+        <style>
+            /* Convertimos el botón de reset en el logo mismo */
+            div.stButton > button[kind="secondary"] {{
+                background: url("https://i.postimg.cc/SKPzCcyV/33.png") no-repeat center !important;
+                background-size: contain !important;
+                border: none !important;
+                height: 150px !important; /* Ajusta la altura a tu gusto */
+                width: 100% !important;
+                color: transparent !important;
+                margin-top: -30px;
+                transition: transform 0.3s ease;
+            }}
+            div.stButton > button[kind="secondary"]:hover {{
+                transform: scale(1.02);
+                color: transparent !important;
+            }}
+        </style>
     """, unsafe_allow_html=True)
 
 # ────────────────────────────────────────────────
