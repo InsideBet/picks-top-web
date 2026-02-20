@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 import re
 import requests
+import os
 
 # ────────────────────────────────────────────────
 # CONFIGURACIÓN DE PÁGINA
@@ -57,10 +58,11 @@ def limpiar_nombre_equipo(nombre):
     if pd.isna(nombre): return nombre
     return re.sub(r'^[a-z]+\s+', '', str(nombre))
 
-def formatear_equipo_con_logo(nombre):
-    # Generamos el HTML con el logo a la izquierda del nombre
-    # Usamos el logo default azul por ahora
-    logo_url = "https://i.postimg.cc/85zX8M6v/logo-placeholder.png"
+def formatear_equipo_con_logo(nombre, logo_url=None):
+    # Generamos el HTML con el logo dinámico o el placeholder si no existe
+    if not logo_url or pd.isna(logo_url):
+        logo_url = "https://i.postimg.cc/85zX8M6v/logo-placeholder.png"
+    
     return f'''
     <div style="display: flex; align-items: center; gap: 10px;">
         <img src="{logo_url}" width="24" height="24" style="object-fit: contain;">
@@ -95,14 +97,34 @@ def formatear_last_5(valor):
 @st.cache_data(ttl=300)
 def cargar_excel(ruta_archivo, tipo="general"):
     url = f"{BASE_URL}/{ruta_archivo}"
+    # Ruta al archivo de mapeo de escudos en el REPO
+    url_mapeo = f"https://raw.githubusercontent.com/{USER}/{REPO}/main/mapeo_escudos.xlsx"
+    
     try:
         df = pd.read_excel(url)
+        
+        # Intentamos cargar el mapeo de escudos
+        try:
+            df_mapeo = pd.read_excel(url_mapeo)
+        except:
+            df_mapeo = pd.DataFrame(columns=['EQUIPO', 'LOGO_URL'])
+
         col_equipo = 'Squad' if 'Squad' in df.columns else 'EQUIPO'
         
         if col_equipo in df.columns:
             df[col_equipo] = df[col_equipo].apply(limpiar_nombre_equipo)
+            
+            # Cruzamos los datos con el mapeo de escudos
+            df = pd.merge(df, df_mapeo[['EQUIPO', 'LOGO_URL']], 
+                          left_on=col_equipo, right_on='EQUIPO', 
+                          how='left', suffixes=('', '_map'))
+            
             # Aplicamos la función para unir Logo + Nombre en la misma celda
-            df[col_equipo] = df[col_equipo].apply(formatear_equipo_con_logo)
+            df[col_equipo] = df.apply(lambda row: formatear_equipo_con_logo(row[col_equipo], row['LOGO_URL']), axis=1)
+            
+            # Limpiamos columnas auxiliares del merge
+            if 'EQUIPO_map' in df.columns: df.drop(columns=['EQUIPO_map'], inplace=True)
+            if 'LOGO_URL' in df.columns: df.drop(columns=['LOGO_URL'], inplace=True)
 
         if tipo == "stats":
             if len(df.columns) >= 17:
@@ -156,7 +178,6 @@ def badge_cuota(val, es_minimo=False, tiene_valor=False):
 def procesar_cuotas(data, df_clas):
     if not data or not isinstance(data, list): return None
     rows = []
-    # Aquí necesitamos limpiar el HTML del nombre del equipo para el mapeo de puntos
     def extraer_nombre_puro(html_str):
         if '<span>' in str(html_str):
             return re.search(r'<span>(.*?)</span>', html_str).group(1)
@@ -209,7 +230,6 @@ st.markdown("""
     }
     td { padding: 12px; border: 1px solid #374151; text-align: left !important; }
     
-    /* Centramos celdas excepto la de Equipo */
     td:not(:nth-child(2)) { text-align: center !important; }
 
     .h2h-card { background: linear-gradient(135deg, #1f2937 0%, #111827 100%); border: 1px solid #374151; border-radius: 12px; padding: 20px; margin-bottom: 25px; }
@@ -272,7 +292,6 @@ if st.session_state.liga_sel:
         if view == "odds":
             st.subheader("⚔️ Comparador H2H")
             if df_clas_base is not None:
-                # Extraemos nombres puros para el selectbox
                 equipos_html = sorted(df_clas_base['EQUIPO'].unique())
                 equipos_nombres = [re.search(r'<span>(.*?)</span>', e).group(1) for e in equipos_html]
                 
@@ -280,7 +299,6 @@ if st.session_state.liga_sel:
                 eq_l_nom = col_h1.selectbox("Local", equipos_nombres, index=0)
                 eq_v_nom = col_h2.selectbox("Visitante", equipos_nombres, index=1)
                 
-                # Buscamos la fila correspondiente usando el HTML generado
                 d_l = df_clas_base[df_clas_base['EQUIPO'].str.contains(eq_l_nom)].iloc[0]
                 d_v = df_clas_base[df_clas_base['EQUIPO'].str.contains(eq_v_nom)].iloc[0]
                 
@@ -297,7 +315,6 @@ if st.session_state.liga_sel:
                 df_odds = procesar_cuotas(raw, df_clas_base)
                 if df_odds is not None and not df_odds.empty:
                     if df_stats_base is not None:
-                        # Extraemos nombres puros de stats para predicción
                         stats_dict = {re.search(r'<span>(.*?)</span>', eq).group(1): xg 
                                      for eq, xg in zip(df_stats_base['EQUIPO'], df_stats_base['xG_val'])}
                         
