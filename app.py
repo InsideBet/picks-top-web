@@ -296,4 +296,4 @@ if st.session_state.liga_sel:
                 st.markdown(f'<div class="table-container">{styler.to_html(escape=False)}</div>', unsafe_allow_html=True)
 
 st.write("---")
-st.caption("InsideBet Oficial | Datos actualizados")
+st.caption("InsideBet Official | Datos actualizados")
