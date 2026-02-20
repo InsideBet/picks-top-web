@@ -83,29 +83,38 @@ def html_barra_posesion(valor):
         '''
     except: return valor
 
-def grafico_picos_forma(valor):
-    """Genera un pequeño gráfico SVG de picos basado en los últimos 5 resultados"""
+def grafico_picos_forma(valor, alineacion="left"):
+    """Genera un gráfico SVG de picos estirado con colores dinámicos por resultado"""
     if pd.isna(valor) or valor == "": return ""
     letras = list(str(valor).upper().replace(" ", ""))[:5]
     if not letras: return ""
     
-    puntos = []
-    # Mapeo: W=2, D=10, L=18 (Y axis invertido para el SVG: 2 arriba, 18 abajo)
-    mapeo_y = {'W': 2, 'D': 10, 'L': 18}
-    for i, l in enumerate(letras):
-        x = i * 20 + 5
-        y = mapeo_y.get(l, 10)
-        puntos.append(f"{x},{y}")
+    # Mapeo de Posición Y e hilos de color
+    mapeo_y = {'W': 3, 'D': 10, 'L': 17}
+    colores_puntos = {'W': '#137031', 'D': '#b59410', 'L': '#821f1f'}
     
-    path_d = "M " + " L ".join(puntos)
+    puntos_coords = []
+    puntos_svg = []
+    
+    # Calculamos puntos para que ocupen el 100% del ancho del SVG (0 a 100)
+    for i, l in enumerate(letras):
+        x = (i * 24) + 2  # Distribución a lo ancho
+        y = mapeo_y.get(l, 10)
+        puntos_coords.append(f"{x},{y}")
+        puntos_svg.append(f'<circle cx="{x}" cy="{y}" r="3.5" fill="{colores_puntos.get(l, "#4b5563")}" stroke="#0e1117" stroke-width="0.5" />')
+    
+    path_d = "M " + " L ".join(puntos_coords)
+    justify = "flex-start" if alineacion == "left" else "flex-end"
     
     svg = f'''
-    <svg width="100" height="20" viewBox="0 0 100 20" style="display: block;">
-        <path d="{path_d}" fill="none" stroke="#1ed7de" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-        {' '.join([f'<circle cx="{p.split(",")[0]}" cy="{p.split(",")[1]}" r="3" fill="#1ed7de" />' for p in puntos])}
-    </svg>
+    <div style="display: flex; justify-content: {justify}; width: 100%;">
+        <svg width="100%" height="22" viewBox="0 0 100 22" preserveAspectRatio="none" style="max-width: 150px;">
+            <path d="{path_d}" fill="none" stroke="#1ed7de" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.6" />
+            {''.join(puntos_svg)}
+        </svg>
+    </div>
     '''
-    return f'<div style="display: flex; justify-content: center;">{svg}</div>'
+    return svg
 
 def formatear_last_5(valor):
     if pd.isna(valor) or valor == "": return ""
@@ -131,7 +140,6 @@ def cargar_excel(ruta_archivo, tipo="general"):
             if len(df.columns) >= 17:
                 df = df.rename(columns={df.columns[16]: 'xG'})
             df['xG_val'] = df['xG'].fillna(0)
-            # Guardamos valor numérico real de posesión para el H2H antes de convertir a HTML
             if 'Poss' in df.columns:
                 df['Poss_num'] = df['Poss'].apply(lambda x: re.findall(r"\d+", str(x))[0] if re.findall(r"\d+", str(x)) else "0")
                 df['Poss'] = df['Poss'].apply(html_barra_posesion)
@@ -173,7 +181,6 @@ def cargar_excel(ruta_archivo, tipo="general"):
         return df.dropna(how='all').reset_index(drop=True)
     except: return None
 
-# ... (obtener_cuotas_api, badge_cuota, procesar_cuotas se mantienen idénticas)
 def obtener_cuotas_api(liga_nombre):
     sport_key = MAPEO_ODDS_API.get(liga_nombre)
     if not sport_key or not API_KEY: return None
@@ -286,7 +293,6 @@ if st.session_state.liga_sel:
                     s_l = df_stats_base[df_stats_base['EQUIPO'] == eq_l].iloc[0]
                     s_v = df_stats_base[df_stats_base['EQUIPO'] == eq_v].iloc[0]
                     
-                    # CORRECCIÓN POSESIÓN: Usar el valor numérico guardado en la carga
                     p_l = f"{s_l['Poss_num']}%"
                     p_v = f"{s_v['Poss_num']}%"
                     xg_l_val = str(s_l['xG']).split('+')[-1].split('<')[0]
@@ -296,39 +302,38 @@ if st.session_state.liga_sel:
                     <div style="background: #1f2937; padding: 20px; border-radius: 12px; border: 1px solid #1ed7de44;">
                         <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #2d3139; padding: 10px 0;">
                             <span style="font-weight: bold; color: #1ed7de; width: 20%; text-align: left;">{d_l['PTS']}</span>
-                            <span style="color: #9ca3af;">PUNTOS</span>
+                            <span style="color: #9ca3af; font-size: 0.8rem; font-weight: bold;">PUNTOS</span>
                             <span style="font-weight: bold; color: #1ed7de; width: 20%; text-align: right;">{d_v['PTS']}</span>
                         </div>
                         <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #2d3139; padding: 10px 0;">
                             <span style="font-weight: bold; color: white; width: 20%; text-align: left;">{d_l['G']}</span>
-                            <span style="color: #9ca3af;">VICTORIAS</span>
+                            <span style="color: #9ca3af; font-size: 0.8rem; font-weight: bold;">VICTORIAS</span>
                             <span style="font-weight: bold; color: white; width: 20%; text-align: right;">{d_v['G']}</span>
                         </div>
                         <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #2d3139; padding: 10px 0;">
                             <span style="font-weight: bold; color: white; width: 20%; text-align: left;">{d_l['GF']}</span>
-                            <span style="color: #9ca3af;">GOLES FAVOR</span>
+                            <span style="color: #9ca3af; font-size: 0.8rem; font-weight: bold;">GOLES FAVOR</span>
                             <span style="font-weight: bold; color: white; width: 20%; text-align: right;">{d_v['GF']}</span>
                         </div>
                         <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #2d3139; padding: 10px 0;">
                             <span style="font-weight: bold; color: white; width: 20%; text-align: left;">{xg_l_val}</span>
-                            <span style="color: #9ca3af;">xG GENERADO</span>
+                            <span style="color: #9ca3af; font-size: 0.8rem; font-weight: bold;">xG GENERADO</span>
                             <span style="font-weight: bold; color: white; width: 20%; text-align: right;">{xg_v_val}</span>
                         </div>
                         <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #2d3139; padding: 10px 0;">
                             <span style="font-weight: bold; color: white; width: 20%; text-align: left;">{p_l}</span>
-                            <span style="color: #9ca3af;">POSESIÓN</span>
+                            <span style="color: #9ca3af; font-size: 0.8rem; font-weight: bold;">POSESIÓN</span>
                             <span style="font-weight: bold; color: white; width: 20%; text-align: right;">{p_v}</span>
                         </div>
-                        <div style="margin-top: 15px; display: flex; justify-content: space-between; align-items: center;">
-                            <div style="width: 40%">{grafico_picos_forma(d_l['ÚLTIMOS 5'])}</div>
-                            <span style="color: #9ca3af;">FORMA</span>
-                            <div style="width: 40%; display: flex; justify-content: flex-end;">{grafico_picos_forma(d_v['ÚLTIMOS 5'])}</div>
+                        <div style="margin-top: 20px; display: flex; justify-content: space-between; align-items: center;">
+                            <div style="width: 42%;">{grafico_picos_forma(d_l['ÚLTIMOS 5'], "left")}</div>
+                            <span style="color: #9ca3af; font-size: 0.8rem; font-weight: bold;">FORMA</span>
+                            <div style="width: 42%;">{grafico_picos_forma(d_v['ÚLTIMOS 5'], "right")}</div>
                         </div>
                     </div>
                     """, unsafe_allow_html=True)
                 except: st.warning("Datos de comparación no disponibles.")
 
-            # ... (Lógica de cuotas se mantiene idéntica)
             raw = obtener_cuotas_api(liga)
             df_odds = procesar_cuotas(raw, df_clas_base)
             if df_odds is not None and not df_odds.empty:
@@ -358,7 +363,6 @@ if st.session_state.liga_sel:
             df = cargar_excel(archivo, tipo=tipo)
             if df is not None:
                 if 'ÚLTIMOS 5' in df.columns: df['ÚLTIMOS 5'] = df['ÚLTIMOS 5'].apply(formatear_last_5)
-                # Ocultar columnas técnicas antes de mostrar
                 cols_to_drop = ['xG_val', 'Poss_num']
                 df_view = df.drop(columns=[c for c in cols_to_drop if c in df.columns])
                 styler = df_view.style.hide(axis="index")
