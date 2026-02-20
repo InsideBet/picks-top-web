@@ -56,16 +56,8 @@ TRADUCCIONES = {
 def limpiar_nombre_equipo(nombre):
     if pd.isna(nombre) or str(nombre).lower() == 'nan': return ""
     txt = str(nombre).strip()
-    
-    # 1. Eliminar prefijos de 2 o 3 letras al inicio (ej: "be Club Brugge", "eng Newcastle")
-    # Busca 2 o 3 letras seguidas de un espacio al principio de la cadena
     txt = re.sub(r'^[a-z]{2,3}\s+', '', txt, flags=re.IGNORECASE)
-    
-    # 2. Eliminar sufijos de 2 o 3 letras al final (ej: "Inter it", "Real Madrid es")
-    # Busca un espacio seguido de 2 o 3 letras al final de la cadena
     txt = re.sub(r'\s+[a-z]{2,3}$', '', txt, flags=re.IGNORECASE)
-    
-    # 3. Limpieza de seguridad: eliminar espacios extra
     return txt.strip()
 
 def formatear_xg_badge(val):
@@ -97,8 +89,6 @@ def cargar_excel(ruta_archivo, tipo="general"):
     url = f"{BASE_URL}/{ruta_archivo}"
     try:
         df = pd.read_excel(url)
-        
-        # Filtro de seguridad inicial para filas vacías
         if 'Home' in df.columns and 'Away' in df.columns:
             df = df.dropna(subset=['Home', 'Away'], how='all')
 
@@ -133,14 +123,11 @@ def cargar_excel(ruta_archivo, tipo="general"):
             drop_f = ['Round', 'Day', 'Score', 'Referee', 'Match Report', 'Notes', 'Attendance', 'Wk']
             df = df.drop(columns=[c for c in drop_f if c in df.columns])
             df = df.rename(columns=TRADUCCIONES)
-            
             if 'LOCAL' in df.columns:
                 df['LOCAL'] = df['LOCAL'].apply(limpiar_nombre_equipo)
             if 'VISITANTE' in df.columns:
                 df['VISITANTE'] = df['VISITANTE'].apply(limpiar_nombre_equipo)
-            
             df = df[df['LOCAL'] != ""]
-            
             if 'FECHA' in df.columns: 
                 df['FECHA'] = df['FECHA'].apply(lambda x: str(x).split(' ')[0] if pd.notna(x) else "TBD")
             if 'HORA' in df.columns: 
@@ -232,44 +219,30 @@ st.markdown("""
     .forma-box { width: 22px; height: 22px; line-height: 22px; text-align: center; border-radius: 4px; font-weight: bold; font-size: 11px; color: white; }
     .win { background-color: #137031; } .loss { background-color: #821f1f; } .draw { background-color: #82711f; }
     div.stButton > button { background-color: #ff1800 !important; color: white !important; font-weight: bold !important; border-radius: 8px; height: 45px; width: 100%; }
+
+    /* Estilo del Logo Clickable */
+    .main-logo-container {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        padding: 20px 0;
+        margin-top: -30px;
+    }
+    .main-logo-img {
+        width: 85%;
+        max-width: 1000px;
+        height: auto;
+        transition: transform 0.3s ease;
+        cursor: pointer;
+    }
+    .main-logo-img:hover {
+        transform: scale(1.02);
+    }
 </style>
 """, unsafe_allow_html=True)
 
-# ────────────────────────────────────────────────
-# LOGO CON FUNCIÓN DE REDIRECCIÓN (HOME)
-# ────────────────────────────────────────────────
-# Usamos columnas para centrar un botón invisible o usar el logo como disparador
-col_logo, _ = st.columns([10, 0.1]) # Estructura para centrado
-
-with col_logo:
-    # Creamos un contenedor que al ser clickeado limpie el estado
-    if st.button("🔄 Reset", key="home_btn", help="Volver al inicio", use_container_width=True):
-        st.session_state.liga_sel = None
-        st.session_state.vista_activa = None
-        st.session_state.menu_op = False
-        st.rerun()
-
-    # Inyectamos el estilo del logo justo debajo para que el botón de arriba 
-    # (que acabamos de crear) sea en realidad la imagen.
-    st.markdown(f"""
-        <style>
-            /* Convertimos el botón de reset en el logo mismo */
-            div.stButton > button[kind="secondary"] {{
-                background: url("https://i.postimg.cc/SKPzCcyV/33.png") no-repeat center !important;
-                background-size: contain !important;
-                border: none !important;
-                height: 150px !important; /* Ajusta la altura a tu gusto */
-                width: 100% !important;
-                color: transparent !important;
-                margin-top: -30px;
-                transition: transform 0.3s ease;
-            }}
-            div.stButton > button[kind="secondary"]:hover {{
-                transform: scale(1.02);
-                color: transparent !important;
-            }}
-        </style>
-    """, unsafe_allow_html=True)
+# Logo que funciona como link al Inicio (Home)
+st.markdown('<div class="main-logo-container"><a href="/" target="_self"><img src="https://i.postimg.cc/SKPzCcyV/33.png" class="main-logo-img"></a></div>', unsafe_allow_html=True)
 
 # ────────────────────────────────────────────────
 # LÓGICA DE NAVEGACIÓN
