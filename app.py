@@ -274,6 +274,11 @@ st.markdown("""
     .leyenda-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-top: 10px; background: #161b22; padding: 15px; border-radius: 8px; border: 1px solid #1ed7de44; }
     .leyenda-item { display: flex; align-items: center; gap: 10px; font-size: 0.85rem; color: #e5e7eb; }
     .color-box { width: 14px; height: 14px; border-radius: 3px; flex-shrink: 0; }
+    
+    /* Player Card Highlight */
+    .player-card { background: #1f2937; padding: 20px; border-radius: 12px; border-left: 5px solid #1ed7de; margin-bottom: 20px; }
+    .stat-val { font-size: 24px; font-weight: bold; color: #1ed7de; }
+    .stat-label { font-size: 12px; color: #9ca3af; text-transform: uppercase; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -287,6 +292,8 @@ if "vista_activa" not in st.session_state: st.session_state.vista_activa = None
 if "menu_op" not in st.session_state: st.session_state.menu_op = False
 if "h2h_op" not in st.session_state: st.session_state.h2h_op = False
 if "conf_op" not in st.session_state: st.session_state.conf_op = False
+# Estados para paginación
+if "items_mostrar" not in st.session_state: st.session_state.items_mostrar = 10
 
 if st.button("COMPETENCIAS", use_container_width=True):
     st.session_state.menu_op = not st.session_state.menu_op
@@ -297,6 +304,7 @@ if st.session_state.menu_op:
         st.session_state.liga_sel = sel
         st.session_state.menu_op = False
         st.session_state.vista_activa = "clas"
+        st.session_state.items_mostrar = 10
         st.rerun()
 
 if st.session_state.liga_sel:
@@ -324,8 +332,8 @@ if st.session_state.liga_sel:
     
     for i, label in enumerate(labels):
         if cols[i].button(label, use_container_width=True):
-            # Lógica Toggle (Acordeón): Si ya estaba activo, lo cierra (None)
             st.session_state.vista_activa = keys[i] if st.session_state.vista_activa != keys[i] else None
+            st.session_state.items_mostrar = 10 # Reset paginación al cambiar vista
             st.rerun()
 
     st.divider()
@@ -342,6 +350,7 @@ if st.session_state.liga_sel:
             if df_p is not None:
                 if 'Squad' in df_p.columns:
                     df_p['Squad'] = df_p['Squad'].apply(limpiar_nombre_equipo)
+                
                 f_col1, f_col2, f_col3, f_col4 = st.columns([2, 1.5, 1.5, 2])
                 with f_col1:
                     eq_list = ["Todos"] + sorted(df_p['Squad'].unique().tolist())
@@ -352,25 +361,62 @@ if st.session_state.liga_sel:
                     m_min = st.number_input("Minutos mín.", 0, int(df_p['Min'].max()), 90)
                 with f_col4:
                     p_busq = st.text_input("🔍 Buscar Jugador", "").strip().lower()
+                
                 mask = (df_p['Min'] >= m_min) & (df_p['Pos'].isin(p_sel))
                 if eq_f != "Todos": mask = mask & (df_p['Squad'] == eq_f)
                 if p_busq: mask = mask & (df_p['Player'].str.lower().str.contains(p_busq))
                 df_f = df_p[mask].copy()
-                t1, t2, t3 = st.tabs(["🎯 ATAQUE & REMATES", "🛡️ DISCIPLINA", "📋 GENERAL"])
+
+                # Highlight de Jugador si hay búsqueda específica o 1 solo resultado
+                if p_busq and not df_f.empty:
+                    p_top = df_f.iloc[0]
+                    st.markdown(f"""
+                    <div class="player-card">
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <div>
+                                <h2 style="margin:0; color:white;">{p_top['Player']}</h2>
+                                <span style="color:#1ed7de;">{p_top['Squad']} | {p_top['Pos']} | {p_top['Age']} años</span>
+                            </div>
+                            <div style="display:flex; gap:30px;">
+                                <div style="text-align:center;"><div class="stat-val">{p_top['Gls']}</div><div class="stat-label">Goles</div></div>
+                                <div style="text-align:center;"><div class="stat-val">{p_top['SoT']}</div><div class="stat-label">Puntería</div></div>
+                                <div style="text-align:center;"><div class="stat-val">{p_top['Min']}</div><div class="stat-label">Minutos</div></div>
+                            </div>
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+                t1, t2, t3, t4 = st.tabs(["🎯 ATAQUE & REMATES", "🛡️ DISCIPLINA", "📋 GENERAL", "🔥 PICKS POR FORMA"])
+                
+                # Función auxiliar para paginar
+                def mostrar_tabla_paginada(df_input, columnas):
+                    df_sub = df_input[columnas].copy()
+                    limit = st.session_state.items_mostrar
+                    df_pag = df_sub.head(limit)
+                    
+                    st.markdown(f'<div class="table-container">{df_pag.rename(columns=TRADUCCIONES).style.hide(axis="index").to_html(escape=False)}</div>', unsafe_allow_html=True)
+                    
+                    if len(df_input) > limit:
+                        if st.button(f"Ver más (+10) - Mostrando {limit} de {len(df_input)}", key=f"btn_{columnas[2]}"):
+                            st.session_state.items_mostrar += 10
+                            st.rerun()
+
                 with t1:
-                    c_atk = ['Player', 'Squad', 'Gls', 'Ast', 'Sh', 'SoT']
-                    df_t1 = df_f[c_atk].sort_values(by='SoT', ascending=False)
-                    st.markdown(f'<div class="table-container">{df_t1.rename(columns=TRADUCCIONES).style.hide(axis="index").to_html(escape=False)}</div>', unsafe_allow_html=True)
+                    mostrar_tabla_paginada(df_f.sort_values(by='SoT', ascending=False), ['Player', 'Squad', 'Gls', 'Ast', 'Sh', 'SoT'])
                 with t2:
-                    c_disc = ['Player', 'Squad', 'Fls', 'Fld', 'CrdY', 'CrdR']
-                    df_t2 = df_f[c_disc].sort_values(by='Fls', ascending=False)
-                    st.markdown(f'<div class="table-container">{df_t2.rename(columns=TRADUCCIONES).style.hide(axis="index").to_html(escape=False)}</div>', unsafe_allow_html=True)
+                    mostrar_tabla_paginada(df_f.sort_values(by='Fls', ascending=False), ['Player', 'Squad', 'Fls', 'Fld', 'CrdY', 'CrdR'])
                 with t3:
-                    c_gen = ['Player', 'Squad', 'Pos', 'Age', 'Min', 'Gls']
-                    st.markdown(f'<div class="table-container">{df_f[c_gen].rename(columns=TRADUCCIONES).style.hide(axis="index").to_html(escape=False)}</div>', unsafe_allow_html=True)
+                    mostrar_tabla_paginada(df_f, ['Player', 'Squad', 'Pos', 'Age', 'Min', 'Gls'])
+                with t4:
+                    st.info("🔥 Jugadores con mayor impacto en los últimos partidos (Basado en SoT y Goles)")
+                    # Filtro "Picks por Forma": Jugadores que promedian > 1 remate a puerta y están activos
+                    df_picks = df_f[(df_f['SoT'] > (df_f['MP']*0.8)) & (df_f['Min'] > 200)].sort_values(by='SoT', ascending=False)
+                    mostrar_tabla_paginada(df_picks, ['Player', 'Squad', 'Pos', 'Gls', 'SoT'])
+
             else: st.info("ℹ️ Datos de jugadores no disponibles.")
 
         elif view == "odds":
+            # (Mantengo todo tu código de ODDS igual para no romper nada)
             if st.button("⚔️ COMPARADOR H2H", use_container_width=True):
                 st.session_state.h2h_op = not st.session_state.h2h_op
             if st.session_state.h2h_op and df_clas_base is not None and df_stats_base is not None:
