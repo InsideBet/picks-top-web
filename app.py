@@ -410,7 +410,7 @@ if st.session_state.liga_sel:
                             </div>
                             """, unsafe_allow_html=True)
                     
-                    # LEYENDA ACTUALIZADA
+                    # LEYENDA ACTUALIZADA CON COLORES NEÓN EN EL TEXTO
                     st.markdown("""
                     <div class="leyenda-grid" style="margin-bottom:25px;">
                         <div class="leyenda-item">
@@ -419,7 +419,10 @@ if st.session_state.liga_sel:
                         </div>
                         <div class="leyenda-item">
                             <span style="color:#1ed7de; font-weight:bold; font-size:1.1rem;">Fiabilidad:</span>
-                            <span>Indica la solidez del pick según el histórico de minutos jugados; a mayor fiabilidad, más estable es el dato.</span>
+                            <span>Indica la solidez del pick según el histórico de minutos jugados; a mayor fiabilidad, más estable es el dato. 
+                            <span style="color:#FFFF00; font-weight:bold;">Baja</span> - 
+                            <span style="color:#39FF14; font-weight:bold;">Media</span> - 
+                            <span style="color:#ff4b4b; font-weight:bold;">Alta</span></span>
                         </div>
                     </div>
                     """, unsafe_allow_html=True)
@@ -462,7 +465,7 @@ if st.session_state.liga_sel:
                     c_disc = ['Player', 'Squad', 'Fls', 'Fld', 'CrdY', 'CrdR']
                     df_t2 = df_f[c_disc].sort_values(by='Fls', ascending=False)
                     df_t2_view = df_t2.head(st.session_state.num_jugadores_mostrados)
-                    st.markdown(f'<div class="table-container">{df_t2_view.rename(columns=TRADUDIONES).style.hide(axis="index").to_html(escape=False)}</div>', unsafe_allow_html=True)
+                    st.markdown(f'<div class="table-container">{df_t2_view.rename(columns=TRADUCCIONES).style.hide(axis="index").to_html(escape=False)}</div>', unsafe_allow_html=True)
                     if len(df_t2) > st.session_state.num_jugadores_mostrados:
                         if st.button("Ver más jugadores (Disciplina)", key="btn_disc"):
                             st.session_state.num_jugadores_mostrados += 10
