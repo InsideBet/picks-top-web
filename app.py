@@ -10,7 +10,6 @@ import os
 # ────────────────────────────────────────────────
 st.set_page_config(page_title="InsideBet", layout="wide")
 
-# Mantengo tus secretos y constantes exactas
 try:
     API_KEY = st.secrets["odds_api_key"]
 except:
@@ -49,7 +48,7 @@ TRADUCCIONES = {
     'Home': 'LOCAL', 'Away': 'VISITANTE', 'Venue': 'ESTADIO',
     'Poss': 'POSESIÓN', 'Gls': 'GOLES', 'Ast': 'ASISTENCIAS', 
     'CrdY': '🟨', 'CrdR': '🟥', 'xG': 'xG',
-    'Player': 'JUGADOR', 'Pos': 'POS', 'Min': 'MIN', 'Sh': 'REMATES', 'SoT': 'REMATES A PUERTA', 'Fls': 'FALTAS COMETIDS', 'Fld': 'FALTAS RECIBIDAS'
+    'Player': 'JUGADOR', 'Pos': 'POS', 'Min': 'MIN', 'Sh': 'REMATES', 'SoT': 'REMATES A PUERTA', 'Fls': 'FALTAS COMETIDAS', 'Fld': 'FALTAS RECIBIDAS'
 }
 
 MAPEO_POSICIONES = {
@@ -58,7 +57,7 @@ MAPEO_POSICIONES = {
 }
 
 # ────────────────────────────────────────────────
-# FUNCIONES DE FORMATO (Solo añadidas, no modifican lógica anterior)
+# FUNCIONES DE FORMATO
 # ────────────────────────────────────────────────
 
 def limpiar_nombre_equipo(nombre):
@@ -68,135 +67,142 @@ def limpiar_nombre_equipo(nombre):
     txt = re.sub(r'\s+[a-z]{2,3}$', '', txt, flags=re.IGNORECASE)
     return txt.strip()
 
-def generar_sparkline_score(score):
-    """Mini tendencia SVG sin afectar datos"""
-    val = float(score) if score else 0
-    p = [val * 0.9, val * 0.95, val]
-    mx = max(p) if max(p) > 0 else 1
-    n = [(v/mx)*18 for v in p]
-    return f'<svg width="40" height="18"><polyline points="0,{18-n[0]} 20,{18-n[1]} 40,{18-n[2]}" fill="none" stroke="#1ed7de" stroke-width="2" /></svg>'
+def get_badge_fiabilidad(mins, score):
+    """Genera el badge de fiabilidad según tu imagen de referencia"""
+    try:
+        m = float(mins)
+        if m < 300: return "BAJA (POCA MUESTRA) ⚠️", "#00bcd4"
+        if m >= 450: return "ALTA 🔥", "#ff4b4b"
+        return "MEDIA 📈", "#00bcd4"
+    except: return "N/A", "#4b5563"
 
-def color_fiabilidad(mins, score):
-    if mins < 300: return "#821f1f", "BAJA ⚠️"
-    if mins >= 450: return "#137031", "ALTA 🔥"
-    return "#b59410", "MEDIA 📈"
-
-def grafico_picos_forma(valor):
+def grafico_picos_forma(valor, alineacion="left"):
     if pd.isna(valor) or valor == "": return ""
     letras = list(str(valor).upper().replace(" ", ""))[:5]
     mapeo_y = {'W': 4, 'D': 11, 'L': 18}
-    pts = [f"{10+(i*25)},{mapeo_y.get(l, 11)}" for i, l in enumerate(letras)]
-    circles = [f'<circle cx="{10+(i*25)}" cy="{mapeo_y.get(l, 11)}" r="3" fill="{"#137031" if l=="W" else "#b59410" if l=="D" else "#821f1f"}" />' for i, l in enumerate(letras)]
-    return f'<svg width="130" height="22"><path d="M {" L ".join(pts)}" fill="none" stroke="#1ed7de" stroke-width="1" opacity="0.3"/>{"".join(circles)}</svg>'
+    colores = {'W': '#137031', 'D': '#b59410', 'L': '#821f1f'}
+    puntos = [f"{10+(i*25)},{mapeo_y.get(l, 11)}" for i, l in enumerate(letras)]
+    circles = [f'<circle cx="{10+(i*25)}" cy="{mapeo_y.get(l, 11)}" r="3" fill="{colores.get(l, "#4b5563")}" />' for i, l in enumerate(letras)]
+    return f'<svg width="130" height="22"><path d="M {" L ".join(puntos)}" fill="none" stroke="#1ed7de" stroke-width="1.2" opacity="0.4" />{"".join(circles)}</svg>'
 
 # ────────────────────────────────────────────────
-# CARGA DE DATOS (Mantenida como tú la tenías)
+# CARGA DE DATOS
 # ────────────────────────────────────────────────
 
 @st.cache_data(ttl=300)
 def cargar_excel(ruta_archivo, tipo="general"):
-    if "SUPER_STATS" in ruta_archivo:
-        url = f"{BASE_URL}/Estadisticas_Jugadores/{ruta_archivo}"
-    else:
-        url = f"{BASE_URL}/{ruta_archivo}"
-    
+    # Respetamos tu ruta original de carpetas
+    url = f"{BASE_URL}/Estadisticas_Jugadores/{ruta_archivo}" if "SUPER_STATS" in ruta_archivo else f"{BASE_URL}/{ruta_archivo}"
     try:
         df = pd.read_excel(url)
         if 'Squad' in df.columns: df['Squad'] = df['Squad'].apply(limpiar_nombre_equipo)
-        
-        if tipo == "stats":
-            if 'Poss' in df.columns:
-                df['Poss_num'] = df['Poss'].str.replace('%','').astype(float)
-            if len(df.columns) >= 17:
-                df['xG_val'] = df.iloc[:, 16]
+        if tipo == "clasificacion":
             df = df.rename(columns=TRADUCCIONES)
-        elif tipo == "clasificacion":
-            df = df.rename(columns=TRADUCCIONES)
-        return df
-    except:
-        return None
+        return df.dropna(how='all').reset_index(drop=True)
+    except: return None
 
 # ────────────────────────────────────────────────
-# INTERFAZ Y RENDERIZADO
+# ESTILOS CSS (Fiel a Screenshot_20.png)
 # ────────────────────────────────────────────────
-
 st.markdown("""
 <style>
     .stApp { background-color: #0e1117; color: #e5e7eb; }
+    .pick-card { 
+        background: #161b22; border: 1px solid #1ed7de33; border-radius: 10px; 
+        padding: 20px; margin-bottom: 15px; height: 180px;
+    }
+    .badge-f { font-size: 10px; font-weight: bold; padding: 2px 8px; border-radius: 4px; }
+    .stat-box { text-align: center; }
+    .stat-val { color: #1ed7de; font-size: 18px; font-weight: bold; }
+    .stat-label { font-size: 9px; color: #9ca3af; }
     .table-container { width: 100%; overflow-x: auto; border: 1px solid #1ed7de44; border-radius: 8px; background-color: #161b22; }
-    th { background-color: #1f2937 !important; color: #1ed7de !important; text-align: center !important; }
-    td { text-align: center !important; border: 1px solid #374151 !important; }
-    .pick-card { background: #1f2937; border: 1px solid #1ed7de44; border-radius: 10px; padding: 15px; margin-bottom: 10px; }
+    th { background-color: #1f2937 !important; color: #1ed7de !important; padding: 10px; }
+    td { border: 1px solid #374151; padding: 10px; text-align: center !important; }
 </style>
 """, unsafe_allow_html=True)
 
+# ────────────────────────────────────────────────
+# ESTRUCTURA PRINCIPAL
+# ────────────────────────────────────────────────
 st.markdown('<center><img src="https://i.postimg.cc/SKPzCcyV/33.png" width="400"></center>', unsafe_allow_html=True)
 
-# Lógica de navegación original
 if "liga_sel" not in st.session_state: st.session_state.liga_sel = None
 if "vista_activa" not in st.session_state: st.session_state.vista_activa = "clas"
+if "num_jugadores_mostrados" not in st.session_state: st.session_state.num_jugadores_mostrados = 10
 
 if st.button("COMPETENCIAS", use_container_width=True):
     st.session_state.menu_op = not st.session_state.get('menu_op', False)
 
 if st.session_state.get('menu_op', False):
-    sel = st.selectbox("Selecciona", LIGAS_LISTA)
-    st.session_state.liga_sel = sel
-    st.session_state.menu_op = False
-    st.rerun()
+    sel = st.selectbox("Ligas", ["Selecciona Liga"] + LIGAS_LISTA, label_visibility="collapsed")
+    if sel != "Selecciona Liga":
+        st.session_state.liga_sel = sel
+        st.session_state.menu_op = False
+        st.rerun()
 
 if st.session_state.liga_sel:
     liga = st.session_state.liga_sel
     sufijo = MAPEO_ARCHIVOS[liga]
+    st.markdown(f'### <img src="{BANDERAS.get(liga)}" width="30"> {liga}')
     
-    st.markdown(f"## <img src='{BANDERAS[liga]}' width='30'> {liga}")
-    
-    c1, c2, c3, c4 = st.columns(4)
-    if c1.button("Clasificación", use_container_width=True): st.session_state.vista_activa = "clas"
-    if c2.button("Stats Equipos", use_container_width=True): st.session_state.vista_activa = "stats"
-    if c3.button("Análisis Jugadores", use_container_width=True): st.session_state.vista_activa = "players"
-    if c4.button("Fixture", use_container_width=True): st.session_state.vista_activa = "fix"
+    # Botones de navegación
+    cols = st.columns(4)
+    if cols[0].button("Clasificación", use_container_width=True): st.session_state.vista_activa = "clas"
+    if cols[1].button("Stats Equipos", use_container_width=True): st.session_state.vista_activa = "stats"
+    if cols[2].button("Análisis Jugadores", use_container_width=True): 
+        st.session_state.vista_activa = "players"
+        st.session_state.num_jugadores_mostrados = 10
+    if cols[3].button("Picks & Cuotas", use_container_width=True): st.session_state.vista_activa = "odds"
 
-    if st.session_state.vista_activa == "players":
-        # Bloque de Picks Top (Solo si existe el archivo)
-        df_top = cargar_excel("picks_finales_fiables.xlsx")
-        if df_top is not None:
-            df_liga = df_top[df_top['Liga'] == sufijo].head(6)
-            cols = st.columns(3)
-            for i, (idx, row) in enumerate(df_liga.iterrows()):
-                col_f, lab_f = color_fiabilidad(row['Minutos'], row['Score_Pick'])
-                with cols[i%3]:
+    view = st.session_state.vista_activa
+
+    if view == "players":
+        # SECCIÓN DE TOP PICKS (Screenshot_20.png)
+        st.markdown("#### 🔥 TOP PICKS DE ÉLITE (Basado en Promedios/90min)")
+        df_picks = cargar_excel("picks_finales_fiables.xlsx") # Asumiendo este archivo para los cuadros
+        if df_picks is not None:
+            df_l = df_picks[df_picks['Liga'] == sufijo].head(6)
+            p_cols = st.columns(3)
+            for i, (idx, row) in enumerate(df_l.iterrows()):
+                label, color = get_badge_fiabilidad(row.get('Minutos', 500), row.get('Score_Pick', 0))
+                with p_cols[i % 3]:
                     st.markdown(f"""
                     <div class="pick-card">
-                        <div style="display:flex; justify-content:space-between;">
-                            <span style="color:{col_f}; font-weight:bold; font-size:10px;">{lab_f}</span>
-                            {generar_sparkline_score(row['Score_Pick'])}
-                        </div>
-                        <h4 style="margin:5px 0; color:white;">{row['Jugador']}</h4>
-                        <div style="font-size:12px; color:#1ed7de;">{row['Equipo']}</div>
-                        <div style="display:flex; justify-content:space-between; margin-top:10px; border-top:1px solid #4b5563; padding-top:5px;">
-                            <small>Faltas: <b>{row['Faltas_90']}</b></small>
-                            <small>Tiros: <b>{row['Tiros_90']}</b></small>
-                            <small>Score: <b style="color:#b59410;">{row['Score_Pick']}</b></small>
+                        <span class="badge-f" style="color:{color}; border:1px solid {color};">{label}</span>
+                        <div style="font-size:16px; font-weight:bold; margin-top:10px;">{row['Jugador']}</div>
+                        <div style="font-size:12px; color:#9ca3af; margin-bottom:15px;">{row['Equipo']}</div>
+                        <div style="display:flex; justify-content:space-between; border-top:1px solid #374151; padding-top:10px;">
+                            <div class="stat-box"><div class="stat-val">{row['Faltas_90']}</div><div class="stat-label">FALTAS/90</div></div>
+                            <div class="stat-box"><div class="stat-val">{row['Tiros_90']}</div><div class="stat-label">TIROS/90</div></div>
+                            <div class="stat-box"><div class="stat-val" style="color:#b59410;">{row['Score_Pick']}</div><div class="stat-label">SCORE</div></div>
                         </div>
                     </div>
                     """, unsafe_allow_html=True)
 
-        # Tabla de jugadores completa
+        # TABLAS DE JUGADORES (Tu lógica de pestañas y Ver más)
         df_p = cargar_excel(f"SUPER_STATS_{sufijo}.xlsx")
         if df_p is not None:
-            st.dataframe(df_p.rename(columns=TRADUCCIONES), use_container_width=True, hide_index=True)
+            if 'Pos' in df_p.columns: df_p['Pos'] = df_p['Pos'].replace(MAPEO_POSICIONES)
+            t1, t2 = st.tabs(["🎯 ATAQUE & REMATES", "🛡️ DISCIPLINA"])
+            
+            with t1:
+                df_t1 = df_p[['Player', 'Squad', 'Gls', 'Ast', 'Sh', 'SoT']].sort_values(by='Gls', ascending=False)
+                st.markdown(f'<div class="table-container">{df_t1.head(st.session_state.num_jugadores_mostrados).rename(columns=TRADUCCIONES).to_html(escape=False, index=False)}</div>', unsafe_allow_html=True)
+                if st.button("Ver más jugadores (Ataque)"):
+                    st.session_state.num_jugadores_mostrados += 10
+                    st.rerun()
+            
+            with t2:
+                df_t2 = df_p[['Player', 'Squad', 'Fls', 'Fld', 'CrdY', 'CrdR']].sort_values(by='Fls', ascending=False)
+                st.markdown(f'<div class="table-container">{df_t2.head(st.session_state.num_jugadores_mostrados).rename(columns=TRADUCCIONES).to_html(escape=False, index=False)}</div>', unsafe_allow_html=True)
+                if st.button("Ver más jugadores (Disciplina)"):
+                    st.session_state.num_jugadores_mostrados += 10
+                    st.rerun()
 
-    elif st.session_state.vista_activa == "clas":
+    elif view == "clas":
         df = cargar_excel(f"CLASIFICACION_LIGA_{sufijo}.xlsx", "clasificacion")
         if df is not None:
-            if 'ÚLTIMOS 5' in df.columns:
-                df['ÚLTIMOS 5'] = df['ÚLTIMOS 5'].apply(grafico_picos_forma)
             st.markdown(f'<div class="table-container">{df.to_html(escape=False, index=False)}</div>', unsafe_allow_html=True)
 
-    elif st.session_state.vista_activa == "stats":
-        df = cargar_excel(f"RESUMEN_STATS_{sufijo}.xlsx", "stats")
-        if df is not None:
-            st.dataframe(df, use_container_width=True, hide_index=True)
-
-st.markdown("<br><center><small>InsideBet 2026</small></center>", unsafe_allow_html=True)
+st.write("---")
+st.caption("InsideBet Official | scrapeo")
