@@ -376,20 +376,19 @@ if st.session_state.liga_sel:
                 
                 top_6 = df_liga_picks.head(6)
                 if not top_6.empty:
-                    st.markdown("##### 🔥 TOP PICKS DE ÉLITE")
+                    st.markdown("##### 🔥 TOP PICKS DE ÉLITE (Algoritmo IA)")
                     p_cols = st.columns(3)
                     for idx, row in top_6.reset_index(drop=True).iterrows():
-                        # Límite visual de Confianza a 100
                         conf_vis = min(float(row['Score_Pick']), 100.0)
                         
-                        # ASIGNACIÓN DE COLORES NEÓN SEGÚN FIABILIDAD
+                        # ASIGNACIÓN DE COLORES ACTUALIZADA (SEMÁFORO)
                         fiab_str = str(row['Fiabilidad']).upper()
                         if "ALTA" in fiab_str:
-                            color_f = "#ff4b4b" 
+                            color_f = "#39FF14" # Verde Neón para Alta
                         elif "MEDIA" in fiab_str:
-                            color_f = "#39FF14" # Verde Neón
+                            color_f = "#FFFF00" # Amarillo Neón para Media
                         elif "BAJA" in fiab_str:
-                            color_f = "#FFFF00" # Amarillo Neón
+                            color_f = "#FF3131" # Rojo Neón para Baja
                         else:
                             color_f = "#9ca3af"
 
@@ -410,7 +409,7 @@ if st.session_state.liga_sel:
                             </div>
                             """, unsafe_allow_html=True)
                     
-                    # LEYENDA ACTUALIZADA CON COLORES NEÓN EN EL TEXTO
+                    # LEYENDA ACTUALIZADA CON COLORES SEMÁFORO
                     st.markdown("""
                     <div class="leyenda-grid" style="margin-bottom:25px;">
                         <div class="leyenda-item">
@@ -420,9 +419,9 @@ if st.session_state.liga_sel:
                         <div class="leyenda-item">
                             <span style="color:#1ed7de; font-weight:bold; font-size:1.1rem;">Fiabilidad:</span>
                             <span>Indica la solidez del pick según el histórico de minutos jugados; a mayor fiabilidad, más estable es el dato. 
-                            <span style="color:#FFFF00; font-weight:bold;">Baja</span> - 
-                            <span style="color:#39FF14; font-weight:bold;">Media</span> - 
-                            <span style="color:#ff4b4b; font-weight:bold;">Alta</span></span>
+                            <span style="color:#FF3131; font-weight:bold;">Baja</span> - 
+                            <span style="color:#FFFF00; font-weight:bold;">Media</span> - 
+                            <span style="color:#39FF14; font-weight:bold;">Alta</span></span>
                         </div>
                     </div>
                     """, unsafe_allow_html=True)
