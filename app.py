@@ -41,14 +41,21 @@ BANDERAS = {
     "Primeira Liga": "https://i.postimg.cc/QH99xHcb/5.png", "Eredivisie": "https://i.postimg.cc/dLb77wB8/6.png"
 }
 
+# Mejora 1 y 5: Traducciones de posiciones y nuevos nombres de columnas con iconos
 TRADUCCIONES = {
     'Rk': 'POS', 'Squad': 'EQUIPO', 'MP': 'PJ', 'W': 'G', 'D': 'E', 'L': 'P',
     'GF': 'GF', 'GA': 'GC', 'GD': 'DG', 'Pts': 'PTS', 'PTS': 'PTS',
     'Last 5': 'ÚLTIMOS 5', 'Wk': 'JORNADA', 'Date': 'FECHA', 'Time': 'HORA',
     'Home': 'LOCAL', 'Away': 'VISITANTE', 'Venue': 'ESTADIO',
     'Poss': 'POSESIÓN', 'Gls': 'GOLES', 'Ast': 'ASISTENCIAS', 
-    'CrdY': 'AMARILLAS', 'CrdR': 'ROJAS', 'xG': 'xG',
-    'Player': 'JUGADOR', 'Pos': 'POS', 'Min': 'MIN', 'Sh': 'REM', 'SoT': 'PUERTA', 'Fls': 'FALT_C', 'Fld': 'FALT_R'
+    'CrdY': '🟨', 'CrdR': '🟥', 'xG': 'xG',
+    'Player': 'JUGADOR', 'Pos': 'POS', 'Min': 'MIN', 'Sh': 'REMATES', 'SoT': 'REMATES A PUERTA', 'Fls': 'FALTAS COMETIDAS', 'Fld': 'FALTAS RECIBIDAS'
+}
+
+# Mejora 1: Mapeo de posiciones a español
+MAPEO_POSICIONES = {
+    'FW': 'DEL', 'MF': 'MED', 'DF': 'DEF', 'GK': 'POR',
+    'FW,MF': 'DEL/MED', 'MF,FW': 'MED/DEL', 'DF,MF': 'DEF/MED', 'MF,DF': 'MED/DEF'
 }
 
 # ────────────────────────────────────────────────
@@ -256,7 +263,6 @@ st.markdown("""
     th { position: sticky; top: 0; z-index: 100; background-color: #1f2937 !important; color: #1ed7de !important; padding: 12px; border: 1px solid #374151; }
     td { padding: 12px; border: 1px solid #374151; text-align: center !important; }
     
-    /* Estilo base de botones */
     div.stButton > button { 
         background-color: transparent !important; 
         color: #1ed7de !important; 
@@ -287,6 +293,8 @@ if "vista_activa" not in st.session_state: st.session_state.vista_activa = None
 if "menu_op" not in st.session_state: st.session_state.menu_op = False
 if "h2h_op" not in st.session_state: st.session_state.h2h_op = False
 if "conf_op" not in st.session_state: st.session_state.conf_op = False
+# Inicialización para "Ver más"
+if "num_jugadores_mostrados" not in st.session_state: st.session_state.num_jugadores_mostrados = 10
 
 if st.button("COMPETENCIAS", use_container_width=True):
     st.session_state.menu_op = not st.session_state.menu_op
@@ -303,7 +311,6 @@ if st.session_state.liga_sel:
     liga = st.session_state.liga_sel
     st.markdown(f'<div class="header-container"><img src="{BANDERAS.get(liga, "")}" style="width:40px; height:auto;"><span class="header-title">{liga}</span></div>', unsafe_allow_html=True)
     
-    # CSS Dinámico para colorear el botón activo
     v_act = st.session_state.vista_activa
     st.markdown(f"""
         <style>
@@ -324,8 +331,9 @@ if st.session_state.liga_sel:
     
     for i, label in enumerate(labels):
         if cols[i].button(label, use_container_width=True):
-            # Lógica Toggle (Acordeón): Si ya estaba activo, lo cierra (None)
             st.session_state.vista_activa = keys[i] if st.session_state.vista_activa != keys[i] else None
+            # Reiniciar contador de jugadores al cambiar de vista
+            st.session_state.num_jugadores_mostrados = 10
             st.rerun()
 
     st.divider()
@@ -340,34 +348,58 @@ if st.session_state.liga_sel:
             st.markdown(f"#### 👤 Rendimiento Individual - {liga}")
             df_p = cargar_excel(f"SUPER_STATS_{sufijo}.xlsx", "general")
             if df_p is not None:
+                # Mejora 1: Traducir posiciones en el DataFrame
+                if 'Pos' in df_p.columns:
+                    df_p['Pos'] = df_p['Pos'].replace(MAPEO_POSICIONES)
+                
                 if 'Squad' in df_p.columns:
                     df_p['Squad'] = df_p['Squad'].apply(limpiar_nombre_equipo)
-                f_col1, f_col2, f_col3, f_col4 = st.columns([2, 1.5, 1.5, 2])
+                
+                # Mejora 4: Eliminamos filtrado por minutos (f_col3 ahora vacío o ajustado)
+                f_col1, f_col2, f_col4 = st.columns([2, 2, 2])
                 with f_col1:
                     eq_list = ["Todos"] + sorted(df_p['Squad'].unique().tolist())
                     eq_f = st.selectbox("Filtrar por Equipo", eq_list)
                 with f_col2:
                     p_sel = st.multiselect("Posiciones", df_p['Pos'].unique(), default=df_p['Pos'].unique())
-                with f_col3:
-                    m_min = st.number_input("Minutos mín.", 0, int(df_p['Min'].max()), 90)
                 with f_col4:
                     p_busq = st.text_input("🔍 Buscar Jugador", "").strip().lower()
-                mask = (df_p['Min'] >= m_min) & (df_p['Pos'].isin(p_sel))
+                
+                # Aplicar filtros (sin el de minutos por Mejora 4)
+                mask = (df_p['Pos'].isin(p_sel))
                 if eq_f != "Todos": mask = mask & (df_p['Squad'] == eq_f)
                 if p_busq: mask = mask & (df_p['Player'].str.lower().str.contains(p_busq))
                 df_f = df_p[mask].copy()
-                t1, t2, t3 = st.tabs(["🎯 ATAQUE & REMATES", "🛡️ DISCIPLINA", "📋 GENERAL"])
+
+                # Mejora 6: Solo 2 tabs (eliminamos General)
+                t1, t2 = st.tabs(["🎯 ATAQUE & REMATES", "🛡️ DISCIPLINA"])
+                
                 with t1:
                     c_atk = ['Player', 'Squad', 'Gls', 'Ast', 'Sh', 'SoT']
-                    df_t1 = df_f[c_atk].sort_values(by='SoT', ascending=False)
-                    st.markdown(f'<div class="table-container">{df_t1.rename(columns=TRADUCCIONES).style.hide(axis="index").to_html(escape=False)}</div>', unsafe_allow_html=True)
+                    # Mejora 2: Ordenar por goles de mayor a menor
+                    df_t1 = df_f[c_atk].sort_values(by='Gls', ascending=False)
+                    
+                    # Mejora 3: Paginación "Ver más"
+                    df_t1_view = df_t1.head(st.session_state.num_jugadores_mostrados)
+                    st.markdown(f'<div class="table-container">{df_t1_view.rename(columns=TRADUCCIONES).style.hide(axis="index").to_html(escape=False)}</div>', unsafe_allow_html=True)
+                    
+                    if len(df_t1) > st.session_state.num_jugadores_mostrados:
+                        if st.button("Ver más jugadores (Ataque)", key="btn_atk"):
+                            st.session_state.num_jugadores_mostrados += 10
+                            st.rerun()
+
                 with t2:
                     c_disc = ['Player', 'Squad', 'Fls', 'Fld', 'CrdY', 'CrdR']
                     df_t2 = df_f[c_disc].sort_values(by='Fls', ascending=False)
-                    st.markdown(f'<div class="table-container">{df_t2.rename(columns=TRADUCCIONES).style.hide(axis="index").to_html(escape=False)}</div>', unsafe_allow_html=True)
-                with t3:
-                    c_gen = ['Player', 'Squad', 'Pos', 'Age', 'Min', 'Gls']
-                    st.markdown(f'<div class="table-container">{df_f[c_gen].rename(columns=TRADUCCIONES).style.hide(axis="index").to_html(escape=False)}</div>', unsafe_allow_html=True)
+                    
+                    # Mejora 3: Paginación "Ver más"
+                    df_t2_view = df_t2.head(st.session_state.num_jugadores_mostrados)
+                    st.markdown(f'<div class="table-container">{df_t2_view.rename(columns=TRADUCCIONES).style.hide(axis="index").to_html(escape=False)}</div>', unsafe_allow_html=True)
+                    
+                    if len(df_t2) > st.session_state.num_jugadores_mostrados:
+                        if st.button("Ver más jugadores (Disciplina)", key="btn_disc"):
+                            st.session_state.num_jugadores_mostrados += 10
+                            st.rerun()
             else: st.info("ℹ️ Datos de jugadores no disponibles.")
 
         elif view == "odds":
