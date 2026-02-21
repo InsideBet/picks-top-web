@@ -368,9 +368,14 @@ if st.session_state.liga_sel:
         if view == "players":
             st.markdown(f"#### 👤 Rendimiento Individual - {liga}")
             
-            # --- INTEGRACIÓN DE PICKS FIABLES (NUEVA SECCIÓN) ---
+            # --- INTEGRACIÓN DE PICKS FIABLES (CORREGIDA PARA EVITAR DUPLICADOS) ---
             df_picks = cargar_excel("picks_finales_fiables.xlsx", "general")
             if df_picks is not None:
+                # 1. Limpieza de duplicados por Jugador (manteniendo la primera liga que aparezca)
+                # 2. Eliminación de filas que no son jugadores reales
+                df_picks = df_picks.drop_duplicates(subset=['Jugador'], keep='first')
+                df_picks = df_picks[df_picks['Jugador'] != 'Opponent Total']
+                
                 # Filtrar picks solo de la liga actual
                 df_picks_liga = df_picks[df_picks['Liga'] == sufijo].head(6)
                 
@@ -379,8 +384,8 @@ if st.session_state.liga_sel:
                     p_col1, p_col2, p_col3 = st.columns(3)
                     cols_picks = [p_col1, p_col2, p_col3]
                     
-                    for idx, row in df_picks_liga.iterrows():
-                        with cols_picks[idx % 3]:
+                    for i, (idx, row) in enumerate(df_picks_liga.iterrows()):
+                        with cols_picks[i % 3]:
                             st.markdown(f"""
                             <div class="pick-card">
                                 <span class="pick-tag">{row['Fiabilidad']}</span>
