@@ -381,7 +381,18 @@ if st.session_state.liga_sel:
                     for idx, row in top_6.reset_index(drop=True).iterrows():
                         # Límite visual de Confianza a 100
                         conf_vis = min(float(row['Score_Pick']), 100.0)
-                        color_f = "#ff4b4b" if "ALTA" in str(row['Fiabilidad']).upper() else "#1ed7de" if "MEDIA" in str(row['Fiabilidad']).upper() else "#9ca3af"
+                        
+                        # ASIGNACIÓN DE COLORES NEÓN SEGÚN FIABILIDAD
+                        fiab_str = str(row['Fiabilidad']).upper()
+                        if "ALTA" in fiab_str:
+                            color_f = "#ff4b4b" 
+                        elif "MEDIA" in fiab_str:
+                            color_f = "#39FF14" # Verde Neón
+                        elif "BAJA" in fiab_str:
+                            color_f = "#FFFF00" # Amarillo Neón
+                        else:
+                            color_f = "#9ca3af"
+
                         with p_cols[idx % 3]:
                             st.markdown(f"""
                             <div class="top-pick-card">
@@ -399,16 +410,16 @@ if st.session_state.liga_sel:
                             </div>
                             """, unsafe_allow_html=True)
                     
-                    # LEYENDA MEJORADA E INTUITIVA
+                    # LEYENDA ACTUALIZADA
                     st.markdown("""
                     <div class="leyenda-grid" style="margin-bottom:25px;">
                         <div class="leyenda-item">
                             <span style="color:#b59410; font-weight:bold; font-size:1.1rem;">% Confianza:</span>
-                            <span>Probabilidad de éxito basada en la regularidad del jugador.</span>
+                            <span>Muestra la probabilidad de éxito basándose en la regularidad del jugador en sus últimos partidos.</span>
                         </div>
                         <div class="leyenda-item">
                             <span style="color:#1ed7de; font-weight:bold; font-size:1.1rem;">Fiabilidad:</span>
-                            <span>Indica si el jugador tiene suficientes minutos jugados para que el dato sea sólido.</span>
+                            <span>Indica la solidez del pick según el histórico de minutos jugados; a mayor fiabilidad, más estable es el dato.</span>
                         </div>
                     </div>
                     """, unsafe_allow_html=True)
@@ -451,7 +462,7 @@ if st.session_state.liga_sel:
                     c_disc = ['Player', 'Squad', 'Fls', 'Fld', 'CrdY', 'CrdR']
                     df_t2 = df_f[c_disc].sort_values(by='Fls', ascending=False)
                     df_t2_view = df_t2.head(st.session_state.num_jugadores_mostrados)
-                    st.markdown(f'<div class="table-container">{df_t2_view.rename(columns=TRADUCCIONES).style.hide(axis="index").to_html(escape=False)}</div>', unsafe_allow_html=True)
+                    st.markdown(f'<div class="table-container">{df_t2_view.rename(columns=TRADUDIONES).style.hide(axis="index").to_html(escape=False)}</div>', unsafe_allow_html=True)
                     if len(df_t2) > st.session_state.num_jugadores_mostrados:
                         if st.button("Ver más jugadores (Disciplina)", key="btn_disc"):
                             st.session_state.num_jugadores_mostrados += 10
