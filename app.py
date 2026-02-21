@@ -297,8 +297,8 @@ st.markdown("""
     .card-team { font-size: 0.8rem; color: #1ed7de; }
     .card-stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 12px; padding-top: 10px; border-top: 1px solid #374151; }
     .card-stat-item { text-align: center; }
-    .card-stat-val { font-size: 1rem; font-weight: bold; color: #e5e7eb; display: block; }
-    .card-stat-lbl { font-size: 0.65rem; color: #9ca3af; text-transform: uppercase; }
+    .card-stat-val { font-size: 1.1rem; font-weight: bold; color: #e5e7eb; display: block; margin-bottom: 4px; }
+    .card-stat-lbl { font-size: 0.65rem; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.5px; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -402,15 +402,21 @@ if st.session_state.liga_sel:
                                 <div class="card-name">{row['Jugador']}</div>
                                 <div class="card-team">{row['Equipo']}</div>
                                 <div class="card-stats-grid">
-                                    <div class="card-stat-item"><span class="card-stat-val">{row['Faltas_90']:.2f}</span><span class="card-stat-lbl">Faltas</span></div>
+                                    <div class="card-stat-item">
+                                        <span class="card-stat-val">{row['Faltas_90']:.2f}</span>
+                                        <span class="card-stat-lbl">Faltas</span>
+                                    </div>
                                     <div class="card-stat-item">
                                         <span class="card-stat-val">{row['Tiros_90']:.2f}</span>
-                                        <div style="display: flex; align-items: center; justify-content: center; gap: 4px; margin-top: 2px;">
-                                            <img src="https://i.postimg.cc/8cpyfzqN/3131.png" width="14" height="14" style="vertical-align: middle;">
-                                            <span class="card-stat-lbl" style="margin: 0;">Tiros</span>
+                                        <div style="display: flex; flex-direction: column; align-items: center; gap: 4px;">
+                                            <img src="https://i.postimg.cc/8cpyfzqN/3131.png" width="22" height="22" style="margin-bottom: 2px;">
+                                            <span class="card-stat-lbl">Tiros</span>
                                         </div>
                                     </div>
-                                    <div class="card-stat-item"><span class="card-stat-val" style="color:#b59410;">{conf_vis:.1f}%</span><span class="card-stat-lbl">Confianza</span></div>
+                                    <div class="card-stat-item">
+                                        <span class="card-stat-val" style="color:#b59410;">{conf_vis:.1f}%</span>
+                                        <span class="card-stat-lbl">Confianza</span>
+                                    </div>
                                 </div>
                             </div>
                             """, unsafe_allow_html=True)
