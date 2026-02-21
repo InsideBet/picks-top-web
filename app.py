@@ -376,7 +376,7 @@ if st.session_state.liga_sel:
                 
                 top_6 = df_liga_picks.head(6)
                 if not top_6.empty:
-                    st.markdown("##### 🔥 TOP PICKS DE ÉLITE (Algoritmo IA)")
+                    st.markdown("##### 🔥 TOP PICKS DE ÉLITE")
                     p_cols = st.columns(3)
                     for idx, row in top_6.reset_index(drop=True).iterrows():
                         # Límite visual de Confianza a 100
