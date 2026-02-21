@@ -364,14 +364,12 @@ if st.session_state.liga_sel:
         if view == "players":
             st.markdown(f"#### 👤 Rendimiento Individual - {liga}")
             
-            # --- SECCIÓN TOP PICKS CON CORRECCIONES ---
+            # --- SECCIÓN TOP PICKS CON CONFIANZA ---
             df_picks = cargar_excel("picks_finales_fiables.xlsx")
             if df_picks is not None:
-                # 1. Limpiar datos nulos/nan de base
                 df_picks = df_picks.dropna(subset=['Jugador', 'Equipo'])
                 df_picks = df_picks[(df_picks['Jugador'].astype(str).str.lower() != 'nan') & (df_picks['Equipo'].astype(str).str.lower() != 'nan')]
                 
-                # 2. Filtrar liga y eliminar duplicados de jugadores manteniendo el Score más alto
                 df_liga_picks = df_picks[df_picks['Liga'] == sufijo].copy()
                 df_liga_picks = df_liga_picks.sort_values(by='Score_Pick', ascending=False)
                 df_liga_picks = df_liga_picks.drop_duplicates(subset=['Jugador'], keep='first')
@@ -381,27 +379,39 @@ if st.session_state.liga_sel:
                     st.markdown("##### 🔥 TOP PICKS DE ÉLITE (Algoritmo IA)")
                     p_cols = st.columns(3)
                     for idx, row in top_6.reset_index(drop=True).iterrows():
-                        # Límite visual de Score a 100
-                        score_vis = min(float(row['Score_Pick']), 100.0)
+                        # Límite visual de Confianza a 100
+                        conf_vis = min(float(row['Score_Pick']), 100.0)
                         color_f = "#ff4b4b" if "ALTA" in str(row['Fiabilidad']).upper() else "#1ed7de" if "MEDIA" in str(row['Fiabilidad']).upper() else "#9ca3af"
                         with p_cols[idx % 3]:
                             st.markdown(f"""
                             <div class="top-pick-card">
                                 <div class="card-header">
                                     <span class="card-fiabilidad" style="color:{color_f}; border-color:{color_f}77;">{row['Fiabilidad']}</span>
-                                    <span style="font-size:0.7rem; color:#9ca3af;">90' NORMALIZED</span>
+                                    <span style="font-size:0.7rem; color:#9ca3af;">PROYECCIÓN POR PARTIDO</span>
                                 </div>
                                 <div class="card-name">{row['Jugador']}</div>
                                 <div class="card-team">{row['Equipo']}</div>
                                 <div class="card-stats-grid">
                                     <div class="card-stat-item"><span class="card-stat-val">{row['Faltas_90']:.2f}</span><span class="card-stat-lbl">Faltas</span></div>
                                     <div class="card-stat-item"><span class="card-stat-val">{row['Tiros_90']:.2f}</span><span class="card-stat-lbl">Tiros</span></div>
-                                    <div class="card-stat-item"><span class="card-stat-val" style="color:#b59410;">{score_vis:.1f}</span><span class="card-stat-lbl">Score</span></div>
+                                    <div class="card-stat-item"><span class="card-stat-val" style="color:#b59410;">{conf_vis:.1f}%</span><span class="card-stat-lbl">Confianza</span></div>
                                 </div>
                             </div>
                             """, unsafe_allow_html=True)
                     
-                    st.markdown("""<div class="leyenda-grid" style="margin-bottom:25px;"><div class="leyenda-item"><span style="color:#b59410; font-weight:bold;">Score Pick:</span><span>Potencial de acierto basado en volumen de juego.</span></div><div class="leyenda-item"><span style="color:#1ed7de; font-weight:bold;">Fiabilidad:</span><span>Muestra de minutos (Alta > 500min).</span></div></div>""", unsafe_allow_html=True)
+                    # LEYENDA MEJORADA E INTUITIVA
+                    st.markdown("""
+                    <div class="leyenda-grid" style="margin-bottom:25px;">
+                        <div class="leyenda-item">
+                            <span style="color:#b59410; font-weight:bold; font-size:1.1rem;">% Confianza:</span>
+                            <span>Probabilidad de éxito basada en la regularidad del jugador.</span>
+                        </div>
+                        <div class="leyenda-item">
+                            <span style="color:#1ed7de; font-weight:bold; font-size:1.1rem;">Fiabilidad:</span>
+                            <span>Indica si el jugador tiene suficientes minutos jugados para que el dato sea sólido.</span>
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
 
             # --- TABLAS DE JUGADORES ---
             df_p = cargar_excel(f"SUPER_STATS_{sufijo}.xlsx", "general")
