@@ -41,7 +41,6 @@ BANDERAS = {
     "Primeira Liga": "https://i.postimg.cc/QH99xHcb/5.png", "Eredivisie": "https://i.postimg.cc/dLb77wB8/6.png"
 }
 
-# Mejora 1 y 5: Traducciones de posiciones y nuevos nombres de columnas con iconos
 TRADUCCIONES = {
     'Rk': 'POS', 'Squad': 'EQUIPO', 'MP': 'PJ', 'W': 'G', 'D': 'E', 'L': 'P',
     'GF': 'GF', 'GA': 'GC', 'GD': 'DG', 'Pts': 'PTS', 'PTS': 'PTS',
@@ -52,7 +51,6 @@ TRADUCCIONES = {
     'Player': 'JUGADOR', 'Pos': 'POS', 'Min': 'MIN', 'Sh': 'REMATES', 'SoT': 'REMATES A PUERTA', 'Fls': 'FALTAS COMETIDAS', 'Fld': 'FALTAS RECIBIDAS'
 }
 
-# Mejora 1: Mapeo de posiciones a español
 MAPEO_POSICIONES = {
     'FW': 'DEL', 'MF': 'MED', 'DF': 'DEF', 'GK': 'POR',
     'FW,MF': 'DEL/MED', 'MF,FW': 'MED/DEL', 'DF,MF': 'DEF/MED', 'MF,DF': 'MED/DEF'
@@ -161,6 +159,8 @@ def formatear_last_5(valor):
 def cargar_excel(ruta_archivo, tipo="general"):
     if "SUPER_STATS" in ruta_archivo:
         url = f"{BASE_URL}/Estadisticas_Jugadores/{ruta_archivo}"
+    elif "picks_finales" in ruta_archivo:
+        url = f"{BASE_URL}/Analisis_Jugadores_Top/{ruta_archivo}"
     else:
         url = f"{BASE_URL}/{ruta_archivo}"
     try:
@@ -280,6 +280,25 @@ st.markdown("""
     .leyenda-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-top: 10px; background: #161b22; padding: 15px; border-radius: 8px; border: 1px solid #1ed7de44; }
     .leyenda-item { display: flex; align-items: center; gap: 10px; font-size: 0.85rem; color: #e5e7eb; }
     .color-box { width: 14px; height: 14px; border-radius: 3px; flex-shrink: 0; }
+
+    /* Estilos para Tarjetas de Top Picks */
+    .top-pick-card {
+        background: #1f2937;
+        border: 1px solid #1ed7de44;
+        border-radius: 12px;
+        padding: 15px;
+        margin-bottom: 15px;
+        transition: transform 0.2s;
+    }
+    .top-pick-card:hover { border-color: #1ed7de; transform: translateY(-3px); }
+    .card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; }
+    .card-fiabilidad { font-size: 0.7rem; font-weight: bold; padding: 2px 8px; border-radius: 4px; border: 1px solid; }
+    .card-name { font-size: 1.1rem; font-weight: bold; color: white; margin: 5px 0; }
+    .card-team { font-size: 0.8rem; color: #1ed7de; }
+    .card-stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 12px; padding-top: 10px; border-top: 1px solid #374151; }
+    .card-stat-item { text-align: center; }
+    .card-stat-val { font-size: 1rem; font-weight: bold; color: #e5e7eb; display: block; }
+    .card-stat-lbl { font-size: 0.65rem; color: #9ca3af; text-transform: uppercase; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -293,7 +312,6 @@ if "vista_activa" not in st.session_state: st.session_state.vista_activa = None
 if "menu_op" not in st.session_state: st.session_state.menu_op = False
 if "h2h_op" not in st.session_state: st.session_state.h2h_op = False
 if "conf_op" not in st.session_state: st.session_state.conf_op = False
-# Inicialización para "Ver más"
 if "num_jugadores_mostrados" not in st.session_state: st.session_state.num_jugadores_mostrados = 10
 
 if st.button("COMPETENCIAS", use_container_width=True):
@@ -332,7 +350,6 @@ if st.session_state.liga_sel:
     for i, label in enumerate(labels):
         if cols[i].button(label, use_container_width=True):
             st.session_state.vista_activa = keys[i] if st.session_state.vista_activa != keys[i] else None
-            # Reiniciar contador de jugadores al cambiar de vista
             st.session_state.num_jugadores_mostrados = 10
             st.rerun()
 
@@ -346,16 +363,44 @@ if st.session_state.liga_sel:
 
         if view == "players":
             st.markdown(f"#### 👤 Rendimiento Individual - {liga}")
+            
+            # INTEGRACIÓN PROFESIONAL DE TOP PICKS
+            df_picks = cargar_excel("picks_finales_fiables.xlsx")
+            if df_picks is not None:
+                # Filtrar solo la liga actual
+                df_liga_picks = df_picks[df_picks['Liga'] == sufijo].head(6)
+                if not df_liga_picks.empty:
+                    st.markdown("##### 🔥 TOP PICKS DE ÉLITE (Algoritmo IA)")
+                    p_cols = st.columns(3)
+                    for idx, row in df_liga_picks.reset_index().iterrows():
+                        color_f = "#ff4b4b" if "ALTA" in row['Fiabilidad'] else "#1ed7de" if "MEDIA" in row['Fiabilidad'] else "#9ca3af"
+                        with p_cols[idx % 3]:
+                            st.markdown(f"""
+                            <div class="top-pick-card">
+                                <div class="card-header">
+                                    <span class="card-fiabilidad" style="color:{color_f}; border-color:{color_f}77;">{row['Fiabilidad']}</span>
+                                    <span style="font-size:0.7rem; color:#9ca3af;">90' NORMALIZED</span>
+                                </div>
+                                <div class="card-name">{row['Jugador']}</div>
+                                <div class="card-team">{row['Equipo']}</div>
+                                <div class="card-stats-grid">
+                                    <div class="card-stat-item"><span class="card-stat-val">{row['Faltas_90']}</span><span class="card-stat-lbl">Faltas</span></div>
+                                    <div class="card-stat-item"><span class="card-stat-val">{row['Tiros_90']}</span><span class="card-stat-lbl">Tiros</span></div>
+                                    <div class="card-stat-item"><span class="card-stat-val" style="color:#b59410;">{row['Score_Pick']}</span><span class="card-stat-lbl">Score</span></div>
+                                </div>
+                            </div>
+                            """, unsafe_allow_html=True)
+                    
+                    st.markdown("""<div class="leyenda-grid" style="margin-bottom:25px;"><div class="leyenda-item"><span style="color:#b59410; font-weight:bold;">Score Pick:</span><span>Potencial de acierto basado en volumen de juego.</span></div><div class="leyenda-item"><span style="color:#1ed7de; font-weight:bold;">Fiabilidad:</span><span>Muestra de minutos (Alta > 500min).</span></div></div>""", unsafe_allow_html=True)
+
+            # TABLAS DE JUGADORES (CÓDIGO ORIGINAL INTACTO)
             df_p = cargar_excel(f"SUPER_STATS_{sufijo}.xlsx", "general")
             if df_p is not None:
-                # Mejora 1: Traducir posiciones en el DataFrame
                 if 'Pos' in df_p.columns:
                     df_p['Pos'] = df_p['Pos'].replace(MAPEO_POSICIONES)
-                
                 if 'Squad' in df_p.columns:
                     df_p['Squad'] = df_p['Squad'].apply(limpiar_nombre_equipo)
                 
-                # Mejora 4: Eliminamos filtrado por minutos (f_col3 ahora vacío o ajustado)
                 f_col1, f_col2, f_col4 = st.columns([2, 2, 2])
                 with f_col1:
                     eq_list = ["Todos"] + sorted(df_p['Squad'].unique().tolist())
@@ -365,24 +410,18 @@ if st.session_state.liga_sel:
                 with f_col4:
                     p_busq = st.text_input("🔍 Buscar Jugador", "").strip().lower()
                 
-                # Aplicar filtros (sin el de minutos por Mejora 4)
                 mask = (df_p['Pos'].isin(p_sel))
                 if eq_f != "Todos": mask = mask & (df_p['Squad'] == eq_f)
                 if p_busq: mask = mask & (df_p['Player'].str.lower().str.contains(p_busq))
                 df_f = df_p[mask].copy()
 
-                # Mejora 6: Solo 2 tabs (eliminamos General)
                 t1, t2 = st.tabs(["🎯 ATAQUE & REMATES", "🛡️ DISCIPLINA"])
                 
                 with t1:
                     c_atk = ['Player', 'Squad', 'Gls', 'Ast', 'Sh', 'SoT']
-                    # Mejora 2: Ordenar por goles de mayor a menor
                     df_t1 = df_f[c_atk].sort_values(by='Gls', ascending=False)
-                    
-                    # Mejora 3: Paginación "Ver más"
                     df_t1_view = df_t1.head(st.session_state.num_jugadores_mostrados)
                     st.markdown(f'<div class="table-container">{df_t1_view.rename(columns=TRADUCCIONES).style.hide(axis="index").to_html(escape=False)}</div>', unsafe_allow_html=True)
-                    
                     if len(df_t1) > st.session_state.num_jugadores_mostrados:
                         if st.button("Ver más jugadores (Ataque)", key="btn_atk"):
                             st.session_state.num_jugadores_mostrados += 10
@@ -391,11 +430,8 @@ if st.session_state.liga_sel:
                 with t2:
                     c_disc = ['Player', 'Squad', 'Fls', 'Fld', 'CrdY', 'CrdR']
                     df_t2 = df_f[c_disc].sort_values(by='Fls', ascending=False)
-                    
-                    # Mejora 3: Paginación "Ver más"
                     df_t2_view = df_t2.head(st.session_state.num_jugadores_mostrados)
                     st.markdown(f'<div class="table-container">{df_t2_view.rename(columns=TRADUCCIONES).style.hide(axis="index").to_html(escape=False)}</div>', unsafe_allow_html=True)
-                    
                     if len(df_t2) > st.session_state.num_jugadores_mostrados:
                         if st.button("Ver más jugadores (Disciplina)", key="btn_disc"):
                             st.session_state.num_jugadores_mostrados += 10
