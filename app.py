@@ -162,14 +162,12 @@ def formatear_last_5(valor):
 
 @st.cache_data(ttl=300)
 def cargar_excel(ruta_archivo, tipo="general"):
-    # Ajuste dinámico de ruta para archivos de jugadores
     if "SUPER_STATS" in ruta_archivo:
         url = f"{BASE_URL}/Estadisticas_Jugadores/{ruta_archivo}"
     else:
         url = f"{BASE_URL}/{ruta_archivo}"
         
     try:
-        # Usamos openpyxl para leer .xlsx desde URL
         df = pd.read_excel(url)
         
         if 'Home' in df.columns and 'Away' in df.columns:
@@ -312,23 +310,14 @@ if st.session_state.liga_sel:
     liga = st.session_state.liga_sel
     st.markdown(f'<div class="header-container"><img src="{BANDERAS.get(liga, "")}" style="width:40px; height:auto;"><span class="header-title">{liga}</span></div>', unsafe_allow_html=True)
     
-    # BOTONERA PRINCIPAL AMPLIADA CON "ANÁLISIS JUGADORES"
     cols = st.columns(5)
-    if cols[0].button("Clasificación", use_container_width=True): 
-        st.session_state.vista_activa = "clas" if st.session_state.vista_activa != "clas" else None
-        st.rerun()
-    if cols[1].button("Stats Equipos", use_container_width=True): 
-        st.session_state.vista_activa = "stats" if st.session_state.vista_activa != "stats" else None
-        st.rerun()
-    if cols[2].button("Análisis Jugadores", use_container_width=True): 
-        st.session_state.vista_activa = "players" if st.session_state.vista_activa != "players" else None
-        st.rerun()
-    if cols[3].button("Ver Fixture", use_container_width=True): 
-        st.session_state.vista_activa = "fix" if st.session_state.vista_activa != "fix" else None
-        st.rerun()
-    if cols[4].button("Picks & Cuotas", use_container_width=True): 
-        st.session_state.vista_activa = "odds" if st.session_state.vista_activa != "odds" else None
-        st.rerun()
+    labels = ["Clasificación", "Stats Equipos", "Análisis Jugadores", "Ver Fixture", "Picks & Cuotas"]
+    keys = ["clas", "stats", "players", "fix", "odds"]
+    
+    for i, label in enumerate(labels):
+        if cols[i].button(label, use_container_width=True):
+            st.session_state.vista_activa = keys[i]
+            st.rerun()
 
     st.divider()
 
@@ -339,28 +328,35 @@ if st.session_state.liga_sel:
         df_stats_base = cargar_excel(f"RESUMEN_STATS_{sufijo}.xlsx", "stats")
 
         # ────────────────────────────────────────────────
-        # SECCIÓN NUEVA: ANÁLISIS JUGADORES (PRO)
+        # SECCIÓN: ANÁLISIS JUGADORES (MEJORADA)
         # ────────────────────────────────────────────────
         if view == "players":
             st.markdown(f"#### 👤 Rendimiento Individual - {liga}")
             df_p = cargar_excel(f"SUPER_STATS_{sufijo}.xlsx", "general")
             
             if df_p is not None:
-                # Filtros de interfaz
-                f_col1, f_col2, f_col3 = st.columns([2, 2, 2])
+                # Limpieza de equipo en jugadores para el filtro
+                if 'Squad' in df_p.columns:
+                    df_p['Squad'] = df_p['Squad'].apply(limpiar_nombre_equipo)
+
+                f_col1, f_col2, f_col3, f_col4 = st.columns([2, 1.5, 1.5, 2])
                 with f_col1:
-                    m_min = st.slider("Minutos mínimos", 0, int(df_p['Min'].max()), 90)
+                    eq_list = ["Todos"] + sorted(df_p['Squad'].unique().tolist())
+                    eq_f = st.selectbox("Filtrar por Equipo", eq_list)
                 with f_col2:
                     p_sel = st.multiselect("Posiciones", df_p['Pos'].unique(), default=df_p['Pos'].unique())
                 with f_col3:
+                    m_min = st.number_input("Minutos mín.", 0, int(df_p['Min'].max()), 90)
+                with f_col4:
                     p_busq = st.text_input("🔍 Buscar Jugador", "").strip().lower()
 
-                # Procesamiento de filtros
+                # Aplicación de filtros
                 mask = (df_p['Min'] >= m_min) & (df_p['Pos'].isin(p_sel))
+                if eq_f != "Todos": mask = mask & (df_p['Squad'] == eq_f)
                 if p_busq: mask = mask & (df_p['Player'].str.lower().str.contains(p_busq))
+                
                 df_f = df_p[mask].copy()
 
-                # Tabs internas para no saturar
                 t1, t2, t3 = st.tabs(["🎯 ATAQUE & REMATES", "🛡️ DISCIPLINA", "📋 GENERAL"])
                 
                 with t1:
@@ -380,7 +376,7 @@ if st.session_state.liga_sel:
                 st.info("ℹ️ Datos de jugadores no disponibles para esta competición aún.")
 
         elif view == "odds":
-            # [Lógica original de H2H y Confianza mantenida intacta]
+            # [Lógica original de H2H y Confianza]
             if st.button("⚔️ COMPARADOR H2H", use_container_width=True):
                 st.session_state.h2h_op = not st.session_state.h2h_op
             if st.session_state.h2h_op and df_clas_base is not None and df_stats_base is not None:
