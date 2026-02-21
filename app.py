@@ -409,7 +409,7 @@ if st.session_state.liga_sel:
                                     <div class="card-stat-item">
                                         <span class="card-stat-val">{row['Tiros_90']:.2f}</span>
                                         <div style="display: flex; flex-direction: column; align-items: center; gap: 4px;">
-                                            <img src="https://i.postimg.cc/8cpyfzqN/3131.png" width="22" height="22" style="margin-bottom: 2px;">
+                                            <img src="https://i.postimg.cc/8cpyfzqN/3131.png" width="35" height="35" style="margin-bottom: 2px;">
                                             <span class="card-stat-lbl">Tiros</span>
                                         </div>
                                     </div>
