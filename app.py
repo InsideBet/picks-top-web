@@ -157,13 +157,10 @@ def formatear_last_5(valor):
 
 @st.cache_data(ttl=300)
 def cargar_excel(ruta_archivo, tipo="general"):
-    # CASO ESPECIAL: Picks Finales Fiables (En la raíz de datos_fbref)
     if "picks_finales_fiables" in ruta_archivo:
         url = f"{BASE_URL}/{ruta_archivo}"
-    # CASO: Estadísticas de jugadores (En subcarpeta)
     elif "SUPER_STATS" in ruta_archivo:
         url = f"{BASE_URL}/Estadisticas_Jugadores/{ruta_archivo}"
-    # RESTO: Archivos en la raíz
     else:
         url = f"{BASE_URL}/{ruta_archivo}"
         
@@ -212,7 +209,7 @@ def cargar_excel(ruta_archivo, tipo="general"):
             if 'HORA' in df.columns: 
                 df['HORA'] = df['HORA'].fillna("Por definir")
         return df.dropna(how='all').reset_index(drop=True)
-    except Exception as e: 
+    except: 
         return None
 
 def obtener_cuotas_api(liga_nombre):
@@ -285,7 +282,6 @@ st.markdown("""
     .leyenda-item { display: flex; align-items: center; gap: 10px; font-size: 0.85rem; color: #e5e7eb; }
     .color-box { width: 14px; height: 14px; border-radius: 3px; flex-shrink: 0; }
 
-    /* Estilos para Tarjetas de Top Picks */
     .top-pick-card {
         background: #1f2937;
         border: 1px solid #1ed7de44;
@@ -368,15 +364,25 @@ if st.session_state.liga_sel:
         if view == "players":
             st.markdown(f"#### 👤 Rendimiento Individual - {liga}")
             
-            # INTEGRACIÓN: Top Picks (Archivo en la raíz datos_fbref)
+            # --- SECCIÓN TOP PICKS CON CORRECCIONES ---
             df_picks = cargar_excel("picks_finales_fiables.xlsx")
             if df_picks is not None:
-                # Filtrar liga actual (usamos el sufijo que ya tenemos)
-                df_liga_picks = df_picks[df_picks['Liga'] == sufijo].head(6)
-                if not df_liga_picks.empty:
+                # 1. Limpiar datos nulos/nan de base
+                df_picks = df_picks.dropna(subset=['Jugador', 'Equipo'])
+                df_picks = df_picks[(df_picks['Jugador'].astype(str).str.lower() != 'nan') & (df_picks['Equipo'].astype(str).str.lower() != 'nan')]
+                
+                # 2. Filtrar liga y eliminar duplicados de jugadores manteniendo el Score más alto
+                df_liga_picks = df_picks[df_picks['Liga'] == sufijo].copy()
+                df_liga_picks = df_liga_picks.sort_values(by='Score_Pick', ascending=False)
+                df_liga_picks = df_liga_picks.drop_duplicates(subset=['Jugador'], keep='first')
+                
+                top_6 = df_liga_picks.head(6)
+                if not top_6.empty:
                     st.markdown("##### 🔥 TOP PICKS DE ÉLITE (Algoritmo IA)")
                     p_cols = st.columns(3)
-                    for idx, row in df_liga_picks.reset_index().iterrows():
+                    for idx, row in top_6.reset_index(drop=True).iterrows():
+                        # Límite visual de Score a 100
+                        score_vis = min(float(row['Score_Pick']), 100.0)
                         color_f = "#ff4b4b" if "ALTA" in str(row['Fiabilidad']).upper() else "#1ed7de" if "MEDIA" in str(row['Fiabilidad']).upper() else "#9ca3af"
                         with p_cols[idx % 3]:
                             st.markdown(f"""
@@ -388,16 +394,16 @@ if st.session_state.liga_sel:
                                 <div class="card-name">{row['Jugador']}</div>
                                 <div class="card-team">{row['Equipo']}</div>
                                 <div class="card-stats-grid">
-                                    <div class="card-stat-item"><span class="card-stat-val">{row['Faltas_90']}</span><span class="card-stat-lbl">Faltas</span></div>
-                                    <div class="card-stat-item"><span class="card-stat-val">{row['Tiros_90']}</span><span class="card-stat-lbl">Tiros</span></div>
-                                    <div class="card-stat-item"><span class="card-stat-val" style="color:#b59410;">{row['Score_Pick']}</span><span class="card-stat-lbl">Score</span></div>
+                                    <div class="card-stat-item"><span class="card-stat-val">{row['Faltas_90']:.2f}</span><span class="card-stat-lbl">Faltas</span></div>
+                                    <div class="card-stat-item"><span class="card-stat-val">{row['Tiros_90']:.2f}</span><span class="card-stat-lbl">Tiros</span></div>
+                                    <div class="card-stat-item"><span class="card-stat-val" style="color:#b59410;">{score_vis:.1f}</span><span class="card-stat-lbl">Score</span></div>
                                 </div>
                             </div>
                             """, unsafe_allow_html=True)
                     
                     st.markdown("""<div class="leyenda-grid" style="margin-bottom:25px;"><div class="leyenda-item"><span style="color:#b59410; font-weight:bold;">Score Pick:</span><span>Potencial de acierto basado en volumen de juego.</span></div><div class="leyenda-item"><span style="color:#1ed7de; font-weight:bold;">Fiabilidad:</span><span>Muestra de minutos (Alta > 500min).</span></div></div>""", unsafe_allow_html=True)
 
-            # TABLAS DE JUGADORES
+            # --- TABLAS DE JUGADORES ---
             df_p = cargar_excel(f"SUPER_STATS_{sufijo}.xlsx", "general")
             if df_p is not None:
                 if 'Pos' in df_p.columns:
