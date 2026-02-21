@@ -160,7 +160,6 @@ def formatear_last_5(valor):
 @st.cache_data(ttl=300)
 def cargar_excel(ruta_archivo, tipo="general"):
     if "SUPER_STATS" in ruta_archivo or "picks_finales_fiables" in ruta_archivo:
-        # Los picks están en la carpeta principal o en Estadisticas según tu estructura
         url = f"{BASE_URL}/{ruta_archivo}" if "picks" in ruta_archivo else f"{BASE_URL}/Estadisticas_Jugadores/{ruta_archivo}"
     else:
         url = f"{BASE_URL}/{ruta_archivo}"
@@ -368,13 +367,21 @@ if st.session_state.liga_sel:
         if view == "players":
             st.markdown(f"#### 👤 Rendimiento Individual - {liga}")
             
-            # --- INTEGRACIÓN DE PICKS FIABLES (CORREGIDA PARA EVITAR DUPLICADOS) ---
+            # --- INTEGRACIÓN DE PICKS FIABLES (CORREGIDA PARA EVITAR DUPLICADOS Y OPPONENT TOTAL) ---
             df_picks = cargar_excel("picks_finales_fiables.xlsx", "general")
             if df_picks is not None:
-                # 1. Limpieza de duplicados por Jugador (manteniendo la primera liga que aparezca)
-                # 2. Eliminación de filas que no son jugadores reales
+                # 1. Limpieza de duplicados y filtros de "scrapeo"
                 df_picks = df_picks.drop_duplicates(subset=['Jugador'], keep='first')
                 df_picks = df_picks[df_picks['Jugador'] != 'Opponent Total']
+                
+                # 2. Nueva lógica de Fiabilidad basada en minutos (corrección estadística)
+                def corregir_fiabilidad(row):
+                    mins = float(row['Minutos'])
+                    if mins < 300: return "BAJA (Poca muestra) ⚠️"
+                    elif mins >= 450: return "ALTA 🔥"
+                    else: return "MEDIA 📈"
+                
+                df_picks['Fiabilidad'] = df_picks.apply(corregir_fiabilidad, axis=1)
                 
                 # Filtrar picks solo de la liga actual
                 df_picks_liga = df_picks[df_picks['Liga'] == sufijo].head(6)
@@ -446,6 +453,17 @@ if st.session_state.liga_sel:
                         if st.button("Ver más jugadores (Disciplina)", key="btn_disc"):
                             st.session_state.num_jugadores_mostrados += 10
                             st.rerun()
+                
+                # --- LEYENDA ANALISIS JUGADORES (REFERENCIA PICKS & CUOTAS) ---
+                st.markdown("""
+                <div class="leyenda-grid">
+                    <div class="leyenda-item"><div class="color-box" style="background:#1ed7de22; border:1px solid #1ed7de;"></div><span><b>ALTA 🔥:</b> +450 min. Muestra sólida para pick.</span></div>
+                    <div class="leyenda-item"><div class="color-box" style="background:#2d3139;"></div><span><b>MEDIA 📈:</b> 300-450 min. Tendencia positiva.</span></div>
+                    <div class="leyenda-item"><div class="color-box" style="background:#821f1f;"></div><span><b>BAJA ⚠️:</b> -300 min. Riesgo por muestra pequeña.</span></div>
+                    <div class="leyenda-item"><span style="color:#b59410; font-weight:bold;">SCORE:</span><span>Algoritmo de rendimiento propio.</span></div>
+                </div>
+                """, unsafe_allow_html=True)
+                
             else: st.info("ℹ️ Datos de jugadores no disponibles.")
 
         elif view == "odds":
