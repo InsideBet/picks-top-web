@@ -403,7 +403,13 @@ if st.session_state.liga_sel:
                                 <div class="card-team">{row['Equipo']}</div>
                                 <div class="card-stats-grid">
                                     <div class="card-stat-item"><span class="card-stat-val">{row['Faltas_90']:.2f}</span><span class="card-stat-lbl">Faltas</span></div>
-                                    <div class="card-stat-item"><span class="card-stat-val">{row['Tiros_90']:.2f}</span><span class="card-stat-lbl">Tiros</span></div>
+                                    <div class="card-stat-item">
+                                        <span class="card-stat-val">{row['Tiros_90']:.2f}</span>
+                                        <div style="display: flex; align-items: center; justify-content: center; gap: 4px; margin-top: 2px;">
+                                            <img src="https://i.postimg.cc/8cpyfzqN/3131.png" width="14" height="14" style="vertical-align: middle;">
+                                            <span class="card-stat-lbl" style="margin: 0;">Tiros</span>
+                                        </div>
+                                    </div>
                                     <div class="card-stat-item"><span class="card-stat-val" style="color:#b59410;">{conf_vis:.1f}%</span><span class="card-stat-lbl">Confianza</span></div>
                                 </div>
                             </div>
