@@ -89,21 +89,16 @@ def grafico_picos_forma(valor, alineacion="left"):
     if pd.isna(valor) or valor == "": return ""
     letras = list(str(valor).upper().replace(" ", ""))[:5]
     if not letras: return ""
-    
     mapeo_y = {'W': 4, 'D': 11, 'L': 18}
     colores_puntos = {'W': '#137031', 'D': '#b59410', 'L': '#821f1f'}
-    
     puntos_coords = []
     puntos_svg = []
-    
     for i, l in enumerate(letras):
         x = 10 + (i * 25) 
         y = mapeo_y.get(l, 11)
         puntos_coords.append(f"{x},{y}")
         puntos_svg.append(f'<circle cx="{x}" cy="{y}" r="3" fill="{colores_puntos.get(l, "#4b5563")}" stroke="#0e1117" stroke-width="0.5" />')
-    
     path_d = "M " + " L ".join(puntos_coords)
-    
     svg = f'''
     <div style="width: 100%; height: 30px; display: flex; align-items: center; justify-content: {'flex-start' if alineacion=='left' else 'flex-end'};">
         <svg width="130" height="22" viewBox="0 0 130 22" preserveAspectRatio="xMidYMid meet">
@@ -118,24 +113,19 @@ def generar_radar_svg(val_l, val_v, labels):
     size = 200
     center = size / 2
     radius = 70
-    
     def get_coords(value, angle, max_val=100):
         v = float(value) if pd.notna(value) else 0
         r = (min(v, max_val) / max_val) * radius
         x = center + r * np.cos(angle - np.pi/2)
         y = center + r * np.sin(angle - np.pi/2)
         return f"{x},{y}"
-
     angles = np.linspace(0, 2*np.pi, len(labels), endpoint=False)
-    
     grid = ""
     for r_f in [0.25, 0.5, 0.75, 1.0]:
         pts = [f"{center + (radius*r_f)*np.cos(a-np.pi/2)},{center + (radius*r_f)*np.sin(a-np.pi/2)}" for a in angles]
         grid += f'<polygon points="{" ".join(pts)}" fill="none" stroke="#4b5563" stroke-width="0.5" stroke-dasharray="2,2" />'
-
     pts_l = [get_coords(v, a) for v, a in zip(val_l, angles)]
     pts_v = [get_coords(v, a) for v, a in zip(val_v, angles)]
-    
     radar = f'''
     <svg width="100%" height="{size}" viewBox="0 0 {size} {size}">
         {grid}
@@ -166,13 +156,10 @@ def cargar_excel(ruta_archivo, tipo="general"):
         url = f"{BASE_URL}/Estadisticas_Jugadores/{ruta_archivo}"
     else:
         url = f"{BASE_URL}/{ruta_archivo}"
-        
     try:
         df = pd.read_excel(url)
-        
         if 'Home' in df.columns and 'Away' in df.columns:
             df = df.dropna(subset=['Home', 'Away'], how='all')
-
         if tipo == "stats":
             if 'Squad' in df.columns:
                 df['Squad'] = df['Squad'].apply(limpiar_nombre_equipo)
@@ -183,11 +170,9 @@ def cargar_excel(ruta_archivo, tipo="general"):
                 df['Poss_num'] = df['Poss'].apply(lambda x: re.findall(r"\d+", str(x))[0] if re.findall(r"\d+", str(x)) else "0")
                 df['Poss'] = df['Poss'].apply(html_barra_posesion)
             if 'xG' in df.columns: df['xG'] = df['xG'].apply(formatear_xg_badge)
-            
             cols_ok = ['Squad', 'MP', 'Poss', 'Poss_num', 'Gls', 'Ast', 'CrdY', 'CrdR', 'xG', 'xG_val']
             df = df[[c for c in cols_ok if c in df.columns]]
             df = df.rename(columns=TRADUCCIONES)
-        
         elif tipo == "clasificacion":
             if 'Squad' in df.columns:
                 df['Squad'] = df['Squad'].apply(limpiar_nombre_equipo)
@@ -202,7 +187,6 @@ def cargar_excel(ruta_archivo, tipo="general"):
                 idx = cols.index('EQUIPO')
                 cols.insert(idx + 1, 'PTS')
                 df = df[cols]
-                
         elif tipo == "fixture":
             drop_f = ['Round', 'Day', 'Score', 'Referee', 'Match Report', 'Notes', 'Attendance', 'Wk']
             df = df.drop(columns=[c for c in drop_f if c in df.columns])
@@ -216,7 +200,6 @@ def cargar_excel(ruta_archivo, tipo="general"):
                 df['FECHA'] = df['FECHA'].apply(lambda x: str(x).split(' ')[0] if pd.notna(x) else "TBD")
             if 'HORA' in df.columns: 
                 df['HORA'] = df['HORA'].fillna("Por definir")
-        
         return df.dropna(how='all').reset_index(drop=True)
     except Exception as e: 
         return None
@@ -273,9 +256,19 @@ st.markdown("""
     th { position: sticky; top: 0; z-index: 100; background-color: #1f2937 !important; color: #1ed7de !important; padding: 12px; border: 1px solid #374151; }
     td { padding: 12px; border: 1px solid #374151; text-align: center !important; }
     
-    div.stButton > button { background-color: transparent !important; color: #1ed7de !important; border: 1px solid #1ed7de !important; font-weight: bold !important; transition: 0.3s; width: 100%; }
-    div.stButton > button:hover { background-color: #1ed7de22 !important; border: 1px solid #1ed7de !important; }
-    
+    /* Estilo base de botones */
+    div.stButton > button { 
+        background-color: transparent !important; 
+        color: #1ed7de !important; 
+        border: 1px solid #1ed7de !important; 
+        font-weight: bold !important; 
+        transition: 0.3s; 
+        width: 100%; 
+    }
+    div.stButton > button:hover { 
+        background-color: #1ed7de22 !important; 
+    }
+
     .header-container { display: flex; align-items: center; justify-content: flex-start; gap: 15px; margin: 25px 0; }
     .header-title { color: white !important; font-size: 2rem; font-weight: bold; margin: 0; line-height: 1; }
     .leyenda-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-top: 10px; background: #161b22; padding: 15px; border-radius: 8px; border: 1px solid #1ed7de44; }
@@ -310,13 +303,29 @@ if st.session_state.liga_sel:
     liga = st.session_state.liga_sel
     st.markdown(f'<div class="header-container"><img src="{BANDERAS.get(liga, "")}" style="width:40px; height:auto;"><span class="header-title">{liga}</span></div>', unsafe_allow_html=True)
     
+    # CSS Dinámico para colorear el botón activo
+    v_act = st.session_state.vista_activa
+    st.markdown(f"""
+        <style>
+        div.stButton > button:has(div:contains("{'Clasificación' if v_act=='clas' else 'NONE'}")),
+        div.stButton > button:has(div:contains("{'Stats Equipos' if v_act=='stats' else 'NONE'}")),
+        div.stButton > button:has(div:contains("{'Análisis Jugadores' if v_act=='players' else 'NONE'}")),
+        div.stButton > button:has(div:contains("{'Ver Fixture' if v_act=='fix' else 'NONE'}")),
+        div.stButton > button:has(div:contains("{'Picks & Cuotas' if v_act=='odds' else 'NONE'}")) {{
+            background-color: #1ed7de !important;
+            color: #0e1117 !important;
+        }}
+        </style>
+    """, unsafe_allow_html=True)
+
     cols = st.columns(5)
     labels = ["Clasificación", "Stats Equipos", "Análisis Jugadores", "Ver Fixture", "Picks & Cuotas"]
     keys = ["clas", "stats", "players", "fix", "odds"]
     
     for i, label in enumerate(labels):
         if cols[i].button(label, use_container_width=True):
-            st.session_state.vista_activa = keys[i]
+            # Lógica Toggle (Acordeón): Si ya estaba activo, lo cierra (None)
+            st.session_state.vista_activa = keys[i] if st.session_state.vista_activa != keys[i] else None
             st.rerun()
 
     st.divider()
@@ -327,18 +336,12 @@ if st.session_state.liga_sel:
         df_clas_base = cargar_excel(f"CLASIFICACION_LIGA_{sufijo}.xlsx", "clasificacion")
         df_stats_base = cargar_excel(f"RESUMEN_STATS_{sufijo}.xlsx", "stats")
 
-        # ────────────────────────────────────────────────
-        # SECCIÓN: ANÁLISIS JUGADORES (MEJORADA)
-        # ────────────────────────────────────────────────
         if view == "players":
             st.markdown(f"#### 👤 Rendimiento Individual - {liga}")
             df_p = cargar_excel(f"SUPER_STATS_{sufijo}.xlsx", "general")
-            
             if df_p is not None:
-                # Limpieza de equipo en jugadores para el filtro
                 if 'Squad' in df_p.columns:
                     df_p['Squad'] = df_p['Squad'].apply(limpiar_nombre_equipo)
-
                 f_col1, f_col2, f_col3, f_col4 = st.columns([2, 1.5, 1.5, 2])
                 with f_col1:
                     eq_list = ["Todos"] + sorted(df_p['Squad'].unique().tolist())
@@ -349,34 +352,25 @@ if st.session_state.liga_sel:
                     m_min = st.number_input("Minutos mín.", 0, int(df_p['Min'].max()), 90)
                 with f_col4:
                     p_busq = st.text_input("🔍 Buscar Jugador", "").strip().lower()
-
-                # Aplicación de filtros
                 mask = (df_p['Min'] >= m_min) & (df_p['Pos'].isin(p_sel))
                 if eq_f != "Todos": mask = mask & (df_p['Squad'] == eq_f)
                 if p_busq: mask = mask & (df_p['Player'].str.lower().str.contains(p_busq))
-                
                 df_f = df_p[mask].copy()
-
                 t1, t2, t3 = st.tabs(["🎯 ATAQUE & REMATES", "🛡️ DISCIPLINA", "📋 GENERAL"])
-                
                 with t1:
                     c_atk = ['Player', 'Squad', 'Gls', 'Ast', 'Sh', 'SoT']
                     df_t1 = df_f[c_atk].sort_values(by='SoT', ascending=False)
                     st.markdown(f'<div class="table-container">{df_t1.rename(columns=TRADUCCIONES).style.hide(axis="index").to_html(escape=False)}</div>', unsafe_allow_html=True)
-
                 with t2:
                     c_disc = ['Player', 'Squad', 'Fls', 'Fld', 'CrdY', 'CrdR']
                     df_t2 = df_f[c_disc].sort_values(by='Fls', ascending=False)
                     st.markdown(f'<div class="table-container">{df_t2.rename(columns=TRADUCCIONES).style.hide(axis="index").to_html(escape=False)}</div>', unsafe_allow_html=True)
-
                 with t3:
                     c_gen = ['Player', 'Squad', 'Pos', 'Age', 'Min', 'Gls']
                     st.markdown(f'<div class="table-container">{df_f[c_gen].rename(columns=TRADUCCIONES).style.hide(axis="index").to_html(escape=False)}</div>', unsafe_allow_html=True)
-            else:
-                st.info("ℹ️ Datos de jugadores no disponibles para esta competición aún.")
+            else: st.info("ℹ️ Datos de jugadores no disponibles.")
 
         elif view == "odds":
-            # [Lógica original de H2H y Confianza]
             if st.button("⚔️ COMPARADOR H2H", use_container_width=True):
                 st.session_state.h2h_op = not st.session_state.h2h_op
             if st.session_state.h2h_op and df_clas_base is not None and df_stats_base is not None:
@@ -436,21 +430,18 @@ if st.session_state.liga_sel:
                             return "🔥 Over" if (float(xg_l) + float(xg_v)) > 2.7 else "🛡️ Under"
                         except: return "---"
                     df_odds['TENDENCIA'] = df_odds.apply(predecir_goles, axis=1)
-                
                 def aplicar_estilo(row):
                     m = min(row['1'], row['X'], row['2'])
                     row['1'] = badge_cuota(row['1'], row['1']==m, row['VAL_H'])
                     row['X'] = badge_cuota(row['X'], row['X']==m)
                     row['2'] = badge_cuota(row['2'], row['2']==m)
                     return row
-                
                 styler_df = df_odds.apply(aplicar_estilo, axis=1)
                 html = styler_df[['FECHA','LOCAL','VISITANTE','1','X','2','TENDENCIA']].style.hide(axis="index").to_html(escape=False)
                 st.markdown(f'<div class="table-container">{html}</div>', unsafe_allow_html=True)
                 st.markdown("""<div class="leyenda-grid"><div class="leyenda-item"><div class="color-box" style="background:#b59410;"></div><span><b>Value Bet (⭐):</b> Valor Estadístico.</span></div><div class="leyenda-item"><div class="color-box" style="background:#137031;"></div><span><b>Favorito:</b> Más probable.</span></div><div class="leyenda-item"><span style="color:#1ed7de; font-weight:bold;">🔥 Over:</span><span>+2.5 Goles.</span></div><div class="leyenda-item"><span style="color:#9ca3af; font-weight:bold;">🛡️ Under:</span><span>-2.5 Goles.</span></div></div>""", unsafe_allow_html=True)
 
         else:
-            # Lógica para Clasificación, Stats Equipos y Fixture
             configs = {"clas": (f"CLASIFICACION_LIGA_{sufijo}.xlsx", "clasificacion"), "stats": (f"RESUMEN_STATS_{sufijo}.xlsx", "stats"), "fix": (f"CARTELERA_PROXIMOS_{sufijo}.xlsx", "fixture")}
             archivo, tipo = configs[view]
             df = cargar_excel(archivo, tipo=tipo)
