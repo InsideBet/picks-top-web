@@ -42,23 +42,10 @@ MAPEO_ODDS_API = {
 def cargar_excel(nombre_archivo, tipo="stats"):
     url = f"{BASE_URL}/{nombre_archivo}"
     try:
-        # Mantenemos carga para archivos originales (.xlsx) y el de jugadores (.csv)
         if nombre_archivo.endswith('.xlsx'):
             df = pd.read_excel(url)
         else:
             df = pd.read_csv(url)
-        return df
-    except:
-        return None
-
-# Nueva función para procesar los datos de scrapeo de jugadores
-@st.cache_data(ttl=3600)
-def cargar_datos_jugadores():
-    url = f"{BASE_URL}/jugadoreswhoscored.csv"
-    try:
-        df = pd.read_csv(url)
-        # Limpieza: Eliminamos los números (edad) pegados al nombre
-        df['Jugador'] = df['Jugador'].str.replace(r'\d+$', '', regex=True)
         return df
     except:
         return None
@@ -102,20 +89,19 @@ if view == "Picks Pro":
 
     if df_picks is not None:
         st.markdown("""
-        <div class=\"leyenda-container\">
-            <div class=\"leyenda-item\"><span style=\"color:#22c55e; font-weight:bold;\">✅ Pick:</span><span>Resultado sugerido.</span></div>
-            <div class=\"leyenda-item\"><span style=\"color:#facc15; font-weight:bold;\">📊 Prob:</span><span>Probabilidad más probable.</span></div>
-            <div class=\"leyenda-item\"><span style=\"color:#3b82f6; font-weight:bold;\">💎 Value:</span><span>Apuesta con valor detectado.</span></div>
-            <div class=\"leyenda-item\"><span style=\"color:#1ed7de; font-weight:bold;\">🔥 Over:</span><span>+2.5 Goles.</span></div>
-            <div class=\"leyenda-item\"><span style=\"color:#9ca3af; font-weight:bold;\">🛡️ Under:</span><span>-2.5 Goles.</span></div>
+        <div class="leyenda-container">
+            <div class="leyenda-item"><span style="color:#22c55e; font-weight:bold;">✅ Pick:</span><span>Resultado sugerido.</span></div>
+            <div class="leyenda-item"><span style="color:#facc15; font-weight:bold;">📊 Prob:</span><span>Probabilidad más probable.</span></div>
+            <div class="leyenda-item"><span style="color:#3b82f6; font-weight:bold;">💎 Value:</span><span>Apuesta con valor detectado.</span></div>
+            <div class="leyenda-item"><span style="color:#1ed7de; font-weight:bold;">🔥 Over:</span><span>+2.5 Goles.</span></div>
+            <div class="leyenda-item"><span style="color:#9ca3af; font-weight:bold;">🛡️ Under:</span><span>-2.5 Goles.</span></div>
         </div>
         """, unsafe_allow_html=True)
         st.dataframe(df_picks.style.hide(axis="index"), use_container_width=True)
     else:
-        st.warning("No hay picks disponibles.")
+        st.warning("No hay picks disponibles para esta liga en este momento.")
 
 else:
-    # SECCIÓN STATS EQUIPOS
     configs = {"clas": (f"CLASIFICACION_LIGA_{sufijo}.xlsx", "clasificacion"), "stats": (f"RESUMEN_STATS_{sufijo}.xlsx", "stats"), "fix": (f"CARTELERA_PROXIMOS_{sufijo}.xlsx", "fixture")}
     archivo, tipo = configs[view]
     df = cargar_excel(archivo, tipo=tipo)
@@ -124,54 +110,47 @@ else:
         cols_to_drop = ['xG_val', 'Poss_num']
         df_view = df.drop(columns=[c for c in cols_to_drop if c in df.columns])
         
-        # --- FILTRO MEJORADO CON LISTA Y ESCRITURA ---
-        equipos_lista = sorted(df['EQUIPO'].unique().tolist()) if 'EQUIPO' in df.columns else []
-        col_busqueda, col_lista = st.columns([1, 1])
-        with col_busqueda:
-            busqueda = st.text_input("🔍 Escribir equipo...", "").strip().lower()
-        with col_lista:
-            seleccion_lista = st.selectbox("📋 O selecciona de la lista:", [""] + equipos_lista)
+        # --- FILTRO MEJORADO (INPUT + SELECTBOX) ---
+        lista_equipos = sorted(df['EQUIPO'].unique().tolist()) if 'EQUIPO' in df.columns else []
+        col_bus, col_sel = st.columns([1, 1])
+        with col_bus:
+            busqueda = st.text_input("🔍 Filtrar equipo...", "").strip().lower()
+        with col_sel:
+            seleccion = st.selectbox("📋 Seleccionar de la lista...", [""] + lista_equipos)
         
-        # Priorizamos la selección de lista si existe, sino la búsqueda manual
-        equipo_a_filtrar = seleccion_lista if seleccion_lista else busqueda
+        equipo_final = seleccion if seleccion else busqueda
         
-        if equipo_a_filtrar and 'EQUIPO' in df_view.columns: 
-            df_view = df_view[df_view['EQUIPO'].str.lower().str.contains(equipo_a_filtrar.lower())]
+        if equipo_final and 'EQUIPO' in df_view.columns: 
+            df_view = df_view[df_view['EQUIPO'].str.lower().str.contains(equipo_final.lower())]
         
-        # Mantenemos intacto tu renderizado HTML
         styler = df_view.style.hide(axis="index")
         if 'PTS' in df_view.columns:
             styler = styler.background_gradient(subset=['PTS'], cmap='Greens')
         st.write(styler.to_html(escape=False), unsafe_allow_html=True)
 
-        # --- INTEGRACIÓN DE JUGADORES (SCRAPEO) ---
-        if equipo_a_filtrar:
-            st.markdown(f"### 📋 Plantilla y Estadísticas de Jugadores")
-            df_jug = cargar_datos_jugadores()
+        # --- INTEGRACIÓN SCRAPEO JUGADORES ---
+        if equipo_final:
+            st.write("---")
+            st.markdown(f"### 📋 Estadísticas de Jugadores")
+            df_jug = cargar_excel("jugadoreswhoscored.csv")
             if df_jug is not None:
-                # Filtrar por equipo (coincidencia parcial) y liga (coincidencia exacta)
-                filtro_final = df_jug[
-                    (df_jug['Equipo'].str.lower().str.contains(equipo_a_filtrar.lower())) & 
-                    (df_jug['Liga'] == liga_sel)
-                ]
+                # Limpieza de nombre (quitar números al final)
+                df_jug['Jugador'] = df_jug['Jugador'].str.replace(r'\d+$', '', regex=True)
                 
-                if not filtro_final.empty:
-                    # Aplicamos diccionario para que el apostador entienda (traducimos según tu lógica)
-                    diccionario_vista = {
+                # Filtrar por equipo y liga
+                df_res = df_jug[(df_jug['Equipo'].str.lower().str.contains(equipo_final.lower())) & (df_jug['Liga'] == liga_sel)]
+                
+                if not df_res.empty:
+                    # Mapeo para que sea entendible para el apostador
+                    diccionario_apostador = {
                         'Jugador': 'Jugador', 'Mins': '⏱️ Minutos', 'Rating': '⭐ Rating',
                         'Amarillas': '🟨', 'Rojas': '🟥', 'Entradas_Std': '🛡️ Entradas',
                         'Regates_p90': '⚡ Regates(p90)', 'Goles': '⚽ Goles', 'Asistencias': '🅰️ Asist',
-                        'Pases Clave': '🔑 P.Clave', 'Tiros_Arco_p90': '🎯 Tiros(p90)',
-                        'Faltas recibidas': '🤕 F.Rec'
+                        'Pases Clave': '🔑 P.Clave', 'Tiros_Arco_p90': '🎯 Tiros(p90)', 'Faltas recibidas': '🤕 F.Rec'
                     }
-                    # Seleccionamos y renombramos solo las columnas que existen en el excel
-                    cols_presentes = [c for c in diccionario_vista.keys() if c in filtro_final.columns]
-                    df_jug_ver = filtro_final[cols_presentes].rename(columns=diccionario_vista)
-                    
-                    # Mostramos los jugadores. No tocamos estilos para mantener coherencia.
-                    st.dataframe(df_jug_ver.style.hide(axis="index"), use_container_width=True)
-                else:
-                    st.info(f"No se encontraron datos de jugadores para {equipo_a_filtrar}.")
+                    cols_mostrar = [c for c in diccionario_apostador.keys() if c in df_res.columns]
+                    df_final_jug = df_res[cols_mostrar].rename(columns=diccionario_apostador)
+                    st.dataframe(df_final_jug.style.hide(axis="index"), use_container_width=True)
 
 st.markdown("---")
-st.caption("© 2026 InsideBet - Datos actualizados vía scrapeo.")
+st.caption(f"© 2026 InsideBet - Datos de **scrapeo** procesados.")
