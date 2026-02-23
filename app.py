@@ -589,7 +589,7 @@ if st.session_state.liga_sel:
                 # INTEGRACIÓN DEL EXCEL DE JUGADORES (SCRAPEO)
                 if equipo_final:
                     st.markdown(f"#### 🏟️ Plantilla y Stats Individuales")
-                    df_jug = cargar_excel("jugadoreswhoscored.csv") # Scrapeo desde github
+                    df_jug = cargar_excel("jugadoreswhoscored.xlsx") # Scrapeo desde github
                     if df_jug is not None:
                         # Limpieza de nombre: Quita números al final
                         df_jug['Jugador'] = df_jug['Jugador'].str.replace(r'\d+$', '', regex=True)
