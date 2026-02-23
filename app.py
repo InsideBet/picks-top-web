@@ -57,7 +57,7 @@ MAPEO_POSICIONES = {
 }
 
 # ────────────────────────────────────────────────
-# FUNCIONES DE FORMATO
+# FUNCIONES DE FORMATO (ORIGINALES SIN TOCAR)
 # ────────────────────────────────────────────────
 
 def limpiar_nombre_equipo(nombre):
@@ -165,7 +165,12 @@ def cargar_excel(ruta_archivo, tipo="general"):
         url = f"{BASE_URL}/{ruta_archivo}"
         
     try:
-        df = pd.read_excel(url)
+        # Se añade soporte para el CSV de scrapeo
+        if ruta_archivo.endswith('.csv'):
+            df = pd.read_csv(url)
+        else:
+            df = pd.read_excel(url)
+            
         if 'Home' in df.columns and 'Away' in df.columns:
             df = df.dropna(subset=['Home', 'Away'], how='all')
         if tipo == "stats":
@@ -555,6 +560,7 @@ if st.session_state.liga_sel:
                 st.markdown("""<div class="leyenda-grid"><div class="leyenda-item"><div class="color-box" style="background:#b59410;"></div><span><b>Value Bet (⭐):</b> Valor Estadístico.</span></div><div class="leyenda-item"><div class="color-box" style="background:#137031;"></div><span><b>Favorito:</b> Más probable.</span></div><div class="leyenda-item"><span style="color:#1ed7de; font-weight:bold;">🔥 Over:</span><span>+2.5 Goles.</span></div><div class="leyenda-item"><span style="color:#9ca3af; font-weight:bold;">🛡️ Under:</span><span>-2.5 Goles.</span></div></div>""", unsafe_allow_html=True)
 
         else:
+            # SECCIÓN STATS EQUIPOS (ORIGINAL CON INTEGRACIÓN DE SCRAPEO)
             configs = {"clas": (f"CLASIFICACION_LIGA_{sufijo}.xlsx", "clasificacion"), "stats": (f"RESUMEN_STATS_{sufijo}.xlsx", "stats"), "fix": (f"CARTELERA_PROXIMOS_{sufijo}.xlsx", "fixture")}
             archivo, tipo = configs[view]
             df = cargar_excel(archivo, tipo=tipo)
@@ -562,11 +568,51 @@ if st.session_state.liga_sel:
                 if 'ÚLTIMOS 5' in df.columns: df['ÚLTIMOS 5'] = df['ÚLTIMOS 5'].apply(formatear_last_5)
                 cols_to_drop = ['xG_val', 'Poss_num']
                 df_view = df.drop(columns=[c for c in cols_to_drop if c in df.columns])
-                busqueda = st.text_input("🔍 Filtrar equipo...", "").strip().lower()
-                if busqueda and 'EQUIPO' in df_view.columns: df_view = df_view[df_view['EQUIPO'].str.lower().str.contains(busqueda)]
+                
+                # FILTRO DUAL MEJORADO (SIN TOCAR ESTÉTICA)
+                lista_equipos = sorted(df['EQUIPO'].unique().tolist()) if 'EQUIPO' in df.columns else []
+                f1, f2 = st.columns([1, 1])
+                with f1:
+                    busqueda = st.text_input("🔍 Escribir equipo...", "").strip().lower()
+                with f2:
+                    seleccion_lista = st.selectbox("📋 O selecciona de la lista:", [""] + lista_equipos)
+                
+                equipo_final = seleccion_lista if seleccion_lista else busqueda
+                
+                if equipo_final and 'EQUIPO' in df_view.columns: 
+                    df_view = df_view[df_view['EQUIPO'].str.lower().str.contains(equipo_final.lower())]
+                
                 styler = df_view.style.hide(axis="index")
                 if 'PTS' in df_view.columns: styler = styler.set_properties(subset=['PTS'], **{'background-color': '#1ed7de22', 'font-weight': 'bold', 'color': '#1ed7de'})
                 st.markdown(f'<div class="table-container">{styler.to_html(escape=False)}</div>', unsafe_allow_html=True)
+
+                # INTEGRACIÓN DEL EXCEL DE JUGADORES (SCRAPEO)
+                if equipo_final:
+                    st.markdown(f"#### 🏟️ Plantilla y Stats Individuales")
+                    df_jug = cargar_excel("jugadoreswhoscored.csv") # Scrapeo desde github
+                    if df_jug is not None:
+                        # Limpieza de nombre: Quita números al final
+                        df_jug['Jugador'] = df_jug['Jugador'].str.replace(r'\d+$', '', regex=True)
+                        
+                        # Filtrar por equipo y liga
+                        df_res = df_jug[
+                            (df_jug['Equipo'].str.lower().str.contains(equipo_final.lower())) & 
+                            (df_jug['Liga'] == liga)
+                        ]
+                        
+                        if not df_res.empty:
+                            # Diccionario de usuario/apostador para las columnas del scrapeo
+                            mapeo_scrapeo = {
+                                'Jugador': 'JUGADOR', 'Mins': '⏱️ MIN', 'Rating': '⭐ RATING',
+                                'Amarillas': '🟨', 'Rojas': '🟥', 'Entradas_Std': '🛡️ ENTRADAS',
+                                'Regates_p90': '⚡ REG(p90)', 'Goles': '⚽ GOLES', 'Asistencias': '🅰️ ASIST',
+                                'Pases Clave': '🔑 P.CLAVE', 'Tiros_Arco_p90': '🎯 TIROS(p90)', 'Faltas recibidas': '🤕 F.REC'
+                            }
+                            cols_mostrar = [c for c in mapeo_scrapeo.keys() if c in df_res.columns]
+                            df_final_jug = df_res[cols_mostrar].rename(columns=mapeo_scrapeo)
+                            
+                            # Mostramos con tu tabla característica
+                            st.markdown(f'<div class="table-container">{df_final_jug.style.hide(axis="index").to_html(escape=False)}</div>', unsafe_allow_html=True)
 
 st.write("---")
 st.caption("InsideBet Official | scrapeo")
