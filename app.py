@@ -42,18 +42,22 @@ MAPEO_ODDS_API = {
 def cargar_excel(nombre_archivo, tipo="stats"):
     url = f"{BASE_URL}/{nombre_archivo}"
     try:
-        df = pd.read_excel(url) if nombre_archivo.endswith('.xlsx') else pd.read_csv(url)
+        # Intentar leer como excel, si falla (porque ahora es CSV), leer como CSV
+        if nombre_archivo.endswith('.xlsx'):
+            df = pd.read_excel(url)
+        else:
+            df = pd.read_csv(url)
         return df
     except:
         return None
 
 @st.cache_data(ttl=3600)
 def cargar_jugadores():
-    # El archivo de scrapeo que subiste
+    # El archivo del scrapeo de hoy
     url_jugadores = f"{BASE_URL}/jugadoreswhoscored.csv"
     try:
         df = pd.read_csv(url_jugadores)
-        # Limpieza: Solo el nombre (quitamos los números de edad al final)
+        # Limpieza: Eliminamos los números al final del nombre (edad)
         df['Jugador'] = df['Jugador'].str.replace(r'\d+$', '', regex=True)
         return df
     except:
@@ -63,19 +67,19 @@ def formatear_columnas_jugadores(df):
     # Diccionario para que el apostador entienda el scrapeo
     diccionario_stats = {
         'Jugador': 'Jugador', 
-        'Mins': '⏱️ Minutos', 
+        'Mins': '⏱️ Min', 
         'Rating': '⭐ Rating',
         'Amarillas': '🟨', 
         'Rojas': '🟥', 
         'Entradas_Std': '🛡️ Entradas',
-        'Regates_p90': '⚡ Regates(p90)', 
+        'Regates_p90': '⚡ Reg(p90)', 
         'Goles': '⚽ Goles', 
         'Asistencias': '🅰️ Asist',
         'Pases': 'Pas', 
         'Pases Clave': '🔑 P.Clave', 
         'Tiros_Arco_p90': '🎯 Tiros(p90)',
         'Tiros_Fuera_p90': '🥅 Fuera(p90)', 
-        'Faltas': 'Faltas', 
+        'Faltas': 'Fal', 
         'Faltas recibidas': '🤕 F.Rec'
     }
     return df.rename(columns=diccionario_stats)
@@ -121,8 +125,8 @@ if view == "Picks Pro":
         st.markdown("""
         <div class="leyenda-container">
             <div class="leyenda-item"><span style="color:#22c55e; font-weight:bold;">✅ Pick:</span><span>Resultado sugerido.</span></div>
-            <div class="leyenda-item"><span style="color:#facc15; font-weight:bold;">📊 Prob:</span><span>Probabilidad calculada.</span></div>
-            <div class="leyenda-item"><span style="color:#3b82f6; font-weight:bold;">💎 Value:</span><span>Apuesta con valor.</span></div>
+            <div class="leyenda-item"><span style="color:#facc15; font-weight:bold;">📊 Prob:</span><span>Probabilidad más probable.</span></div>
+            <div class="leyenda-item"><span style="color:#3b82f6; font-weight:bold;">💎 Value:</span><span>Apuesta con valor detectado.</span></div>
             <div class="leyenda-item"><span style="color:#1ed7de; font-weight:bold;">🔥 Over:</span><span>+2.5 Goles.</span></div>
             <div class="leyenda-item"><span style="color:#9ca3af; font-weight:bold;">🛡️ Under:</span><span>-2.5 Goles.</span></div>
         </div>
@@ -133,76 +137,68 @@ if view == "Picks Pro":
 
 else:
     st.subheader(f"📊 Estadísticas de Equipos: {liga_sel}")
-    tab_c, tab_s, tab_f = st.tabs(["🏆 Clasificación", "📈 Stats Avanzadas", "🗓️ Próximos Partidos"])
-
-    vistas_map = {"🏆 Clasificación": "clas", "📈 Stats Avanzadas": "stats", "🗓️ Próximos Partidos": "fix"}
-    view_sub = vistas_map[st.session_state.get('current_tab', "🏆 Clasificación")]
     
-    # Lógica unificada para las 3 pestañas de Stats Equipos
-    for tab, v_key in zip([tab_c, tab_s, tab_f], ["clas", "stats", "fix"]):
-        with tab:
-            configs = {
-                "clas": (f"CLASIFICACION_LIGA_{sufijo}.xlsx", "clasificacion"), 
-                "stats": (f"RESUMEN_STATS_{sufijo}.xlsx", "stats"), 
-                "fix": (f"CARTELERA_PROXIMOS_{sufijo}.xlsx", "fixture")
-            }
-            archivo, tipo = configs[v_key]
-            df = cargar_excel(archivo, tipo=tipo)
+    # Mantenemos tus 3 pestañas originales
+    tab_c, tab_s, tab_f = st.tabs(["🏆 Clasificación", "📈 Stats Avanzadas", "🗓️ Próximos Partidos"])
+    
+    # Diccionario para mapear pestañas a archivos
+    vistas_config = {
+        "clas": (f"CLASIFICACION_LIGA_{sufijo}.xlsx", "clasificacion", tab_c),
+        "stats": (f"RESUMEN_STATS_{sufijo}.xlsx", "stats", tab_s),
+        "fix": (f"CARTELERA_PROXIMOS_{sufijo}.xlsx", "fixture", tab_f)
+    }
 
+    for v_key, (archivo, tipo, tab_obj) in vistas_config.items():
+        with tab_obj:
+            df = cargar_excel(archivo, tipo=tipo)
             if df is not None:
                 if 'ÚLTIMOS 5' in df.columns: 
                     df['ÚLTIMOS 5'] = df['ÚLTIMOS 5'].apply(formatear_last_5)
                 
-                # --- SISTEMA DE FILTRADO MEJORADO ---
+                cols_to_drop = ['xG_val', 'Poss_num']
+                df_view = df.drop(columns=[c for c in cols_to_drop if c in df.columns])
+
+                # --- FILTRO MEJORADO (INPUT + SELECTBOX) ---
                 equipos_disponibles = sorted(df['EQUIPO'].unique().tolist()) if 'EQUIPO' in df.columns else []
                 col_f1, col_f2 = st.columns([1, 1])
                 with col_f1:
-                    busqueda = st.text_input(f"🔍 Escribir nombre del equipo ({v_key})...", "").strip().lower()
+                    busqueda = st.text_input(f"🔍 Escribir nombre ({v_key})...", "", key=f"input_{v_key}").strip().lower()
                 with col_f2:
-                    seleccion = st.selectbox(f"📋 Seleccionar de la lista ({v_key}):", [""] + equipos_disponibles)
+                    seleccion = st.selectbox(f"📋 Elegir de la lista ({v_key}):", [""] + equipos_disponibles, key=f"select_{v_key}")
                 
                 equipo_final = seleccion if seleccion else busqueda
                 
-                df_view = df.copy()
                 if equipo_final and 'EQUIPO' in df_view.columns:
                     df_view = df_view[df_view['EQUIPO'].str.lower().str.contains(equipo_final.lower())]
 
-                # Quitar columnas innecesarias para el usuario
-                cols_to_drop = ['xG_val', 'Poss_num']
-                df_view = df_view.drop(columns=[c for c in cols_to_drop if c in df_view.columns])
-
                 st.write(df_view.to_html(escape=False, index=False), unsafe_allow_html=True)
 
-                # --- INTEGRACIÓN DEL SCRAPEO DE JUGADORES ---
+                # --- INTEGRACIÓN DE JUGADORES (DEL SCRAPEO) ---
                 if equipo_final:
-                    st.markdown(f"### 🏟️ Plantilla y Estadísticas de Jugadores: {equipo_final}")
-                    df_jugadores_raw = cargar_jugadores()
+                    st.markdown(f"#### ⚽ Plantilla y Stats: {equipo_final}")
+                    df_jugadores = cargar_jugadores()
                     
-                    if df_jugadores_raw is not None:
-                        # El excel tiene columnas 'Equipo' y 'Liga'
-                        # Filtramos por equipo (parcial) y por liga exacta
-                        filtro_jug = df_jugadores_raw[
-                            (df_jugadores_raw['Equipo'].str.lower().str.contains(equipo_final.lower())) & 
-                            (df_jugadores_raw['Liga'] == liga_sel)
+                    if df_jugadores is not None:
+                        # Filtrar por el equipo seleccionado y la liga actual
+                        f_jug = df_jugadores[
+                            (df_jugadores['Equipo'].str.lower().str.contains(equipo_final.lower())) & 
+                            (df_jugadores['Liga'] == liga_sel)
                         ]
                         
-                        if not filtro_jug.empty:
-                            # Quitamos columnas de control y aplicamos el diccionario de traducción
-                            df_jug_display = filtro_jug.drop(columns=['Equipo', 'Liga'])
-                            df_jug_display = formatear_columnas_jugadores(df_jug_display)
+                        if not f_jug.empty:
+                            # Aplicamos diccionario y quitamos columnas de sistema
+                            df_jug_fmt = f_jug.drop(columns=['Equipo', 'Liga'])
+                            df_jug_fmt = formatear_columnas_jugadores(df_jug_fmt)
                             
-                            # Estilo: Resaltamos el Rating para ver a los mejores
+                            # Mostramos la tabla con el Rating resaltado
                             st.dataframe(
-                                df_jug_display.style.background_gradient(subset=['⭐ Rating'], cmap='Greens').hide(axis="index"), 
+                                df_jug_fmt.style.background_gradient(subset=['⭐ Rating'], cmap='Greens').hide(axis="index"),
                                 use_container_width=True
                             )
                         else:
-                            st.info(f"No hay datos de jugadores disponibles para {equipo_final} en {liga_sel}.")
-                    else:
-                        st.error("No se pudo cargar el archivo de jugadores desde el repositorio.")
-
+                            st.info("Datos de jugadores no encontrados para este equipo.")
             else:
-                st.info(f"No hay datos disponibles para la sección {v_key} de esta liga.")
+                st.info(f"No hay datos para {v_key} en esta liga.")
 
 st.markdown("---")
-st.caption(f"© 2026 InsideBet - Datos de **scrapeo** actualizados.")
+st.caption(f"© 2026 InsideBet - Análisis basado en **scrapeo** de datos avanzado.")
