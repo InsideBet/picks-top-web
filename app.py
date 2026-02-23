@@ -604,9 +604,9 @@ if st.session_state.liga_sel:
                             # Diccionario de usuario/apostador para las columnas del scrapeo
                             mapeo_scrapeo = {
                                 'Jugador': 'JUGADOR', 'Mins': '⏱️ MIN', 'Rating': '⭐ RATING',
-                                'Amarillas': '🟨', 'Rojas': '🟥', 'Entradas_Std': '🛡️ ENTRADAS',
-                                'Regates_p90': '⚡ REG(p90)', 'Goles': '⚽ GOLES', 'Asistencias': '🅰️ ASIST',
-                                'Pases Clave': '🔑 P.CLAVE', 'Tiros_Arco_p90': '🎯 TIROS(p90)', 'Faltas recibidas': '🤕 F.REC'
+                                'Amarillas': '🟨', 'Rojas': '🟥', 'Entradas_Std': 'ENTRADAS',
+                                'Regates_p90': 'REGATES', 'Goles': 'GOLES', 'Asistencias': 'ASIST',
+                                'Pases Clave': 'PASES CLAVE', 'Tiros_Arco_p90': 'TIROS AL ARCO', 'Faltas recibidas': 'FALTAS RECIBIDAS'
                             }
                             cols_mostrar = [c for c in mapeo_scrapeo.keys() if c in df_res.columns]
                             df_final_jug = df_res[cols_mostrar].rename(columns=mapeo_scrapeo)
